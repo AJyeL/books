@@ -1,0 +1,22 @@
+# --- Secrets : ne JAMAIS publier ---
+.env
+
+# --- Données collectées : jamais dans Git ---
+data/
+*.html
+*.html.gz
+*.csv
+*.dump
+*.sql.gz
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# --- Éditeurs et systèmes ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
