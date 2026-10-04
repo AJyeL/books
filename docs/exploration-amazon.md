@@ -31,3 +31,4 @@ Observations manuelles du 3 octobre 2026, en navigation privée, sans connexion.
 | Catégorie | Chemin | Identifiant |
 |---|---|---|
 | Fantasy épique | Ebooks Kindle › SF, fantasy et horreur › Fantasy › Épique | 12363082031 |
+| Romance sportive | Ebooks Kindle › Romance et littérature sentimentale › Sport | 89265521031 |
