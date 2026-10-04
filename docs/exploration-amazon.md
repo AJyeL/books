@@ -32,3 +32,18 @@ Observations manuelles du 3 octobre 2026, en navigation privée, sans connexion.
 |---|---|---|
 | Fantasy épique | Ebooks Kindle › SF, fantasy et horreur › Fantasy › Épique | 12363082031 |
 | Romance sportive | Ebooks Kindle › Romance et littérature sentimentale › Sport | 89265521031 |
+
+## Fiche produit
+- Une seule requête suffit : description et contenu A+ sont présents dans le HTML initial.
+- Détails disponibles : ASIN, éditeur, date de publication, langue, taille du fichier,
+  nombre de pages de l'édition imprimée, ISBN-13, série (« Livre X sur Y »), classements, avis.
+- Le contenu A+ peut ne contenir que des images (texte non extractible sans analyse visuelle).
+- Kindle Unlimited est indiqué dans le sélecteur de formats.
+
+## Deux sources de classement
+- Listes de catégorie : rang du livre dans CETTE catégorie (source de référence par catégorie).
+- Fiche produit : rang général Boutique Kindle (seul rang comparable entre catégories)
+  et uniquement les 3 meilleurs rangs de catégorie du livre.
+- Exemple observé : 8e du top Fantasy épique, absent des classements de sa fiche,
+  qui affichait 228e Boutique Kindle et trois catégories jeunesse.
+- Les deux sources sont horodatées séparément et ne sont jamais corrigées l'une par l'autre.
