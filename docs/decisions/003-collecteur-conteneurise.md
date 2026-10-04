@@ -38,8 +38,14 @@ doit être impossible à ignorer.
 ## Prérequis avant la première collecte en production
 
 - **Rôle PostgreSQL dédié au collecteur**, à créer par une migration :
-  - droits `SELECT` et `INSERT` sur le schéma `raw` uniquement (plus `UPDATE` sur `raw.collect_run`,
-    que le collecteur doit mettre à jour, voir décision 001), et rien d'autre ;
+  - droits `SELECT` et `INSERT` sur les tables du schéma `raw` uniquement (`USAGE` sur le schéma), et rien d'autre ;
+  - pour clore une tournée (décision 001), un privilège `UPDATE` **par colonne**, limité aux colonnes de clôture
+    de `raw.collect_run` :
+    `GRANT UPDATE (finished_at, status, pages_ok, pages_failed, notes) ON raw.collect_run TO …` ;
+    `id`, `started_at` et `collector_version` restent non modifiables. Aucun `UPDATE` sur toute la table.
+    Ce privilège est la seule protection de `collect_run` : la migration 001 ne pose aucun déclencheur
+    sur cette table (ses deux déclencheurs ne visent que `raw.raw_page`) ;
+  - aucun `UPDATE`, `DELETE` ni `TRUNCATE` sur `raw.raw_page` ;
   - **non propriétaire** des tables : le propriétaire d'une table peut désactiver ses déclencheurs
     (`ALTER TABLE … DISABLE TRIGGER`) et donc contourner la protection append-only de `raw.raw_page`.
 
