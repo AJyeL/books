@@ -20,3 +20,8 @@ __pycache__/
 .idea/
 .DS_Store
 Thumbs.db
+
+# --- Notes privées : jamais publiées ---
+CLAUDE.md
+CLAUDE.local.md
+private/
