@@ -1,0 +1,34 @@
+# Rien de tout cela n'est envoyé à Docker lors de la construction de l'image
+
+# --- Secrets et notes privées ---
+.env
+.env.*
+!.env.example
+CLAUDE.md
+CLAUDE.local.md
+private/
+
+# --- Données ---
+data/
+*.html
+*.html.gz
+*.csv
+*.dump
+*.sql.gz
+
+# --- Inutile dans l'image ---
+.git/
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+docs/
+scripts/
+sql/
+tests/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.vscode/
+.idea/
