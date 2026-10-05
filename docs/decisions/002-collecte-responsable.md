@@ -65,7 +65,12 @@ Le disjoncteur se déclenche sur :
 - un CAPTCHA ;
 - une réponse HTTP 429 ou 503 ;
 - une redirection inattendue ;
-- une page de classement sans `zg.rank`.
+- une page de classement sans `render.zg.rank`.
+
+> Correction du 5 octobre 2026 : la version initiale indiquait `zg.rank`. L'étude hors ligne du HTML brut
+> de deux pages de classement enregistrées le 5 octobre 2026 montre que la clé exacte, dans
+> `data-client-recs-list`, est `render.zg.rank` (voir `docs/exploration-amazon.md`). La règle ne change pas :
+> seul le nom de la clé est corrigé. Aucun code ne l'utilisait encore.
 
 Effet : arrêt immédiat de la tournée et alerte. Aucune nouvelle tentative la même nuit.
 
