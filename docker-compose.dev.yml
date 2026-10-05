@@ -1,0 +1,19 @@
+# Complément de DÉVELOPPEMENT (PC uniquement), fusionné avec docker-compose.yml.
+# Activé par le .env de dev :
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml
+#   COMPOSE_PATH_SEPARATOR=:
+# Jamais activé sur atlas : en production, le collecteur ne voit aucune page enregistrée.
+# Décision 004.
+
+services:
+  collector:
+    environment:
+      # Pages enregistrées à la main, lues par la source locale (dev uniquement)
+      BOOKS_SAMPLES_DIR: /data/samples
+    volumes:
+      - type: bind
+        source: ./data/samples
+        target: /data/samples
+        read_only: true
+        bind:
+          create_host_path: false

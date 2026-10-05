@@ -18,5 +18,9 @@ COPY pyproject.toml ./
 COPY src ./src
 RUN pip install . && rm -rf build
 
+# Catégories à collecter : versionnées, intégrées à l'image (les modifier impose de reconstruire)
+COPY config ./config
+ENV BOOKS_TARGETS_FILE=/app/config/targets.toml
+
 USER books
 CMD ["python", "-m", "books.collector"]

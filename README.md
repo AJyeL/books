@@ -9,13 +9,25 @@ Observatoire historisé du marché du livre numérique, centré dans un premier 
 ## Collecteur
 
 Le collecteur est un service Docker Compose rangé dans le profil `collector` :
-`docker compose up` ne le lance jamais. À ce stade, il vérifie seulement sa configuration
-et la connexion à PostgreSQL (aucune requête réseau). Voir `docs/decisions/003-collecteur-conteneurise.md`.
+`docker compose up` ne le lance jamais. Une tournée obtient la page 1 du Top 100 payant de chaque catégorie
+de `config/targets.toml`, la valide, la dépose dans RAW (fichier dans `BOOKS_RAW_DIR` + ligne `raw.raw_page`),
+puis clôt la tournée. Voir les décisions 003 et 004.
 
 ```bash
 docker compose build collector
 docker compose --profile collector run --rm collector
 ```
+
+- **En dev (PC)**, la source est locale : les pages enregistrées à la main dans `data/samples/`
+  (« Page Web, HTML uniquement », nom `amazon_fr_bestsellers_{catégorie}_p1_{AAAA-MM-JJ}.html`).
+  Le `.env` du PC doit contenir les deux lignes `COMPOSE_FILE` et `COMPOSE_PATH_SEPARATOR` de `.env.example`.
+  Aucune requête vers Amazon. Chaque lancement ajoute une tournée **définitive** dans RAW (ajout seul).
+- **En prod (atlas)**, la source réseau n'est pas encore écrite : le collecteur s'arrête (code 2) sans rien collecter.
+  Ne **jamais** définir `COMPOSE_FILE` sur atlas.
+- Modifier `config/targets.toml` impose de reconstruire l'image (`docker compose build collector`).
+
+Codes de sortie : 0 succès ; 1 tournée partielle ou en échec ; 2 configuration invalide ;
+3 arrêt de sécurité (page bloquée ou non conforme).
 
 Le collecteur se connecte avec le rôle `books_collector` (migration 002), aux droits limités,
 jamais avec le propriétaire de la base.

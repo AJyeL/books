@@ -127,7 +127,11 @@ toutes les valeurs ci-dessous (ASIN, titres, auteurs, prix) sont **inventées**.
 ### Repères de page (contrôles de cohérence)
 - `<link rel="canonical">` vaut exactement `https://www.amazon.fr/gp/bestsellers/digital-text/{categorie}` :
   il permet de vérifier que la page reçue correspond à la catégorie demandée.
-- `<title>` contient le nom de la catégorie (`… dans la boutique Fantasy épique - ebooks`) ; `<h1>` est générique.
+- `<title>` contient le nom de la catégorie (`… dans la boutique Fantasy épique - ebooks`).
+- Deux `<h1>` : le premier est générique (`Les meilleures ventes`), le second nomme la catégorie
+  (`Les meilleures ventes en Fantasy épique - ebooks`). Correction du 5 octobre 2026 : la première version
+  de cette étude n'avait relevé que le premier.
+- Le collecteur (décision 004) ne s'appuie que sur le canonical, jamais sur ces libellés, qui peuvent changer.
 - Onglet actif : `Top 100 payants` (`aria-current="page"`) ; lien vers `Top 100 gratuits` (`tf=1`)
   et vers la page 2 (`pg=2`).
 - Aucune date de mise à jour : seulement « Mis à jour fréquemment ». L'horodatage reste celui de la collecte.
