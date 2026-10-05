@@ -7,6 +7,7 @@ Fail closed : chaque source vérifie elle-même BOOKS_ENV dans son constructeur.
 En dev, la source réseau ne peut pas être construite ; en prod, la source locale non plus.
 """
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,7 +39,11 @@ class PageSource(Protocol):
 
 
 class LocalSource:
-    """Lit le plus récent fichier amazon_fr_bestsellers_{node}_p{n}_{date}.html du dossier."""
+    """Lit le plus récent fichier amazon_fr_bestsellers_{node}_{paid|free}_p{n}_{AAAA-MM-JJ}.html du dossier.
+
+    Le type de liste est toujours explicite dans le nom : une page gratuite ne peut pas être prise
+    pour une page payante. Tout nom qui ne respecte pas exactement la convention est ignoré.
+    """
 
     def __init__(self, env: str, samples_dir: Path) -> None:
         if env != "dev":
@@ -49,12 +54,11 @@ class LocalSource:
         self.description = f"source locale ({samples_dir})"
 
     def fetch(self, request: PageRequest) -> Fetched:
-        if request.list_type != "paid":
-            return Fetched(content=None, origin=str(self.samples_dir),
-                           error=f"liste {request.list_type!r} non prise en charge par la source locale")
-        pattern = f"amazon_fr_bestsellers_{request.node}_p{request.page_number}_*.html"
+        prefix = f"amazon_fr_bestsellers_{request.node}_{request.list_type}_p{request.page_number}_"
+        pattern = prefix + "*.html"
+        exact = re.compile(re.escape(prefix) + r"\d{4}-\d{2}-\d{2}\.html")
         # La date AAAA-MM-JJ en fin de nom : l'ordre alphabétique est l'ordre chronologique
-        candidates = sorted(self.samples_dir.glob(pattern))
+        candidates = sorted(p for p in self.samples_dir.glob(pattern) if exact.fullmatch(p.name))
         if not candidates:
             return Fetched(content=None, origin=str(self.samples_dir),
                            error=f"aucune page enregistrée ({pattern}) dans {self.samples_dir}")

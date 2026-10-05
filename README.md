@@ -19,7 +19,8 @@ docker compose --profile collector run --rm collector
 ```
 
 - **En dev (PC)**, la source est locale : les pages enregistrées à la main dans `data/samples/`
-  (« Page Web, HTML uniquement », nom `amazon_fr_bestsellers_{catégorie}_p1_{AAAA-MM-JJ}.html`).
+  (« Page Web, HTML uniquement », nom `amazon_fr_bestsellers_{catégorie}_{paid|free}_p{n}_{AAAA-MM-JJ}.html`,
+  type de liste toujours explicite ; voir `docs/exploration-amazon.md`).
   Le `.env` du PC doit contenir les deux lignes `COMPOSE_FILE` et `COMPOSE_PATH_SEPARATOR` de `.env.example`.
   Aucune requête vers Amazon. Chaque lancement ajoute une tournée **définitive** dans RAW (ajout seul).
 - **En prod (atlas)**, la source réseau n'est pas encore écrite : le collecteur s'arrête (code 2) sans rien collecter.

@@ -21,7 +21,7 @@ Observations manuelles du 3 octobre 2026, en navigation privée, sans connexion.
 
 ## Règles de collecte et de parsing
 - Chaque catégorie a deux classements : payant et gratuit.
-- Une liste peut compter moins de 100 livres (ex. : 48 gratuits en Fantasy épique).
+- Une liste peut compter moins de 100 livres (ex. : 48 gratuits en Fantasy épique le 3 octobre, 45 le 5 octobre).
 - La page 2 n'est demandée que si la page 1 contient 50 rangs.
 - `data-client-recs-list` peut contenir une autre liste (ex. : nouveautés) :
   une liste n'est acceptée comme classement que si elle contient des `render.zg.rank`.
@@ -56,8 +56,18 @@ Top 100 payants, page 1, de Fantasy épique (`12363082031`) et de Romance sporti
 toutes les valeurs ci-dessous (ASIN, titres, auteurs, prix) sont **inventées**.
 
 ### Enregistrement des pages
-- Méthode retenue : page normale (pas `view-source:`), Ctrl+S, type « Page Web, HTML uniquement ».
+- Méthode retenue : navigation privée, sans connexion ; page normale (pas `view-source:`), Ctrl+S,
+  type « Page Web, HTML uniquement ». Dossier : `data/samples/` (hors du dépôt).
   Contrôle : le fichier commence par `<!doctype html>` et ne contient ni `saved from` ni `line-content`.
+- Nom du fichier (convention du 5 octobre 2026, alignée sur le nommage RAW, type de liste toujours explicite) :
+  `amazon_fr_bestsellers_{catégorie}_{paid|free}_p{n}_{AAAA-MM-JJ}.html`,
+  par exemple `amazon_fr_bestsellers_10000000001_free_p1_2026-10-05.html` (catégorie inventée).
+  La date est celle de l'enregistrement. Un nom hors convention est ignoré par la source locale.
+- Pourquoi un type explicite : le canonical d'une page gratuite est identique à celui d'une page payante
+  (voir « Top gratuit et page 2 » ci-dessous). Avec l'ancienne convention (`…_p1_{date}.html` et
+  `…_p1_gratuit_{date}.html`), le motif `…_p1_*.html` désignait les deux pages, et la source locale servait
+  la page **gratuite** pour une demande de Top payant (vérifié le 5 octobre 2026) : la validation l'aurait acceptée.
+- Toutes les pages enregistrées le 5 octobre 2026 ont été renommées selon cette convention.
 - À éviter : un Ctrl+S sur un onglet `view-source:` enregistre la *page d'affichage* du navigateur, pas le source.
   Chaque ligne du source y devient une ligne de tableau (`<td class="line-content">`), les `<` sont échappés
   en `&lt;` et colorés par des `<span class="html-…">`. Signes reconnaissables : commentaire
@@ -145,3 +155,55 @@ toutes les valeurs ci-dessous (ASIN, titres, auteurs, prix) sont **inventées**.
   à tout moment : le parser doit s'appuyer de préférence sur `data-client-recs-list` et sur les classes
   sans suffixe (`zg-bdg-text`, `a-icon-alt`, `a-link-child`, `p13n-product-image`) ; le prix n'a qu'une
   classe à suffixe (`_cDEzb_p13n-sc-price_…`), à repérer par la partie fixe `p13n-sc-price`.
+
+## Top gratuit et page 2 (5 octobre 2026)
+
+Deux pages de plus, enregistrées le 5 octobre 2026 pour Fantasy épique (`12363082031`) : Top 100 payants
+page 2, et Top 100 gratuits page 1. Comparées à la page 1 payante du même jour. Étude hors ligne,
+valeurs ci-dessous inventées ou génériques (textes d'interface).
+
+### Ce qui ne distingue PAS les pages
+- **Le canonical est identique** pour la page 1 payante, la page 2 payante et la page 1 gratuite :
+  `https://www.amazon.fr/gp/bestsellers/digital-text/{categorie}`, sans `pg` ni `tf`.
+  Le contrôle du canonical vérifie donc la catégorie, jamais le type de liste ni le numéro de page.
+- `<title>`, les deux `<h1>`, l'élément `p13n-desktop-grid` (`data-reftag`, `data-index-offset="30"`)
+  et les clés de `data-client-recs-list` sont identiques.
+
+### Ce qui distingue Top payant et Top gratuit
+| Indice | Top payant | Top gratuit |
+|---|---|---|
+| Onglet actif : `span[aria-current="page"]` (seul `span` portant cet attribut) | `Top 100 payants` | `Top 100 gratuits` |
+| Onglet inactif : `a[aria-current="false"]` | lien `Top 100 gratuits` (`…/ref=zg_bs?ie=UTF8&tf=1`) | lien `Top 100 payants` (`…/ref=zg_bs`, sans `tf`) |
+| `tf=1` dans la page | 1 fois (lien de l'onglet gratuit) | 14 fois : 13 liens de l'arborescence des catégories et le lien vers les nouveautés (`/gp/new-releases/…`) conservent `tf=1` |
+| Prix des cartes | tous non nuls (de 0,99 € à 16,99 € sur les deux pages) | **tous à 0,00 €** (30 sur 30) |
+
+- Aucun ASIN commun entre le Top payant (pages 1 et 2) et le Top gratuit de la même catégorie, le même jour.
+- L'indice le plus direct est l'**onglet actif**. Les prix à 0,00 € sont un indice de cohérence, pas une preuve :
+  un livre payant pourrait être temporairement gratuit.
+
+### Page 2
+- `data-client-recs-list` : 50 éléments, **rangs 51 à 100**, continus, mêmes clés que la page 1
+  (champs `render.zg.bsms.*` vides).
+- 30 cartes détaillées : rangs 51 à 80 (badges `#51` à `#80`), même structure que sur la page 1.
+  Les rangs 81 à 100 ne figurent que dans `data-client-recs-list`.
+- Aucun ASIN commun entre la page 1 et la page 2.
+- Pagination : `li.a-selected` porte `aria-label="Page 2"` (et `aria-label="Page 1"` sur la page 1) ;
+  le lien sélectionné porte `aria-current="page"`.
+
+### Liste courte : Top gratuit de 45 livres
+- `data-client-recs-list` : 45 éléments, rangs 1 à 45 ; `data-offset="45"` (50 sur les listes complètes) ;
+  30 cartes détaillées.
+- **Aucun bloc de pagination** (`nav aria-label="pagination"` absent) : une liste de 50 rangs ou moins
+  n'a pas de page 2. Cohérent avec la règle « page 2 seulement si la page 1 contient 50 rangs ».
+
+### Ce que la validation pourrait contrôler (proposition, non appliquée)
+La validation actuelle (décision 004) ne vérifie que la catégorie (canonical) et la présence de `render.zg.rank`.
+Elle pourrait aussi vérifier, avec la règle « la structure décide » :
+- le **type de liste** : texte du `span[aria-current="page"]` égal à `Top 100 payants` (paid) ou `Top 100 gratuits` (free) ;
+- le **numéro de page** : `li.a-selected` avec `aria-label="Page {n}"` ; absence de pagination admise
+  seulement pour la page 1 (liste courte) ;
+- la **continuité des rangs** : de 1 à 50 au plus en page 1, de 51 à 100 au plus en page 2.
+
+Limites : ces libellés sont des textes d'interface en français, qui peuvent changer ; un changement provoquerait
+un arrêt `invalid` (visible, donc acceptable) plutôt qu'une erreur silencieuse. Observé sur une seule catégorie,
+un seul jour.

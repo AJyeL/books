@@ -26,8 +26,14 @@ la reconnaissance d'un CAPTCHA, l'emplacement des fichiers bruts.
   et fixe `BOOKS_SAMPLES_DIR`. Il n'est activé que par le `.env` du PC (`COMPOSE_FILE`, `COMPOSE_PATH_SEPARATOR`),
   jamais sur atlas : en production, le collecteur ne voit aucune page enregistrée. La commande de lancement
   reste la même partout. Vérifié le 5 octobre 2026 depuis Git Bash et PowerShell.
-- La source locale prend, pour chaque page, le fichier `amazon_fr_bestsellers_{catégorie}_p{n}_{AAAA-MM-JJ}.html`
-  le plus récent. Les pages doivent être enregistrées en « Page Web, HTML uniquement » (voir `docs/exploration-amazon.md`).
+- La source locale prend, pour chaque page, le fichier `amazon_fr_bestsellers_{catégorie}_{paid|free}_p{n}_{AAAA-MM-JJ}.html`
+  le plus récent. Tout nom qui ne respecte pas exactement cette convention est ignoré. Les pages doivent être
+  enregistrées en « Page Web, HTML uniquement » (voir `docs/exploration-amazon.md`).
+
+  > Correction du 5 octobre 2026 : la convention initiale (`…_{catégorie}_p{n}_{date}.html`) ne nommait pas
+  > le type de liste. Son motif `…_p1_*.html` désignait aussi une page gratuite nommée `…_p1_gratuit_{date}.html`,
+  > et la source locale la servait pour une demande de Top payant ; la validation l'aurait acceptée, le canonical
+  > étant identique pour les deux listes. Le type de liste est désormais toujours explicite, comme dans le nommage RAW.
 
 ### Cibles
 
