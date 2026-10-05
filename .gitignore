@@ -4,6 +4,8 @@
 # --- Données collectées : jamais dans Git ---
 data/
 *.html
+# Exception : fausses pages de test, aux valeurs inventées (voir tests/fixtures/README.md)
+!tests/fixtures/*.html
 *.html.gz
 *.csv
 *.dump
