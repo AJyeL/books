@@ -28,8 +28,10 @@ Les commandes ci-dessous sont à lancer depuis le dossier du dépôt, dans bash
 Appliquées par le propriétaire de la base (`POSTGRES_USER`), une par une, dans l'ordre :
 
 ```bash
-docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < sql/migrations/002_role_collecteur.sql
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < sql/migrations/003_statut_invalid.sql
 ```
+
+(remplacer le nom du fichier par celui de chaque migration manquante.)
 
 Migrations déjà appliquées : table `public.schema_migration`.
 
@@ -71,6 +73,12 @@ Tests SQL de la migration 002 (droits de `books_collector`), qui se vérifient e
 
 ```bash
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U books_collector -d "$POSTGRES_DB"' < tests/sql/test_002_role_collecteur.sql
+```
+
+Tests SQL de la migration 003 (statut `invalid`), même principe :
+
+```bash
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U books_collector -d "$POSTGRES_DB"' < tests/sql/test_003_statut_invalid.sql
 ```
 
 ## Restauration d'une sauvegarde
