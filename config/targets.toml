@@ -1,0 +1,19 @@
+# Catégories collectées par B.O.O.K.S. (classements Kindle amazon.fr, boutique digital-text)
+#
+# - node  : numéro de catégorie Amazon (browse node), identifiant externe stable
+# - nom   : libellé informatif ; il peut changer chez Amazon sans conséquence
+# - listes: classements à collecter ; seul "paid" (Top 100 payants) est pris en charge pour l'instant
+#
+# Plafond de la décision 002 : 200 requêtes par tournée, vérifié au chargement
+# (en comptant 2 pages possibles par liste). Ajouter des catégories augmente le volume
+# de collecte : toute évolution notable passe par une nouvelle décision.
+
+[[categorie]]
+node = "12363082031"
+nom = "Fantasy épique"
+listes = ["paid"]
+
+[[categorie]]
+node = "89265521031"
+nom = "Romance sportive"
+listes = ["paid"]
