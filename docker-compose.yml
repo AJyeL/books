@@ -36,8 +36,12 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Rôle dédié, aux droits limités (migration 002), jamais le propriétaire de la base.
+      POSTGRES_USER: books_collector
+      # Mot de passe de books_collector, défini avec \password (voir README).
+      # ${…:-} : absent de .env, il devient vide sans casser Compose (ni postgres, ni la sauvegarde) ;
+      # le collecteur refuse alors de démarrer (message sur POSTGRES_PASSWORD).
+      POSTGRES_PASSWORD: ${BOOKS_COLLECTOR_PASSWORD:-}
       # Chemin vu depuis le conteneur ; le chemin sur l'hôte vient de .env (volume ci-dessous)
       BOOKS_RAW_DIR: /data/raw
     # Garde-fous si BOOKS_RAW_DIR manque dans .env :

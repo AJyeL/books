@@ -31,12 +31,15 @@ def main() -> int:
             password=config.db_password,
             connect_timeout=10,
         ) as conn:
-            server_version = conn.execute("SHOW server_version").fetchone()[0]
+            server_version, role = conn.execute(
+                "SELECT current_setting('server_version'), current_user"
+            ).fetchone()
     except psycopg.OperationalError as exc:
         print(f"Connexion à PostgreSQL impossible : {exc}", file=sys.stderr)
         return 1
 
     print(f"PostgreSQL {server_version} ({config.db_host}:{config.db_port}, base {config.db_name})")
+    print(f"Rôle connecté : {role}")
     print("Squelette : aucune collecte à ce stade. Arrêt.")
     return 0
 

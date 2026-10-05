@@ -49,14 +49,35 @@ doit être impossible à ignorer.
   - **non propriétaire** des tables : le propriétaire d'une table peut désactiver ses déclencheurs
     (`ALTER TABLE … DISABLE TRIGGER`) et donc contourner la protection append-only de `raw.raw_page`.
 
-  À ce stade, le collecteur utilise le compte propriétaire défini dans `.env` ; c'est acceptable
-  tant qu'il ne fait qu'afficher la version de PostgreSQL.
+  **Réalisé par la migration 002** (`sql/migrations/002_role_collecteur.sql`), rôle `books_collector`,
+  vérifié par `tests/sql/test_002_role_collecteur.sql`. Le service `collector` se connecte désormais avec ce rôle
+  (`POSTGRES_USER` fixé dans `docker-compose.yml`, mot de passe dans `BOOKS_COLLECTOR_PASSWORD`).
+  Précisions établies le 4 octobre 2026 :
+  - les colonnes d'identité n'exigent aucun droit sur leurs séquences : `INSERT` suffit, et un `nextval()`
+    direct reste refusé ;
+  - le droit `TEMPORARY` sur la base, accordé par défaut à `PUBLIC`, est retiré : sans cela,
+    `books_collector` pourrait créer des tables temporaires ;
+  - le mot de passe n'est jamais dans le dépôt : il est défini avec `\password`, une fois par environnement.
 - Le dossier `~/books-data/raw` doit exister sur atlas avant le premier lancement (voir README).
+
+## Sauvegarde et restauration
+
+`pg_dump` (utilisé par `scripts/backup.sh`) ne sauvegarde ni les rôles, ni les droits portant sur la base
+elle-même. Vérifié le 4 octobre 2026 : la sauvegarde contient les `GRANT` sur le schéma `raw`, ses tables
+et les colonnes de clôture, mais ni `books_collector`, ni le retrait de `TEMPORARY`. Après restauration
+sur un serveur neuf, `schema_migration` indiquerait donc la migration 002 comme appliquée alors que le rôle
+n'existerait pas.
+
+Procédure retenue (détaillée dans le README) : créer `books_collector` **avant** la restauration
+(ses droits sont alors restaurés avec la sauvegarde), restaurer, retirer à nouveau `TEMPORARY`,
+définir le mot de passe avec `\password`, puis lancer les tests 002. Procédure testée le 4 octobre 2026
+sur un serveur PostgreSQL 17 neuf et jetable. `scripts/backup.sh` n'est pas modifié.
 
 ## Conséquences
 
 - Le même code et la même image tournent en développement et en production ; seul `.env` change.
 - Une variable manquante arrête le collecteur immédiatement, au lieu d'une collecte mal configurée.
 - Les tests Python tournent dans un conteneur `python:3.12-slim` jetable : rien à installer sur le PC.
-- Après un `git pull` sur atlas, le `.env` doit être complété (`BOOKS_ENV`, `BOOKS_RAW_DIR`) avant de lancer
-  le collecteur ; en attendant, PostgreSQL et la sauvegarde continuent de fonctionner.
+- Après un `git pull` sur atlas, le `.env` doit être complété (`BOOKS_ENV`, `BOOKS_RAW_DIR`,
+  `BOOKS_COLLECTOR_PASSWORD`) avant de lancer le collecteur ; en attendant, PostgreSQL et la sauvegarde
+  continuent de fonctionner (vérifié avec un `.env` limité aux trois variables PostgreSQL).
