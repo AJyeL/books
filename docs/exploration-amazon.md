@@ -141,7 +141,8 @@ toutes les valeurs ci-dessous (ASIN, titres, auteurs, prix) sont **inventées**.
 - Deux `<h1>` : le premier est générique (`Les meilleures ventes`), le second nomme la catégorie
   (`Les meilleures ventes en Fantasy épique - ebooks`). Correction du 5 octobre 2026 : la première version
   de cette étude n'avait relevé que le premier.
-- Le collecteur (décision 004) ne s'appuie que sur le canonical, jamais sur ces libellés, qui peuvent changer.
+- Le collecteur (décision 004) ne s'appuie ni sur `<title>` ni sur les `<h1>`, qui peuvent changer.
+  Il s'appuie sur le canonical, l'onglet actif, la pagination et les rangs (voir « Top gratuit et page 2 »).
 - Onglet actif : `Top 100 payants` (`aria-current="page"`) ; lien vers `Top 100 gratuits` (`tf=1`)
   et vers la page 2 (`pg=2`).
 - Aucune date de mise à jour : seulement « Mis à jour fréquemment ». L'horodatage reste celui de la collecte.
@@ -172,11 +173,17 @@ valeurs ci-dessous inventées ou génériques (textes d'interface).
 ### Ce qui distingue Top payant et Top gratuit
 | Indice | Top payant | Top gratuit |
 |---|---|---|
-| Onglet actif : `span[aria-current="page"]` (seul `span` portant cet attribut) | `Top 100 payants` | `Top 100 gratuits` |
+| Onglet actif : `span[aria-current="page"]` dans `ul role="tablist"` | `Top 100 payants` | `Top 100 gratuits` |
 | Onglet inactif : `a[aria-current="false"]` | lien `Top 100 gratuits` (`…/ref=zg_bs?ie=UTF8&tf=1`) | lien `Top 100 payants` (`…/ref=zg_bs`, sans `tf`) |
 | `tf=1` dans la page | 1 fois (lien de l'onglet gratuit) | 14 fois : 13 liens de l'arborescence des catégories et le lien vers les nouveautés (`/gp/new-releases/…`) conservent `tf=1` |
 | Prix des cartes | tous non nuls (de 0,99 € à 16,99 € sur les deux pages) | **tous à 0,00 €** (30 sur 30) |
 
+- Chaque page contient **deux** `span[aria-current="page"]` : l'onglet actif, dans la rangée d'onglets
+  (`ul role="tablist"`), et la catégorie courante dans l'arborescence des catégories
+  (`span._p13n-zg-nav-tree-all_style_zg-selected__…`, texte du type `Épique (Current)`).
+  Correction du 5 octobre 2026 : une première version indiquait un seul `span` ; le comptage cherchait
+  le texte exact `<span aria-current="page"` et manquait celui dont les attributs sont dans un autre ordre.
+  L'erreur a été révélée par la validation elle-même, qui refusait les 4 vraies pages (« 2 onglets actifs »).
 - Aucun ASIN commun entre le Top payant (pages 1 et 2) et le Top gratuit de la même catégorie, le même jour.
 - L'indice le plus direct est l'**onglet actif**. Les prix à 0,00 € sont un indice de cohérence, pas une preuve :
   un livre payant pourrait être temporairement gratuit.
@@ -196,13 +203,19 @@ valeurs ci-dessous inventées ou génériques (textes d'interface).
 - **Aucun bloc de pagination** (`nav aria-label="pagination"` absent) : une liste de 50 rangs ou moins
   n'a pas de page 2. Cohérent avec la règle « page 2 seulement si la page 1 contient 50 rangs ».
 
-### Ce que la validation pourrait contrôler (proposition, non appliquée)
-La validation actuelle (décision 004) ne vérifie que la catégorie (canonical) et la présence de `render.zg.rank`.
-Elle pourrait aussi vérifier, avec la règle « la structure décide » :
-- le **type de liste** : texte du `span[aria-current="page"]` égal à `Top 100 payants` (paid) ou `Top 100 gratuits` (free) ;
+### Ce que la validation contrôle (proposition appliquée le 5 octobre 2026, décision 004)
+La première validation (décision 004) ne vérifiait que la catégorie (canonical) et la présence de `render.zg.rank`.
+Elle vérifie désormais aussi, avec la règle « la structure décide » (détail et règles exactes dans la décision 004) :
+- le **type de liste** : texte du `span[aria-current="page"]` de la rangée d'onglets (`ul role="tablist"`),
+  égal à `Top 100 payants` (paid) ou `Top 100 gratuits` (free) ;
 - le **numéro de page** : `li.a-selected` avec `aria-label="Page {n}"` ; absence de pagination admise
   seulement pour la page 1 (liste courte) ;
-- la **continuité des rangs** : de 1 à 50 au plus en page 1, de 51 à 100 au plus en page 2.
+- les **rangs** : premier rang égal à `(page - 1) × 50 + 1`, tous les rangs dans la plage de la page
+  (1 à 50, 51 à 100) ; un trou dans la suite est seulement signalé.
+
+Vérifié le 5 octobre 2026 : les 4 pages enregistrées sont conformes pour leur propre demande, et non conformes
+pour une demande croisée (page gratuite demandée en payant et inversement, page 2 demandée en page 1
+et inversement, Top gratuit court demandé en page 2, autre catégorie).
 
 Limites : ces libellés sont des textes d'interface en français, qui peuvent changer ; un changement provoquerait
 un arrêt `invalid` (visible, donc acceptable) plutôt qu'une erreur silencieuse. Observé sur une seule catégorie,

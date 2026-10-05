@@ -46,9 +46,36 @@ la reconnaissance d'un CAPTCHA, l'emplacement des fichiers bruts.
 
 ### Validation d'une page : la structure décide, le mot ne fait que qualifier
 
-Une page est **conforme** si son lien canonical vaut exactement
-`https://www.amazon.fr/gp/bestsellers/digital-text/{catégorie demandée}` et si elle contient une, et une seule,
-liste `data-client-recs-list` dont les éléments portent `render.zg.rank`.
+Une page est **conforme** si quatre indices indépendants concordent avec la demande (catégorie, type de liste,
+numéro de page) : c'est une triangulation, en mode fail closed.
+
+1. **Canonical** : il vaut exactement `https://www.amazon.fr/gp/bestsellers/digital-text/{catégorie demandée}`.
+2. **Onglet actif** : un, et un seul, `span aria-current="page"` dans la rangée d'onglets (`ul role="tablist"`),
+   de texte `Top 100 payants` pour une demande `paid`, `Top 100 gratuits` pour une demande `free`.
+   L'arborescence des catégories porte aussi un `span aria-current="page"` (catégorie courante) : situé hors
+   de la rangée d'onglets, il est ignoré.
+3. **Pagination** : si un bloc de pagination (`ul.a-pagination`) existe, il a une, et une seule, page active
+   (`li.a-selected`, `aria-label="Page {n}"`), égale à la page demandée. S'il est absent, seule une demande
+   de page 1 est acceptée (liste courte, sans page 2).
+4. **Rangs** : une, et une seule, liste `data-client-recs-list` dont les éléments portent `render.zg.rank`,
+   tous numériques ; le premier rang vaut `(page - 1) × 50 + 1` ; tous les rangs restent dans la plage de la page
+   (1 à 50 pour la page 1, 51 à 100 pour la page 2). Un trou ou un doublon dans la suite des rangs est seulement
+   signalé dans les notes de la tournée : ce cas n'a jamais été observé.
+
+Un indice introuvable rend la page non conforme : aucun type de liste ni numéro de page n'est supposé par défaut.
+Les prix ne servent pas d'indice (un livre payant peut être temporairement gratuit).
+
+> Amendement du 5 octobre 2026 : la version initiale de cette décision ne contrôlait que le canonical et la présence
+> de `render.zg.rank`. L'étude des vraies pages du 5 octobre 2026 (Top payant pages 1 et 2, Top gratuit page 1
+> de Fantasy épique) a montré que **le canonical est identique pour ces trois pages** : il prouve la catégorie,
+> jamais le type de liste ni le numéro de page. Une page gratuite, ou une page 2, reçue à la place de la page demandée
+> aurait donc été acceptée comme conforme, en développement comme en production. Les indices 2 à 4 ont été ajoutés
+> avant toute extension du périmètre. Contre-épreuve : 13 des nouveaux tests échouent avec l'ancienne validation
+> (pages acceptées à tort). Les 4 vraies pages restent conformes pour leur propre demande, et deviennent non conformes
+> pour une demande croisée (autre liste, autre page, autre catégorie).
+>
+> Limite : les libellés d'onglet sont des textes d'interface en français. S'ils changent, toutes les pages deviennent
+> `invalid` et la tournée s'arrête : une alerte visible plutôt qu'une erreur silencieuse.
 
 | Situation | `fetch_status` |
 |---|---|
@@ -56,7 +83,8 @@ liste `data-client-recs-list` dont les éléments portent `render.zg.rank`.
 | Structure manquante, et le mot « captcha » présent (casse indifférente) | `blocked` |
 | Structure manquante, sans le mot « captcha » | `invalid` |
 
-Une liste de moins de 50 rangs reste conforme : c'est une information, consignée dans les notes de la tournée.
+« Structure » désigne ici l'ensemble des quatre indices. Une liste de moins de 50 rangs reste conforme :
+c'est une information, consignée dans les notes de la tournée.
 La structure supposée d'une page CAPTCHA (`tests/fixtures/bestsellers_captcha.html`) n'a jamais été observée :
 elle sera remplacée par une structure vérifiée à la première vraie page rencontrée.
 

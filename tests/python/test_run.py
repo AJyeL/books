@@ -158,3 +158,20 @@ def test_fichier_existant_jamais_ecrase(fixture_page, tmp_path):
     assert existing.read_bytes() == b"deja la"
     assert repo.pages == []  # aucune ligne ne pointe vers un fichier qui n'est pas le sien
     assert repo.closed["status"] == "failed"
+
+
+def test_page_gratuite_servie_pour_le_payant_arrete_la_tournee(fixture_page, tmp_path):
+    # Le cas qui a motivé la triangulation : même catégorie, même canonical, mauvaise liste
+    repo = FakeRepo()
+    source = FakeSource({R1.node: fixture_page("bestsellers_gratuit.html")})
+    result = run([R1], source, repo, tmp_path)
+    assert result.status == "aborted"
+    assert repo.pages[0].fetch_status == "invalid"
+    assert "onglet actif" in repo.pages[0].error_message
+
+
+def test_trou_de_rangs_note_sans_changer_le_statut(fixture_page, tmp_path):
+    repo = FakeRepo()
+    result = run([R1], FakeSource({R1.node: fixture_page("bestsellers_rang_trou.html")}), repo, tmp_path)
+    assert result.status == "success"
+    assert "suite de rangs non continue" in repo.closed["notes"]

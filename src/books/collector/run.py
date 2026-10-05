@@ -59,7 +59,7 @@ def collect(
                 log(f"  {request.label} : page non obtenue : {fetched.error}")
                 continue
 
-            verdict = validate_bestseller_page(fetched.content, request.node)
+            verdict = validate_bestseller_page(fetched.content, request)
             # Toute page reçue est conservée, même invalide : c'est la trace de ce qui a été reçu
             stored = store_raw(raw_dir, raw_relative_path(run.id, run.started_at, request), fetched.content)
             repo.record_page(run.id, PageRecord(
@@ -73,6 +73,9 @@ def collect(
                 log(f"  {request.label} : ok, {verdict.rank_count} rangs ({fetched.origin}) -> {stored.relative_path}")
                 if verdict.short_list:
                     notes.append(f"{request.label} : liste courte ({verdict.rank_count} rangs sur {FULL_LIST_SIZE}).")
+                for note in verdict.notes:
+                    notes.append(f"{request.label} : {note}.")
+                    log(f"  {request.label} : information : {note}")
                 continue
 
             pages_failed += 1
