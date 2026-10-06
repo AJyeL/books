@@ -123,7 +123,8 @@ Des notes datées du 6 octobre 2026 ont été ajoutées dans ces décisions, san
 
 - **Transfert des fichiers vers atlas** : les captures sont faites sur le PC ; comment, et par qui, rejoignent-elles
   `~/books-data` sur atlas ? Y compris (ajout du 6 octobre 2026, décision 007) : dans quel dossier du PC l'extension
-  dépose-t-elle les captures ?
+  dépose-t-elle les captures ? L'extension propose `Téléchargements/books-captures/` sur le PC (proposition,
+  non tranchée).
 - **Déclenchement de l'ingestion sur atlas** : manuel, programmé, ou à l'arrivée des fichiers ?
 - **Comportement de l'ingestion face à une capture `blocked` ou `invalid`** : arrêt, ou dépôt avec son statut
   puis poursuite ? L'arrêt protégeait le serveur dans une collecte automatisée ; à l'ingestion, il n'y a plus

@@ -47,6 +47,14 @@ de la décision 005).
 
 - Contenu : la sérialisation du DOM de la page affichée, précédée de sa déclaration de type de document
   (`<!DOCTYPE html>` reconstruit à partir du document), puis `document.documentElement.outerHTML`.
+
+  > Précision du 6 octobre 2026 : le fichier HTML est la déclaration de type de document reconstruite,
+  > immédiatement suivie de `document.documentElement.outerHTML`, **sans aucun séparateur** (ni saut de ligne,
+  > ni espace). Si la page n'a pas de déclaration de type de document (`document.doctype` absent), rien n'est ajouté
+  > devant. La déclaration est reconstruite à partir de `document.doctype` : `<!DOCTYPE {nom}>` en l'absence
+  > d'identifiants (pour une page HTML5 : `<!DOCTYPE html>`, en majuscules, même si le source d'origine l'écrit
+  > en minuscules), et `<!DOCTYPE {nom} PUBLIC "{identifiant public}" "{identifiant système}">` s'ils existent.
+  > Raison : ces détails changent l'empreinte `html_sha256`.
 - Encodage : **UTF-8, sans BOM**, quel que soit l'encodage annoncé par la page.
 - Ni compression, ni retouche, ni conversion des fins de ligne : le fichier contient exactement la sérialisation
   obtenue. **Le HTML capturé n'est jamais modifié**, ni par l'extension après écriture, ni par le collecteur
