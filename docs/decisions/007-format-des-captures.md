@@ -47,6 +47,14 @@ de la décision 005).
 > (par exemple `?pg=1&pg=2`) est ambiguë. Elle n'est pas capturée par l'extension, et le collecteur la refuse
 > de la même façon lors des contrôles de la section 6 : la liste ou la page ne peut pas en être déduite.
 
+> Compléments du 6 octobre 2026 :
+> 1. **Valeurs acceptées** : `tf` absent (`paid`) ou `tf=1` (`free`) ; `pg` absent (page 1), `pg=1` ou `pg=2`.
+>    Toute autre valeur (par exemple `tf=0`, `pg=3`) rend l'adresse invalide : elle n'est pas capturée
+>    par l'extension, et le collecteur la refuse.
+> 2. **Déclaration de type de document à un seul identifiant** (section 3), selon la règle des navigateurs :
+>    `<!DOCTYPE {nom} PUBLIC "{identifiant public}">` si seul l'identifiant public existe,
+>    `<!DOCTYPE {nom} SYSTEM "{identifiant système}">` si seul l'identifiant système existe.
+
 ### 3. Fichier HTML
 
 - Contenu : la sérialisation du DOM de la page affichée, précédée de sa déclaration de type de document
@@ -59,6 +67,7 @@ de la décision 005).
   > d'identifiants (pour une page HTML5 : `<!DOCTYPE html>`, en majuscules, même si le source d'origine l'écrit
   > en minuscules), et `<!DOCTYPE {nom} PUBLIC "{identifiant public}" "{identifiant système}">` s'ils existent.
   > Raison : ces détails changent l'empreinte `html_sha256`.
+  > Cas d'un seul identifiant : voir les compléments du 6 octobre 2026, section 2.
 - Encodage : **UTF-8, sans BOM**, quel que soit l'encodage annoncé par la page.
 - Ni compression, ni retouche, ni conversion des fins de ligne : le fichier contient exactement la sérialisation
   obtenue. **Le HTML capturé n'est jamais modifié**, ni par l'extension après écriture, ni par le collecteur
