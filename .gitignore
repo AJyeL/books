@@ -23,6 +23,9 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
+# --- Extension de capture : code conservé dans un dépôt privé séparé (décision 006) ---
+extension/
+
 # --- Notes privées : jamais publiées ---
 CLAUDE.md
 CLAUDE.local.md
