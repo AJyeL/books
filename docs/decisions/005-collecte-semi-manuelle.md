@@ -122,12 +122,14 @@ Des notes datées du 6 octobre 2026 ont été ajoutées dans ces décisions, san
 ## Questions ouvertes, non tranchées
 
 - **Transfert des fichiers vers atlas** : les captures sont faites sur le PC ; comment, et par qui, rejoignent-elles
-  `~/books-data` sur atlas ?
+  `~/books-data` sur atlas ? Y compris (ajout du 6 octobre 2026, décision 007) : dans quel dossier du PC l'extension
+  dépose-t-elle les captures ?
 - **Déclenchement de l'ingestion sur atlas** : manuel, programmé, ou à l'arrivée des fichiers ?
 - **Comportement de l'ingestion face à une capture `blocked` ou `invalid`** : arrêt, ou dépôt avec son statut
   puis poursuite ? L'arrêt protégeait le serveur dans une collecte automatisée ; à l'ingestion, il n'y a plus
   de serveur à ménager. Avec la règle graduée de la section 2, une page de vérification peut être suivie de captures
-  valides, qu'un arrêt ferait perdre.
+  valides, qu'un arrêt ferait perdre. Même question (ajout du 6 octobre 2026, décision 007) pour une capture refusée
+  par les contrôles d'intégrité du format : conservée dans RAW avec un statut, ou laissée de côté et signalée ?
 - **Sort des doublons** : la même page enregistrée deux fois (même catégorie, même liste, même page, à quelques minutes
   d'intervalle). Les deux sont-elles déposées dans RAW, et laquelle les couches suivantes retiennent-elles ?
   L'empreinte du HTML ne permet pas de les reconnaître (jetons propres à chaque requête, décision 001).
