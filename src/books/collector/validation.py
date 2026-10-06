@@ -38,6 +38,9 @@ class Verdict:
     reason: str | None  # explication, enregistrée dans error_message si la page n'est pas ok
     rank_count: int  # nombre de livres classés trouvés
     notes: tuple[str, ...] = field(default=())  # informations sans effet sur le statut
+    # La pagination annonce la page suivante (li aria-label="Page {n+1}", non désactivé).
+    # Second signal, avec les 50 rangs, pour décider de demander la page 2 (décision 004).
+    next_page_announced: bool = False
 
     @property
     def short_list(self) -> bool:
@@ -57,6 +60,7 @@ class _PageScanner(HTMLParser):
         self.active_tabs: list[str] = []
         self.pagination_found = False  # un ul.a-pagination existe
         self.selected_pages: list[str] = []  # aria-label des li.a-selected de la pagination
+        self.enabled_pages: list[str] = []  # aria-label des li de la pagination non désactivés
         self._in_tablist = 0  # profondeur des ul ouverts depuis ul role="tablist"
         self._tab_depth = 0  # > 0 : à l'intérieur d'un onglet actif
         self._tab_text: list[str] = []
@@ -86,8 +90,12 @@ class _PageScanner(HTMLParser):
             elif "a-pagination" in classes:
                 self.pagination_found = True
                 self._in_pagination = 1
-        if tag == "li" and self._in_pagination and "a-selected" in classes:
-            self.selected_pages.append(attributes.get("aria-label") or "")
+        if tag == "li" and self._in_pagination:
+            label = attributes.get("aria-label") or ""
+            if "a-selected" in classes:
+                self.selected_pages.append(label)
+            if label and "a-disabled" not in classes:
+                self.enabled_pages.append(label.strip())
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "span" and self._tab_depth:
@@ -202,7 +210,9 @@ def validate_bestseller_page(content: bytes, request: PageRequest) -> Verdict:
     )
 
     if not problems:
-        return Verdict(status="ok", reason=None, rank_count=rank_count, notes=tuple(notes))
+        next_label = f"Page {request.page_number + 1}"
+        return Verdict(status="ok", reason=None, rank_count=rank_count, notes=tuple(notes),
+                       next_page_announced=scanner.pagination_found and next_label in scanner.enabled_pages)
     if "captcha" in text.lower():
         return Verdict(status="blocked", reason="CAPTCHA détecté : " + " ; ".join(problems),
                        rank_count=rank_count)

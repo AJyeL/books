@@ -220,3 +220,17 @@ et inversement, Top gratuit court demandé en page 2, autre catégorie).
 Limites : ces libellés sont des textes d'interface en français, qui peuvent changer ; un changement provoquerait
 un arrêt `invalid` (visible, donc acceptable) plutôt qu'une erreur silencieuse. Observé sur une seule catégorie,
 un seul jour.
+
+## Romance sportive : Top gratuit et page 2 (6 octobre 2026)
+
+Deux pages de plus, enregistrées le 6 octobre 2026 pour Romance sportive (`89265521031`) : Top 100 payants page 2,
+et Top 100 gratuits page 1. Étude hors ligne, mêmes contrôles que pour Fantasy épique.
+- Structure identique à celle de Fantasy épique : 30 cartes, mêmes repères, conformes à la validation
+  (quatre indices) pour leur propre demande, non conformes pour les demandes croisées.
+- Page 2 payante : rangs 51 à 100, aucun ASIN commun avec la page 1 du 5 octobre.
+- **Top gratuit complet** : 50 rangs (1 à 50), avec un bloc de pagination annonçant une page 2
+  (`li aria-label="Page 2"`, classe `a-normal`). Contrairement au Top gratuit court de Fantasy épique (45 rangs,
+  sans pagination), il a donc une page 2 : les deux signaux (50 rangs et annonce) concordent.
+- Aucun ASIN commun entre le Top payant (pages 1 et 2) et le Top gratuit.
+- Limite : la page 1 payante date du 5 octobre, les deux autres du 6 ; l'absence d'ASIN commun entre pages
+  de jours différents n'a donc pas la même portée qu'entre pages du même jour.

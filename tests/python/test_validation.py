@@ -232,3 +232,34 @@ def test_deux_listes_classees(fixture_page):
     v = validate_bestseller_page(doubled, demande())
     assert v.status == "invalid"
     assert "2 listes" in v.reason
+
+
+# --- Annonce de la page suivante (second signal pour la page 2) -------------
+
+def test_page_2_annoncee_par_la_pagination(fixture_page):
+    v = verdict(fixture_page, "bestsellers_page1_complete.html")
+    assert v.status == "ok"
+    assert v.rank_count == 50
+    assert v.next_page_announced
+    assert not v.short_list
+
+
+def test_page_2_non_annoncee_sans_pagination(fixture_page):
+    v = verdict(fixture_page, "bestsellers_page1_complete_sans_pagination.html")
+    assert v.status == "ok"
+    assert v.rank_count == 50
+    assert not v.next_page_announced
+
+
+def test_page_2_desactivee_non_annoncee(fixture_page):
+    page = fixture_page("bestsellers_page1_complete.html").replace(
+        b'<li aria-label="Page 2" class="a-normal">', b'<li aria-label="Page 2" class="a-disabled">', 1)
+    assert not validate_bestseller_page(page, demande()).next_page_announced
+
+
+def test_aucune_page_3_annoncee_en_page_2(fixture_page):
+    assert not verdict(fixture_page, "bestsellers_page2.html", demande("paid", 2)).next_page_announced
+
+
+def test_page_non_conforme_n_annonce_rien(fixture_page):
+    assert not verdict(fixture_page, "bestsellers_page1_complete.html", demande("free")).next_page_announced

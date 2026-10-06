@@ -24,8 +24,20 @@ def category(node: str, lists: str = '["paid"]') -> str:
 def test_fichier_du_depot_valide():
     categories = load_targets(REPO_TARGETS)
     requests = plan_requests(categories)
-    assert len(requests) == len(categories) >= 1
-    assert all(r.list_type == "paid" and r.page_number == 1 for r in requests)
+    assert len(categories) >= 1
+    assert all(c.lists == ("paid", "free") for c in categories)
+    # Seules les pages 1 sont planifiées : la page 2 dépend de la page 1 reçue
+    assert len(requests) == 2 * len(categories)
+    assert all(r.page_number == 1 for r in requests)
+
+
+def test_ordre_payant_puis_gratuit(tmp_path):
+    path = write(tmp_path, category("10000000001", '["paid", "free"]') + category("10000000002", '["free"]'))
+    assert plan_requests(load_targets(path)) == [
+        PageRequest("10000000001", "paid", 1),
+        PageRequest("10000000001", "free", 1),
+        PageRequest("10000000002", "free", 1),
+    ]
 
 
 def test_pages_demandees(tmp_path):
@@ -41,6 +53,16 @@ def test_adresse_de_la_page_1():
     assert request.url == canonical_url("10000000001") == \
         "https://www.amazon.fr/gp/bestsellers/digital-text/10000000001"
     assert request.label == "10000000001 paid p1"
+
+
+@pytest.mark.parametrize("list_type, page, suffix", [
+    ("paid", 2, "?pg=2"),
+    ("free", 1, "?tf=1"),
+    ("free", 2, "?pg=2&tf=1"),  # forme vérifiée dans robots.txt (décision 002)
+])
+def test_adresses_page_2_et_top_gratuit(list_type, page, suffix):
+    assert PageRequest("10000000001", list_type, page).url == \
+        "https://www.amazon.fr/gp/bestsellers/digital-text/10000000001" + suffix
 
 
 def test_fichier_absent(tmp_path):
@@ -75,9 +97,21 @@ def test_doublon(tmp_path):
         load_targets(write(tmp_path, category("10000000001") * 2))
 
 
-def test_liste_gratuite_pas_encore_prise_en_charge(tmp_path):
+def test_liste_inconnue(tmp_path):
     with pytest.raises(TargetsError, match="non prise en charge"):
-        load_targets(write(tmp_path, category("10000000001", '["paid", "free"]')))
+        load_targets(write(tmp_path, category("10000000001", '["paid", "nouveautes"]')))
+
+
+def test_liste_declaree_deux_fois(tmp_path):
+    with pytest.raises(TargetsError, match="liste déclarée deux fois"):
+        load_targets(write(tmp_path, category("10000000001", '["free", "free"]')))
+
+
+def test_plafond_avec_deux_listes(tmp_path):
+    # 2 listes × 2 pages = 4 requêtes possibles par catégorie : 51 catégories = 204 > 200
+    text = "".join(category(str(10000000000 + i), '["paid", "free"]') for i in range(51))
+    with pytest.raises(TargetsError, match="204 requêtes"):
+        load_targets(write(tmp_path, text))
 
 
 def test_plafond_de_requetes(tmp_path):

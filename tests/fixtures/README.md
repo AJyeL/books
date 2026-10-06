@@ -34,6 +34,8 @@ que par le point testé. Après toute modification de l'exemple, les régénére
 | `bestsellers_sans_pagination.html` | aucun bloc de pagination | paid p1 | ok |
 | | | paid p2 | `invalid` |
 | `bestsellers_liste_courte.html` | 45 rangs, sans pagination | paid p1 | ok (liste courte) |
+| `bestsellers_page1_complete.html` | 50 rangs, pagination annonçant la page 2 | paid p1 | ok ; page 2 demandée |
+| `bestsellers_page1_complete_sans_pagination.html` | 50 rangs sans pagination (signaux divergents) | paid p1 | ok ; page 2 non demandée, divergence signalée |
 | `bestsellers_rang_decale.html` | premier rang 2 | paid p1 | `invalid` |
 | `bestsellers_rang_hors_plage.html` | un rang à 51 en page 1 | paid p1 | `invalid` |
 | `bestsellers_rang_trou.html` | rangs 1, 2, 3, 4, 7 | paid p1 | ok, trou signalé |

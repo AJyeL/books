@@ -41,8 +41,31 @@ la reconnaissance d'un CAPTCHA, l'emplacement des fichiers bruts.
   (`BOOKS_TARGETS_FILE`, fixé dans le Dockerfile) : les modifier impose un passage par Git et une reconstruction.
 - Le fichier est refusé s'il permet de dépasser le plafond de 200 requêtes par tournée (décision 002),
   en comptant 2 pages possibles par liste.
-- **Périmètre actuel : page 1 du Top 100 payant uniquement.** La règle « page 2 si la page 1 contient 50 rangs »
-  et le Top gratuit seront ajoutés quand des pages enregistrées correspondantes existeront.
+- **Périmètre : Top 100 payant et Top 100 gratuit de chaque catégorie, page 1, et page 2 sous condition.**
+- **Page 2 : deux signaux doivent concorder** sur la page 1 conforme du même type : elle compte 50 rangs
+  **et** sa pagination annonce une page 2 (`li aria-label="Page 2"` non désactivé). Principe : on ne demande jamais
+  une page que le site n'annonce pas.
+  - Si les deux signaux divergent (50 rangs sans annonce, ou annonce avec moins de 50 rangs), l'anomalie est signalée
+    dans les notes de la tournée (information) ; la page 2 n'est ni demandée ni comptée comme manquante.
+  - Une page 1 courte (moins de 50 rangs, sans annonce) n'a pas de page 2 : rien à signaler.
+  - Une page 1 non obtenue ne déclenche pas de page 2 : seule la page 1 compte comme manquante.
+  - Une page 2 de moins de 50 rangs est normale (liste de 51 à 99 livres) : signalée comme liste courte.
+- **Ordre** : pour chaque catégorie du fichier, Top payant page 1, puis sa page 2 éventuelle, puis Top gratuit
+  page 1 et sa page 2 éventuelle. Une seule requête à la fois.
+- **Adresses** (`requested_url`) : adresse canonique, plus `pg=2` pour la page 2 et `tf=1` pour le Top gratuit
+  (`?pg=2&tf=1`, forme vérifiée dans robots.txt par la décision 002).
+- **Plafond contrôlé deux fois** : au chargement du fichier des cibles (pire cas : catégories × listes × 2 pages),
+  puis pendant la tournée, par un compteur de requêtes qui arrête la tournée (`failed`) avant tout dépassement.
+  Avec 2 catégories : 8 requêtes au plus. Le nombre de requêtes figure dans les notes de la tournée.
+
+> Amendement du 6 octobre 2026 : la version initiale se limitait à la page 1 du Top payant. L'extension au Top gratuit
+> et à la page 2 a été faite après le renforcement de la validation (onglet actif, pagination, rangs), qui empêche
+> d'accepter une liste ou une page autre que celle demandée. Ces pages étaient prévues par la décision 002
+> (robots.txt vérifié pour `?pg=2&tf=1`, plafond de 200 requêtes) : pas de nouvelle décision de collecte.
+> Essai du 6 octobre 2026 en dev : 7 requêtes, 6 pages `ok` ; Top gratuit de Fantasy épique (45 rangs) sans page 2 ;
+> page 2 gratuite de Romance sportive (page 1 de 50 rangs annonçant une page 2) demandée mais absente des pages
+> enregistrées, donc tournée `partial`. En dev, une tournée peut assembler des pages enregistrées à des jours
+> différents : ce n'est pas un instantané cohérent du marché, seulement des données de test.
 
 ### Validation d'une page : la structure décide, le mot ne fait que qualifier
 

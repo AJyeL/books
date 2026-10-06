@@ -37,17 +37,18 @@ class FakeRepo:
 
 
 class FakeSource:
-    """Pages servies par numéro de catégorie ; garde la liste des demandes reçues."""
+    """Pages servies par demande complète (PageRequest), à défaut par numéro de catégorie ;
+    garde la liste des demandes reçues."""
 
     description = "fausse source"
 
-    def __init__(self, pages: dict[str, bytes | None]):
+    def __init__(self, pages: dict):
         self.pages = pages
         self.asked: list[PageRequest] = []
 
     def fetch(self, request):
         self.asked.append(request)
-        content = self.pages.get(request.node)
+        content = self.pages[request] if request in self.pages else self.pages.get(request.node)
         if content is None:
             return Fetched(content=None, origin="nulle part", error="absente")
         return Fetched(content=content, origin=f"page {request.node}")
@@ -175,3 +176,105 @@ def test_trou_de_rangs_note_sans_changer_le_statut(fixture_page, tmp_path):
     result = run([R1], FakeSource({R1.node: fixture_page("bestsellers_rang_trou.html")}), repo, tmp_path)
     assert result.status == "success"
     assert "suite de rangs non continue" in repo.closed["notes"]
+
+
+# --- Page 2 conditionnelle : 50 rangs ET pagination annonçant la page 2 ------
+
+P1 = R1
+P2 = PageRequest(R1.node, "paid", 2)
+F1 = PageRequest(R1.node, "free", 1)
+F2 = PageRequest(R1.node, "free", 2)
+
+
+def test_page_2_demandee_juste_apres_sa_page_1(fixture_page, tmp_path):
+    repo = FakeRepo()
+    source = FakeSource({
+        P1: fixture_page("bestsellers_page1_complete.html"),
+        P2: fixture_page("bestsellers_page2.html"),
+        F1: fixture_page("bestsellers_gratuit.html"),
+    })
+    result = run([P1, F1], source, repo, tmp_path)
+
+    # Ordre : payant p1, payant p2, puis gratuit p1 ; la fixture gratuite (5 rangs) n'entraîne pas de page 2
+    assert source.asked == [P1, P2, F1]
+    assert result.status == "success"
+    assert [p.request for p in repo.pages] == [P1, P2, F1]
+    assert repo.pages[1].stored.relative_path.endswith("bestsellers_10000000001_paid_p2.html.gz")
+    assert "Requêtes : 3." in repo.closed["notes"]
+
+
+def test_liste_courte_sans_page_2_ni_manquante(fixture_page, tmp_path):
+    repo = FakeRepo()
+    source = FakeSource({P1: fixture_page("bestsellers_liste_courte.html")})
+    result = run([P1], source, repo, tmp_path)
+    assert source.asked == [P1]
+    assert result.status == "success"
+    assert (repo.closed["pages_ok"], repo.closed["pages_failed"]) == (1, 0)
+    assert "non demandée" not in repo.closed["notes"]  # signaux concordants : rien d'anormal
+
+
+def test_50_rangs_sans_pagination_divergence_signalee(fixture_page, tmp_path):
+    repo = FakeRepo()
+    source = FakeSource({P1: fixture_page("bestsellers_page1_complete_sans_pagination.html")})
+    result = run([P1], source, repo, tmp_path)
+    # On ne demande jamais une page que le site n'annonce pas ; elle n'est pas comptée comme manquante
+    assert source.asked == [P1]
+    assert result.status == "success"
+    assert repo.closed["pages_failed"] == 0
+    assert "50 rangs, mais la pagination n'annonce pas de page 2 : page 2 non demandée" in repo.closed["notes"]
+
+
+def test_page_2_annoncee_mais_moins_de_50_rangs_divergence_signalee(fixture_page, tmp_path):
+    repo = FakeRepo()
+    source = FakeSource({P1: fixture_page("bestsellers_exemple.html")})  # 5 rangs, lien « Page 2 »
+    result = run([P1], source, repo, tmp_path)
+    assert source.asked == [P1]
+    assert result.status == "success"
+    assert "page 2 annoncée par la pagination, mais seulement 5 rangs" in repo.closed["notes"]
+
+
+def test_page_2_attendue_mais_absente(fixture_page, tmp_path):
+    repo = FakeRepo()
+    source = FakeSource({P1: fixture_page("bestsellers_page1_complete.html"), P2: None})
+    result = run([P1], source, repo, tmp_path)
+    assert source.asked == [P1, P2]
+    assert result.status == "partial"
+    assert [p.fetch_status for p in repo.pages] == ["ok", "network_error"]
+
+
+def test_page_1_absente_page_2_jamais_demandee(tmp_path):
+    repo = FakeRepo()
+    source = FakeSource({P1: None})
+    result = run([P1], source, repo, tmp_path)
+    assert source.asked == [P1]
+    assert result.status == "failed"
+    assert repo.closed["pages_failed"] == 1  # seule la page 1 compte comme manquante
+
+
+def test_page_2_non_conforme_arrete_la_tournee(fixture_page, tmp_path):
+    repo = FakeRepo()
+    source = FakeSource({
+        P1: fixture_page("bestsellers_page1_complete.html"),
+        P2: fixture_page("bestsellers_exemple.html"),  # une page 1 reçue à la place de la page 2
+        F1: fixture_page("bestsellers_gratuit.html"),
+    })
+    result = run([P1, F1], source, repo, tmp_path)
+    assert result.status == "aborted"
+    assert source.asked == [P1, P2]  # le Top gratuit n'est jamais demandé
+    assert repo.pages[1].fetch_status == "invalid"
+    assert "page active 1, page demandée : 2" in repo.pages[1].error_message
+
+
+def test_plafond_controle_pendant_la_tournee(fixture_page, tmp_path):
+    repo = FakeRepo()
+    source = FakeSource({
+        P1: fixture_page("bestsellers_page1_complete.html"),
+        P2: fixture_page("bestsellers_page2.html"),
+        F1: fixture_page("bestsellers_gratuit.html"),
+    })
+    with pytest.raises(RuntimeError, match="plafond de 2 requêtes"):
+        collect([P1, F1], source, repo, tmp_path, "0.1.0", log=lambda m: None, max_requests=2)
+    # La page 2 compte dans le plafond : le Top gratuit n'est jamais demandé
+    assert source.asked == [P1, P2]
+    assert repo.closed["status"] == "failed"
+    assert "plafond de 2 requêtes" in repo.closed["notes"]

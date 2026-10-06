@@ -9,9 +9,10 @@ Observatoire historisé du marché du livre numérique, centré dans un premier 
 ## Collecteur
 
 Le collecteur est un service Docker Compose rangé dans le profil `collector` :
-`docker compose up` ne le lance jamais. Une tournée obtient la page 1 du Top 100 payant de chaque catégorie
-de `config/targets.toml`, la valide, la dépose dans RAW (fichier dans `BOOKS_RAW_DIR` + ligne `raw.raw_page`),
-puis clôt la tournée. Voir les décisions 003 et 004.
+`docker compose up` ne le lance jamais. Pour chaque catégorie de `config/targets.toml`, une tournée obtient
+la page 1 du Top 100 payant et du Top 100 gratuit, et leur page 2 seulement si la page 1 compte 50 rangs et annonce
+une page 2. Chaque page est validée, puis déposée dans RAW (fichier dans `BOOKS_RAW_DIR` + ligne `raw.raw_page`) ;
+la tournée est ensuite close. Voir les décisions 003 et 004.
 
 ```bash
 docker compose build collector

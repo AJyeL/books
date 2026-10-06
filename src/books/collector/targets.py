@@ -9,8 +9,8 @@ from pathlib import Path
 MAX_REQUESTS_PER_RUN = 200
 # Une liste de classement compte au plus 2 pages (docs/exploration-amazon.md)
 MAX_PAGES_PER_LIST = 2
-# Seul le Top 100 payant est pris en charge pour l'instant (décision 004)
-SUPPORTED_LISTS = ("paid",)
+# Top 100 payant et Top 100 gratuit (décision 004)
+SUPPORTED_LISTS = ("paid", "free")
 
 BESTSELLERS_URL = "https://www.amazon.fr/gp/bestsellers/digital-text/"
 
@@ -36,8 +36,14 @@ class PageRequest:
 
     @property
     def url(self) -> str:
-        """Adresse Amazon de la page (page 1 du Top payant : adresse canonique, sans paramètre)."""
-        return canonical_url(self.node)
+        """Adresse Amazon de la page (docs/exploration-amazon.md) : adresse canonique, plus pg=2 pour la page 2
+        et tf=1 pour le Top gratuit. Page 1 du Top payant : adresse canonique seule."""
+        params = []
+        if self.page_number != 1:
+            params.append(f"pg={self.page_number}")
+        if self.list_type == "free":
+            params.append("tf=1")
+        return canonical_url(self.node) + ("?" + "&".join(params) if params else "")
 
     @property
     def label(self) -> str:
@@ -98,7 +104,8 @@ def load_targets(path: Path) -> list[Category]:
 
 
 def plan_requests(categories: list[Category]) -> list[PageRequest]:
-    """Pages à demander, dans l'ordre du fichier. Pour l'instant : page 1 de chaque liste."""
+    """Pages 1 à demander, dans l'ordre du fichier. La page 2 n'est pas planifiée ici :
+    elle dépend de la page 1 reçue (books.collector.run)."""
     return [
         PageRequest(node=c.node, list_type=list_type, page_number=1)
         for c in categories

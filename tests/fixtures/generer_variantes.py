@@ -110,6 +110,14 @@ def variants() -> dict[str, tuple[str, str]]:
     s = re.sub(r'data-client-recs-list="[^"]*"', lambda m: f'data-client-recs-list="{recs_list(45)}"', BASE)
     s = replace(s, 'data-offset="5"', 'data-offset="45"')
     v["bestsellers_liste_courte.html"] = ("liste courte de 45 rangs, sans pagination", without_pagination(s))
+
+    # Liste complète : 50 rangs. Avec pagination annonçant la page 2, les deux signaux concordent ;
+    # sans pagination, ils divergent (la page 2 ne doit pas être demandée).
+    s = re.sub(r'data-client-recs-list="[^"]*"', lambda m: f'data-client-recs-list="{recs_list(50)}"', BASE)
+    s = replace(s, 'data-offset="5"', 'data-offset="50"')
+    v["bestsellers_page1_complete.html"] = ("page 1 de 50 rangs, pagination annonçant la page 2", s)
+    v["bestsellers_page1_complete_sans_pagination.html"] = (
+        "page 1 de 50 rangs sans pagination (signaux divergents)", without_pagination(s))
     return v
 
 
