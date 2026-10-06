@@ -43,6 +43,10 @@ et la validation du collecteur (quatre indices, décision 004) le confronte au c
 Une adresse dont on ne peut pas déduire ces trois éléments n'est pas capturée (elle sort de la liste blanche
 de la décision 005).
 
+> Précision du 6 octobre 2026 : une adresse dont un paramètre utile (`tf` ou `pg`) apparaît plusieurs fois
+> (par exemple `?pg=1&pg=2`) est ambiguë. Elle n'est pas capturée par l'extension, et le collecteur la refuse
+> de la même façon lors des contrôles de la section 6 : la liste ou la page ne peut pas en être déduite.
+
 ### 3. Fichier HTML
 
 - Contenu : la sérialisation du DOM de la page affichée, précédée de sa déclaration de type de document
