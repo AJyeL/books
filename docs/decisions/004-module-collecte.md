@@ -2,6 +2,17 @@
 
 Date : 5 octobre 2026 · Migration : `sql/migrations/003_statut_invalid.sql`
 
+> Note du 6 octobre 2026 : la décision 005 (collecte semi-manuelle) modifie cette décision.
+> - La source réseau est abandonnée : elle ne sera pas écrite.
+> - La source locale deviendra la source de production ; elle refuse aujourd'hui la prod et devra être adaptée,
+>   en conservant le principe de fail closed.
+> - Plus rien n'est « demandé » à Amazon : la règle des deux signaux pour la page 2 servira à contrôler qu'une page 2
+>   annoncée a bien été capturée ; l'ordre des pages est celui de la navigation ; le plafond compte des pages lues ;
+>   `requested_url` deviendra l'adresse affichée.
+> - La validation (quatre indices), le dépôt dans RAW et les statuts sont maintenus, sous réserve de leur vérification
+>   sur des captures du DOM.
+> Le texte ci-dessous est conservé tel quel.
+
 ## Contexte
 
 Les décisions 001 (couche RAW), 002 (collecte responsable) et 003 (collecteur conteneurisé) posent le cadre.

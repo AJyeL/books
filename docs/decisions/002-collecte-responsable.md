@@ -4,6 +4,14 @@ Date : 4 octobre 2026
 
 > Analyse réalisée par un non-juriste, sans valeur d'avis juridique.
 
+> Note du 6 octobre 2026 : cette décision est en grande partie remplacée par la décision 005
+> (`005-collecte-semi-manuelle.md`). B.O.O.K.S. renonce à toute collecte réseau automatisée sur Amazon ;
+> aucune n'a été réalisée. Les sections 2 (identité), 3 (robots.txt), 4 (modération) et 5 (disjoncteur réseau)
+> sont caduques ou modifiées, ainsi que les conséquences « risque assumé » et « adresse de contact à créer ».
+> Les sections 1 (critère général) et 6 (données personnelles) sont maintenues. robots.txt n'est pas
+> une autorisation juridique. Le détail figure dans le tableau des conséquences de la décision 005.
+> Le texte ci-dessous est conservé tel quel, comme trace de la décision d'origine.
+
 ## Contexte
 
 B.O.O.K.S. doit collecter automatiquement des pages publiques d'amazon.fr pour historiser le marché

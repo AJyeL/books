@@ -37,6 +37,10 @@ doit être impossible à ignorer.
 
 ## Prérequis avant la première collecte en production
 
+> Note du 6 octobre 2026 : depuis la décision 005 (collecte semi-manuelle), le collecteur ne contacte jamais Amazon ;
+> il ingère des pages capturées par le porteur du projet. « Collecte en production » se lit désormais
+> « ingestion des captures en production ». Le rôle `books_collector` et ses droits restent nécessaires et inchangés.
+
 - **Rôle PostgreSQL dédié au collecteur**, à créer par une migration :
   - droits `SELECT` et `INSERT` sur les tables du schéma `raw` uniquement (`USAGE` sur le schéma), et rien d'autre ;
   - pour clore une tournée (décision 001), un privilège `UPDATE` **par colonne**, limité aux colonnes de clôture
