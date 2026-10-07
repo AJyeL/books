@@ -35,6 +35,10 @@ doit être impossible à ignorer.
   et `create_host_path: false`. Si la variable manque, seul le lancement du collecteur échoue, avec un message
   lisible. Docker ne crée jamais le dossier (il le créerait au nom de root, inaccessible à l'UID 1000).
 
+  > Note du 7 octobre 2026 : le même principe s'applique au dossier des captures, `BOOKS_CAPTURES_DIR`,
+  > monté sur `/data/captures` (décision 008, valeur de repli `/BOOKS_CAPTURES_DIR-non-defini`). Vérifié le même jour :
+  > avec les seules variables PostgreSQL, ou sans `BOOKS_CAPTURES_DIR`, le fichier reste valide et PostgreSQL joignable.
+
 ## Prérequis avant la première collecte en production
 
 > Note du 6 octobre 2026 : depuis la décision 005 (collecte semi-manuelle), le collecteur ne contacte jamais Amazon ;

@@ -44,6 +44,8 @@ services:
       POSTGRES_PASSWORD: ${BOOKS_COLLECTOR_PASSWORD:-}
       # Chemin vu depuis le conteneur ; le chemin sur l'hôte vient de .env (volume ci-dessous)
       BOOKS_RAW_DIR: /data/raw
+      # Captures à ingérer (inbox/), quarantaine et verrou d'ingestion (décision 008) ; même principe
+      BOOKS_CAPTURES_DIR: /data/captures
     # Garde-fous si BOOKS_RAW_DIR manque dans .env :
     # - pas de ${BOOKS_RAW_DIR:?} : Compose refuserait alors TOUT le fichier,
     #   y compris le service postgres et la sauvegarde nocturne ;
@@ -54,6 +56,13 @@ services:
       - type: bind
         source: ${BOOKS_RAW_DIR:-/BOOKS_RAW_DIR-non-defini}
         target: /data/raw
+        bind:
+          create_host_path: false
+      # Mêmes garde-fous pour BOOKS_CAPTURES_DIR. Lecture et écriture : retrait de inbox/,
+      # déplacements vers quarantaine/, verrou ingestion.lock (décision 008).
+      - type: bind
+        source: ${BOOKS_CAPTURES_DIR:-/BOOKS_CAPTURES_DIR-non-defini}
+        target: /data/captures
         bind:
           create_host_path: false
 

@@ -154,13 +154,26 @@ Les pages brutes se restaurent à part, depuis `~/books-backup/raw` vers `~/book
    mkdir -p ~/books-data/raw
    ```
 
-2. Compléter `.env` à partir de `.env.example`, avec un chemin absolu
+   Faire de même pour le dossier des captures (décision 008) et ses trois sous-dossiers, réservés au seul
+   propriétaire (UID 1000, celui du collecteur) :
+
+   ```bash
+   mkdir -p ~/books-data/captures/attente ~/books-data/captures/inbox ~/books-data/captures/quarantaine
+   chmod 700 ~/books-data/captures ~/books-data/captures/attente ~/books-data/captures/inbox ~/books-data/captures/quarantaine
+   stat -c '%U %u %a %n' ~/books-data/captures ~/books-data/captures/*
+   ```
+
+2. Compléter `.env` à partir de `.env.example`, avec des chemins absolus
    (le `~` n'est pas interprété dans un `.env`) :
 
    ```
    BOOKS_ENV=prod
    BOOKS_RAW_DIR=/home/arnaud/books-data/raw
+   BOOKS_CAPTURES_DIR=/home/arnaud/books-data/captures
    ```
+
+   Sans `BOOKS_CAPTURES_DIR`, seul le lancement du collecteur échoue ; PostgreSQL et la sauvegarde
+   continuent de fonctionner. Le dossier des captures n'entre pas dans la sauvegarde nocturne (décision 008).
 
 3. Appliquer les migrations manquantes (section Migrations), puis définir le mot de passe
    de `books_collector` (section Mot de passe) et le reporter dans `.env`.

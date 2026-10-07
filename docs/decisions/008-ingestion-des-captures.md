@@ -140,6 +140,29 @@ en place, pages 2 manquantes, informations. Le bilan affiché sur le PC reprend 
 >   de Romance sportive retirée, plus une capture CAPTCHA inventée : 6 `ok` et 1 `blocked` déposées, page 2 manquante
 >   signalée, `partial`, 2 anomalies, code de sortie 1.
 
+> Note du 7 octobre 2026 (étape 4 du code : verrou et montage Docker) :
+> - **Verrou** : verrou consultatif du noyau (`flock`) sur `~/books-data/captures/ingestion.lock`, pris par le
+>   collecteur avant toute connexion à la base. Le fichier est sur le disque de l'hôte, car chaque lancement crée
+>   un nouveau conteneur : un verrou interne au conteneur ne serait vu par aucun autre. Il est placé à côté de
+>   `inbox/`, et non dedans, où il serait pris pour un fichier hors format. Le noyau le libère à la fin du processus,
+>   même après un arrêt brutal ; le fichier n'est jamais supprimé. Verrou occupé : message, code 1, aucune tournée.
+> - **Montage** : `BOOKS_CAPTURES_DIR` (chemin de l'hôte, dans `.env`) est monté en lecture et écriture sur
+>   `/data/captures`, avec les garde-fous de `BOOKS_RAW_DIR` (décision 003) : valeur de repli inexistante au nom
+>   explicite et `create_host_path: false`. Une variable absente ne rend pas `docker-compose.yml` invalide et
+>   n'empêche ni PostgreSQL ni la sauvegarde ; Docker ne crée jamais le dossier au nom de root.
+>   En développement, le dossier est `./data/ingestion`, distinct de `data/captures/` (captures réelles de référence).
+> - **Sauvegarde** : `~/books-data/captures/` n'entre pas dans la sauvegarde nocturne. `inbox/` et `attente/` sont
+>   transitoires ; une capture ingérée est dans RAW (HTML et JSON), qui est sauvegardé ; une capture non ingérée
+>   ou en quarantaine a son original sur le PC, dans `envoyees\`. `scripts/backup.sh` n'est pas modifié.
+> - **`envoyees\` n'est jamais vidé** : c'est une archive permanente, la seule copie des captures hors d'atlas,
+>   dont les sauvegardes sont sur le même disque.
+> - La base de données reste concernée par la copie externe prévue (copie mensuelle vers le PC, puis vers un NAS),
+>   qui n'est pas encore en place.
+> - Vérifié le 7 octobre 2026 : `docker compose config` valide avec un `.env` de type atlas, avec ou sans
+>   `BOOKS_CAPTURES_DIR`, et avec les seules variables PostgreSQL ; verrou refusé à un second conteneur puis rendu
+>   après l'arrêt brutal du premier, sur un volume Linux ; ingestion de bout en bout dans le conteneur, en dev,
+>   sur des captures inventées.
+
 ## Conséquences
 
 - Les quatre questions ouvertes de la décision 005 sont tranchées ; des notes datées l'indiquent dans les décisions
