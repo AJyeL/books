@@ -1,10 +1,11 @@
-"""Sources de pages interchangeables (décision 004).
+"""Source des pages enregistrées à la main, pour le développement (décisions 004, 005 et 007).
 
-- LocalSource : pages enregistrées à la main dans data/samples/ (développement uniquement).
-- NetworkSource : requêtes vers amazon.fr (production uniquement), pas encore écrite.
+- LocalSource : pages enregistrées à la main dans data/samples/ (manual-html), développement uniquement.
+- En production, aucune source de ce type : le collecteur ingère les captures de l'extension déposées
+  dans inbox/ (books.collector.ingestion, décision 008). La source réseau, abandonnée par la décision 005,
+  n'existe plus.
 
-Fail closed : chaque source vérifie elle-même BOOKS_ENV dans son constructeur.
-En dev, la source réseau ne peut pas être construite ; en prod, la source locale non plus.
+Fail closed : LocalSource refuse de se construire hors de dev, et make_source refuse toute autre valeur.
 """
 
 import re
@@ -73,22 +74,14 @@ class LocalSource:
         return Fetched(content=path.read_bytes(), origin=path.name, capture_method=MANUAL_HTML)
 
 
-class NetworkSource:
-    """Requêtes vers amazon.fr : production uniquement. Pas encore écrite."""
-
-    def __init__(self, env: str) -> None:
-        if env != "prod":
-            raise SourceError(f"La source réseau n'est autorisée qu'en prod (BOOKS_ENV={env!r}).")
-        raise SourceError("La source réseau n'est pas encore écrite : aucune collecte en prod pour l'instant.")
-
-
 def make_source(env: str, environ: Mapping[str, str]) -> PageSource:
-    """Choisit la source selon BOOKS_ENV. Toute autre valeur est refusée."""
+    """Source des pages enregistrées à la main : dev uniquement. Toute autre valeur est refusée."""
     if env == "dev":
         samples_dir = environ.get("BOOKS_SAMPLES_DIR", "").strip()
         if not samples_dir:
             raise SourceError("BOOKS_SAMPLES_DIR est absente ou vide (fixée par docker-compose.dev.yml).")
         return LocalSource(env, Path(samples_dir))
     if env == "prod":
-        return NetworkSource(env)
+        raise SourceError("En prod, aucune page enregistrée à la main : le collecteur ingère les captures "
+                          "de inbox/ (décision 008).")
     raise SourceError(f"BOOKS_ENV={env!r} : aucune source autorisée.")

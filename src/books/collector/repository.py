@@ -30,6 +30,10 @@ class PageRecord:
     http_status: int | None = None
     final_url: str | None = None
     stored: StoredFile | None = None
+    metadata: StoredFile | None = None  # JSON d'une capture extension-dom (migration 004)
+    # Adresse enregistrée dans requested_url : l'adresse affichée d'une capture (décision 008),
+    # sinon l'adresse construite à partir de la demande
+    requested_url: str | None = None
 
 
 class Repository(Protocol):
@@ -38,6 +42,8 @@ class Repository(Protocol):
     def record_page(self, run_id: int, record: PageRecord) -> int: ...
 
     def close_run(self, run_id: int, status: str, pages_ok: int, pages_failed: int, notes: str) -> None: ...
+
+    def find_capture(self, content_sha256: str) -> int | None: ...
 
 
 class PgRepository:
@@ -63,18 +69,20 @@ class PgRepository:
             INSERT INTO raw.raw_page (
                 run_id, page_type, category_node, list_type, page_number,
                 requested_url, final_url, fetched_at, http_status, fetch_status, error_message,
-                content_sha256, content_bytes, storage_path, capture_method)
-            VALUES (%s, 'bestseller_list', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                content_sha256, content_bytes, storage_path, capture_method, metadata_path, metadata_sha256)
+            VALUES (%s, 'bestseller_list', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (
                 run_id, record.request.node, record.request.list_type, record.request.page_number,
-                record.request.url, record.final_url, record.fetched_at, record.http_status,
+                record.requested_url or record.request.url, record.final_url, record.fetched_at, record.http_status,
                 record.fetch_status, record.error_message,
                 stored.sha256 if stored else None,
                 stored.size if stored else None,
                 stored.relative_path if stored else None,
                 record.capture_method,
+                record.metadata.relative_path if record.metadata else None,
+                record.metadata.sha256 if record.metadata else None,
             ),
         ).fetchone()
         return page_id
@@ -88,3 +96,12 @@ class PgRepository:
             """,
             (status, pages_ok, pages_failed, notes, run_id),
         )
+
+    def find_capture(self, content_sha256: str) -> int | None:
+        """Identifiant de la ligne d'une capture extension-dom déjà déposée avec cette empreinte, sinon None.
+        Même condition que l'index unique partiel de la migration 004, qui sert donc à cette recherche."""
+        row = self.conn.execute(
+            "SELECT id FROM raw.raw_page WHERE capture_method = 'extension-dom' AND content_sha256 = %s",
+            (content_sha256,),
+        ).fetchone()
+        return row[0] if row else None

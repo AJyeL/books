@@ -24,7 +24,9 @@ docker compose --profile collector run --rm collector
   type de liste toujours explicite ; voir `docs/exploration-amazon.md`).
   Le `.env` du PC doit contenir les deux lignes `COMPOSE_FILE` et `COMPOSE_PATH_SEPARATOR` de `.env.example`.
   Aucune requête vers Amazon. Chaque lancement ajoute une tournée **définitive** dans RAW (ajout seul).
-- **En prod (atlas)**, la source réseau n'est pas encore écrite : le collecteur s'arrête (code 2) sans rien collecter.
+- **En prod (atlas)**, le collecteur ingère les captures de l'extension déposées dans `BOOKS_CAPTURES_DIR/inbox/`
+  (décision 008) : contrôles d'intégrité, quarantaine dans `BOOKS_CAPTURES_DIR/quarantaine/`, dépôt dans RAW.
+  Tant que le montage de ce dossier n'existe pas (étape 4), il s'arrête (code 2) sans rien ingérer.
   Ne **jamais** définir `COMPOSE_FILE` sur atlas.
 - Modifier `config/targets.toml` impose de reconstruire l'image (`docker compose build collector`).
 

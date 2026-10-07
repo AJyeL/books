@@ -42,3 +42,21 @@ que par le point testé. Après toute modification de l'exemple, les régénére
 | `bestsellers_sans_rang.html` | aucun `render.zg.rank` | paid p1 | `invalid` |
 | `bestsellers_autre_categorie.html` | canonical vers `10000000002` | paid p1 | `invalid` |
 | `bestsellers_captcha.html` | page CAPTCHA | paid p1 | `blocked` |
+
+## Captures de l'extension (`captures/`)
+
+Paires `.html` + `.json` conformes à la décision 007 (format des captures), générées par `generer_captures.py`
+à partir des fausses pages ci-dessus : HTML commençant par `<!DOCTYPE html>`, sans séparateur ; JSON au schéma
+version 1, avec empreinte et taille exactes. Après toute modification des fausses pages, les régénérer :
+`python tests/fixtures/generer_captures.py`.
+
+| Capture (catégorie, liste, page, horodatage) | Fausse page d'origine | Résultat attendu |
+|---|---|---|
+| `10000000001` paid p1 `2026-10-06T200000Z` | `bestsellers_page1_complete.html` | intègre, `ok` (50 rangs) |
+| `10000000001` paid p2 `2026-10-06T200010Z` | `bestsellers_page2.html` | intègre, `ok` |
+| `10000000001` free p1 `2026-10-06T200020Z` | `bestsellers_gratuit.html` | intègre, `ok` |
+| `10000000001` paid p1 `2026-10-06T200030Z` | `bestsellers_captcha.html` | intègre, `blocked` |
+| `10000000009` paid p1 `2026-10-06T200040Z` | `bestsellers_exemple.html` | hors périmètre des tests : quarantaine |
+
+Les captures non intègres (JSON altéré, empreinte fausse, orphelins, noms hors format) sont fabriquées dans les tests,
+sur une copie, à partir de ces paires.

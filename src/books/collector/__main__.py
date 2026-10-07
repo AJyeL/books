@@ -1,20 +1,24 @@
 """Point d'entrée du collecteur : python -m books.collector
 
-Ouvre une tournée, obtient chaque page de classement depuis la source autorisée par BOOKS_ENV,
-la valide, la dépose dans RAW, puis clôt la tournée.
+- En prod : ingestion des captures de l'extension déposées dans BOOKS_CAPTURES_DIR/inbox/ (décision 008).
+- En dev : tournée sur les pages enregistrées à la main (data/samples/, manual-html).
 
-Codes de sortie : 0 succès ; 1 tournée partielle ou en échec, ou erreur de base de données ;
-2 configuration invalide ; 3 arrêt de sécurité (page bloquée ou non conforme).
+Codes de sortie : 0 succès ; 1 tournée ou ingestion partielle ou en échec, ou erreur de base de données ;
+2 configuration invalide ; 3 arrêt de sécurité (page bloquée ou non conforme ; provisoire, décision 008).
 """
 
 import os
 import sys
+from collections.abc import Callable
+from pathlib import Path
 
 import psycopg
 
 from books import __version__
+from books.collector.inbox import perimeter_of
+from books.collector.ingestion import ingest
 from books.collector.repository import PgRepository
-from books.collector.run import EXIT_CODES, collect
+from books.collector.run import EXIT_CODES, RunResult, collect
 from books.collector.sources import SourceError, make_source
 from books.collector.targets import TargetsError, load_targets, plan_requests
 from books.config import ConfigError, load_config
@@ -23,10 +27,23 @@ from books.config import ConfigError, load_config
 def main() -> int:
     try:
         config = load_config()
-        requests = plan_requests(load_targets(config.targets_file))
-        source = make_source(config.env, os.environ)
+        categories = load_targets(config.targets_file)
         if not config.raw_dir.is_dir():
             raise ConfigError(f"Dossier des pages brutes introuvable : {config.raw_dir}")
+        task: Callable[[PgRepository], RunResult]
+        if config.env == "prod":
+            captures = os.environ.get("BOOKS_CAPTURES_DIR", "").strip()
+            if not captures:
+                raise ConfigError("BOOKS_CAPTURES_DIR est absente ou vide (dossier des captures à ingérer).")
+            captures_dir = Path(captures)
+            if not (captures_dir / "inbox").is_dir():
+                raise ConfigError(f"Dossier des captures à ingérer introuvable : {captures_dir / 'inbox'}")
+            perimeter = perimeter_of(categories)
+            task = lambda repo: ingest(captures_dir, perimeter, repo, config.raw_dir, __version__)  # noqa: E731
+        else:
+            requests = plan_requests(categories)
+            source = make_source(config.env, os.environ)
+            task = lambda repo: collect(requests, source, repo, config.raw_dir, __version__)  # noqa: E731
     except (ConfigError, TargetsError, SourceError) as exc:
         print(f"Erreur de configuration : {exc}", file=sys.stderr)
         return 2
@@ -49,7 +66,7 @@ def main() -> int:
             ).fetchone()
             print(f"PostgreSQL {server_version} ({config.db_host}:{config.db_port}, base {config.db_name})")
             print(f"Rôle connecté : {role}")
-            result = collect(requests, source, PgRepository(conn), config.raw_dir, __version__)
+            result = task(PgRepository(conn))
     except psycopg.Error as exc:
         print(f"Erreur PostgreSQL : {exc}", file=sys.stderr)
         return 1

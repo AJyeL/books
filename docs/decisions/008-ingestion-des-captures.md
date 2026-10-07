@@ -96,6 +96,24 @@ mises en quarantaine (avec la raison), pages 2 manquantes. Le bilan affiché sur
   que par les jetons propres à chaque affichage), **toutes deux conservées** dans RAW. Le choix d'une observation
   par jour relève de la couche d'analyse, plus tard.
 
+> Note du 7 octobre 2026 (étape 2 du code : `books.collector.inbox` et `books.collector.ingestion`) :
+> - **Nom des fichiers dans RAW** : l'horodatage de la capture y est ajouté,
+>   `amazon_fr/AAAA/MM/JJ/run-{id}/bestsellers_{catégorie}_{liste}_p{n}_{AAAA-MM-JJTHHMMSSZ}.html.gz` et `….json.gz`,
+>   pour que deux observations de la même page dans une même ingestion ne se confondent pas.
+> - **Retrait de `inbox/`** : le JSON d'abord, le HTML ensuite. Un HTML resté seul après une interruption est reconnu
+>   « déjà ingéré » par son empreinte ; sinon, c'est un orphelin, mis en quarantaine.
+> - **Éléments laissés en place** : un fichier hors de tout lot, un dossier de lot au nom hors format ou un sous-dossier
+>   dans un lot sont signalés sans être déplacés (sans lot valide, pas de dossier de quarantaine).
+> - **Quarantaine sans écrasement** : déplacement par lien physique puis suppression de l'ancien nom ; si la destination
+>   existe déjà, la capture reste dans `inbox/` et l'anomalie est signalée.
+> - **Périmètre** : le couple catégorie et liste doit figurer dans `config/targets.toml`.
+> - `requested_url` reçoit l'adresse affichée telle quelle ; `fetched_at` l'horodatage de la capture.
+> - **Provisoire jusqu'à l'étape 3** : une capture `blocked` ou `invalid` est déposée avec son statut, puis l'ingestion
+>   s'arrête ; les suivantes restent dans `inbox/`. La page 2 manquante n'est pas encore signalée.
+> - Vérifié le 7 octobre 2026 sur des copies des 7 captures réelles, dans un PostgreSQL jetable (migrations 001 à 004) :
+>   7 captures déposées, empreintes du HTML et du JSON exactes ; une seconde ingestion des mêmes fichiers donne
+>   « déjà ingérées 7 » et aucune nouvelle ligne.
+
 ## Conséquences
 
 - Les quatre questions ouvertes de la décision 005 sont tranchées ; des notes datées l'indiquent dans les décisions

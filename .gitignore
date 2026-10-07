@@ -6,6 +6,7 @@ data/
 *.html
 # Exception : fausses pages de test, aux valeurs inventées (voir tests/fixtures/README.md)
 !tests/fixtures/*.html
+!tests/fixtures/captures/*.html
 *.html.gz
 *.csv
 *.dump

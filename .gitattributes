@@ -1,0 +1,5 @@
+# Fichiers dont le contenu doit rester identique à l'octet près : aucune conversion des fins de ligne.
+# Les captures de test portent l'empreinte SHA-256 et la taille exactes de leur HTML (décision 007),
+# et les fausses pages servent à les générer.
+tests/fixtures/*.html -text
+tests/fixtures/captures/** -text

@@ -2,7 +2,7 @@
 
 import pytest
 
-from books.collector.sources import LocalSource, NetworkSource, SourceError, make_source
+from books.collector.sources import LocalSource, SourceError, make_source
 from books.collector.targets import PageRequest
 
 REQUEST = PageRequest("10000000001", "paid", 1)
@@ -86,16 +86,6 @@ def test_source_locale_refusee_en_prod(samples):
         LocalSource("prod", samples)
 
 
-def test_source_reseau_refusee_en_dev():
-    with pytest.raises(SourceError, match="qu'en prod"):
-        NetworkSource("dev")
-
-
-def test_source_reseau_pas_encore_ecrite():
-    with pytest.raises(SourceError, match="pas encore écrite"):
-        NetworkSource("prod")
-
-
 def test_choix_en_dev(samples):
     source = make_source("dev", {"BOOKS_SAMPLES_DIR": str(samples)})
     assert isinstance(source, LocalSource)
@@ -107,8 +97,9 @@ def test_dev_sans_dossier_des_pages(samples):
 
 
 def test_prod_n_utilise_jamais_la_source_locale(samples):
-    # Même si BOOKS_SAMPLES_DIR traîne dans l'environnement de prod, la source locale n'est pas choisie
-    with pytest.raises(SourceError, match="source réseau"):
+    # Même si BOOKS_SAMPLES_DIR traîne dans l'environnement de prod, les pages enregistrées à la main
+    # ne sont jamais lues : la prod ingère les captures de inbox/ (décision 008)
+    with pytest.raises(SourceError, match="ingère les captures"):
         make_source("prod", {"BOOKS_SAMPLES_DIR": str(samples)})
 
 

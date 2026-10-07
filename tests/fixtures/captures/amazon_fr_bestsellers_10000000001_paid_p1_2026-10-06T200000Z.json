@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "displayed_url": "https://www.amazon.fr/gp/bestsellers/digital-text/10000000001",
+  "captured_at": "2026-10-06T20:00:00Z",
+  "capture_method": "extension-dom",
+  "extension_version": "0.1.1",
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+  "html_sha256": "f6d027a5b16e56b80565d766adbb4bb5369b4c46e74fb3dd103d776aa3528028",
+  "html_bytes": 29767
+}
