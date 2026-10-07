@@ -121,6 +121,11 @@ Des notes datées du 6 octobre 2026 ont été ajoutées dans ces décisions, san
 
 ## Questions ouvertes, non tranchées
 
+> Note du 7 octobre 2026 : les quatre questions ci-dessous sont tranchées par la décision 008
+> (`008-ingestion-des-captures.md`) : transfert par script PowerShell et SSH, ingestion lancée dans la même connexion,
+> captures `blocked` et `invalid` déposées avec leur statut sans arrêt, quarantaine pour les captures non intègres,
+> doublons d'un même fichier ignorés, observations successives d'une même page conservées.
+
 - **Transfert des fichiers vers atlas** : les captures sont faites sur le PC ; comment, et par qui, rejoignent-elles
   `~/books-data` sur atlas ? Y compris (ajout du 6 octobre 2026, décision 007) : dans quel dossier du PC l'extension
   dépose-t-elle les captures ? L'extension propose `Téléchargements/books-captures/` sur le PC (proposition,

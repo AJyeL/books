@@ -13,6 +13,11 @@ Date : 5 octobre 2026 · Migration : `sql/migrations/003_statut_invalid.sql`
 >   sur des captures du DOM.
 > Le texte ci-dessous est conservé tel quel.
 
+> Note du 7 octobre 2026 : la décision 008 (ingestion des captures) met fin, à l'ingestion, à l'arrêt de sécurité :
+> une capture `blocked` ou `invalid` est déposée dans RAW avec son statut, et l'ingestion se poursuit.
+> Le code de sortie 3 et le statut de tournée `aborted` ne sont plus utilisés ; les codes deviennent 0 (sans anomalie),
+> 1 (au moins une anomalie) et 2 (configuration). La validation (quatre indices) est inchangée.
+
 ## Contexte
 
 Les décisions 001 (couche RAW), 002 (collecte responsable) et 003 (collecteur conteneurisé) posent le cadre.
