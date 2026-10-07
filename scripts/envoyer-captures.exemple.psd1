@@ -4,4 +4,6 @@
 @{
     # Dossier où l'extension dépose les captures sur ce PC ; envoyees\ y sera créé
     DossierCaptures = 'C:\Chemin\vers\books-captures'
+    # Facultatif : fichier de configuration SSH particulier (par défaut : celui de l'utilisateur)
+    # ConfigSsh = 'C:\Chemin\vers\ssh_config'
 }

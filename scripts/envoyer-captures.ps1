@@ -21,26 +21,34 @@
 
 .PARAMETER Reglages
     Fichier de réglage local (non versionné). Par défaut : envoyer-captures.local.psd1, à côté du script.
+    Clés acceptées : DossierCaptures (obligatoire), ConfigSsh (facultative).
 .PARAMETER HoteSsh
     Alias SSH d'atlas, défini dans la configuration SSH de l'utilisateur. Par défaut : atlas.
 .PARAMETER ConfigSsh
-    Fichier de configuration SSH particulier (tests) ; vide : celui de l'utilisateur.
+    Fichier de configuration SSH particulier (tests) ; à défaut, la clé ConfigSsh du réglage local ;
+    à défaut, la configuration SSH de l'utilisateur.
 .PARAMETER DepotDistant
     Dossier du dépôt sur atlas, relatif au dossier personnel. Par défaut : books.
 .PARAMETER DossierTravail
-    Dossier où l'archive est préparée, puis supprimée. Par défaut : le dossier temporaire de Windows.
+    Dossier où l'archive est préparée, puis supprimée. Par défaut : le dossier temporaire de Windows (TEMP).
 #>
 [CmdletBinding()]
 param(
-    [string]$Reglages = (Join-Path $PSScriptRoot 'envoyer-captures.local.psd1'),
+    [string]$Reglages = '',
     [string]$HoteSsh = 'atlas',
     [string]$ConfigSsh = '',
     [string]$DepotDistant = 'books',
-    [string]$DossierTravail = $env:TEMP
+    [string]$DossierTravail = ''
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+# Valeurs par défaut calculées ici, et non dans param() : sous PowerShell 5.1, $PSScriptRoot y est vide
+# quand le script est lancé par « powershell -File » (cas du lanceur .cmd).
+$dossierDuScript = Split-Path -Parent $MyInvocation.MyCommand.Path
+if (-not $Reglages) { $Reglages = Join-Path $dossierDuScript 'envoyer-captures.local.psd1' }
+if (-not $DossierTravail) { $DossierTravail = [IO.Path]::GetTempPath() }
 # Le bilan venu d'atlas est en UTF-8
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
 
@@ -60,6 +68,14 @@ if (-not (Test-Path -LiteralPath $Reglages -PathType Leaf)) {
     exit 2
 }
 $reglage = Import-PowerShellDataFile -LiteralPath $Reglages
+# Clés acceptées ; une clé inconnue (faute de frappe) arrête le script au lieu d'être ignorée
+$clesInconnues = @($reglage.Keys | Where-Object { $_ -cnotin 'DossierCaptures', 'ConfigSsh' })
+if ($clesInconnues.Count -gt 0) {
+    Write-Host "Réglage inconnu dans $Reglages : $($clesInconnues -join ', ') (acceptés : DossierCaptures, ConfigSsh)."
+    exit 2
+}
+# ConfigSsh (facultatif) : fichier de configuration SSH particulier ; le paramètre -ConfigSsh l'emporte
+if (-not $ConfigSsh -and $reglage.ContainsKey('ConfigSsh')) { $ConfigSsh = $reglage['ConfigSsh'] }
 $dossier = $reglage['DossierCaptures']
 if (-not $dossier -or -not (Test-Path -LiteralPath $dossier -PathType Container)) {
     Write-Host "Dossier des captures introuvable : '$dossier' (réglage DossierCaptures de $Reglages)."

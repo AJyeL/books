@@ -10,7 +10,16 @@ Lancement, depuis le dossier du dépôt, Docker Desktop démarré :
   Le mot de passe de test est fourni par SSH_ASKPASS, pour ce test seulement.
 - Fichiers de travail dans data\tests-envoi\ (ignoré par Git), supprimés à la fin.
 - Captures envoyées : les captures de test inventées de tests\fixtures\captures\.
+- Scénario du double-clic : copie du script et du lanceur .cmd dans data\tests-envoi\scripts\, avec un réglage
+  local de test à côté, puis lancement du .cmd sans aucun paramètre (valeurs par défaut). Le réglage désigne
+  une configuration SSH de test où l'alias « atlas » mène au faux atlas ; TEMP est redirigé dans data\.
+  Le vrai réglage local (scripts\envoyer-captures.local.psd1) n'est jamais lu ni modifié.
+
+Paramètre facultatif -ScriptEnvoi : version du script d'envoi à tester (par défaut, celle du dépôt),
+pour les contre-épreuves.
 #>
+param([string]$ScriptEnvoi = '')
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
@@ -21,7 +30,8 @@ $captures = Join-Path $racine 'captures'
 $travail = Join-Path $racine 'travail'
 $reglage = Join-Path $racine 'reglage.psd1'
 $configSsh = Join-Path $racine 'ssh_config'
-$envoi = Join-Path $depot 'scripts\envoyer-captures.ps1'
+# Chemin par défaut calculé ici, et non dans param() : sous PowerShell 5.1, $PSScriptRoot y est vide
+$envoi = if ($ScriptEnvoi) { (Resolve-Path -LiteralPath $ScriptEnvoi).Path } else { Join-Path $depot 'scripts\envoyer-captures.ps1' }
 $fixtures = Join-Path $depot 'tests\fixtures\captures'
 $conteneur = 'books-atlas-factice'
 $echecs = 0
@@ -67,8 +77,9 @@ Remove-Item -LiteralPath $racine -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $racine, $travail | Out-Null
 [IO.File]::WriteAllText($reglage, "@{ DossierCaptures = '$captures' }`n")
 $known = (Join-Path $racine 'known_hosts') -replace '\\', '/'
+# Deux alias pour le faux atlas : « atlas-factice » (paramètre explicite) et « atlas » (valeur par défaut du script)
 [IO.File]::WriteAllText($configSsh, @"
-Host atlas-factice
+Host atlas-factice atlas
     HostName 127.0.0.1
     Port 2222
     User arnaud
@@ -170,6 +181,39 @@ try {
     # 9. Réglage local absent
     $code = Invoke-Envoi (Join-Path $racine 'absent.psd1')
     Test-Condition 'réglage absent : code 2' ($code -eq 2)
+
+    # 10. Clé inconnue dans le réglage local (faute de frappe) : refusée, pas ignorée
+    $faute = Join-Path $racine 'faute.psd1'
+    [IO.File]::WriteAllText($faute, "@{ DossierCaptures = '$captures'; DossierCapture = 'x' }`n")
+    Reset-Scenario 0
+    $code = Invoke-Envoi $faute
+    Test-Condition 'clé inconnue dans le réglage : code 2' ($code -eq 2)
+    Test-Condition 'clé inconnue dans le réglage : rien envoyé' ((Invoke-Atlas 'ls -d ~/recues 2>/dev/null') -eq '')
+
+    # 11. Lancement exactement comme l'utilisateur : double-clic sur le .cmd, sans aucun paramètre
+    Reset-Scenario 0
+    $copie = Join-Path $racine 'scripts'
+    New-Item -ItemType Directory -Path $copie -Force | Out-Null
+    Copy-Item -LiteralPath $envoi -Destination (Join-Path $copie 'envoyer-captures.ps1')
+    Copy-Item -LiteralPath (Join-Path $depot 'scripts\envoyer-captures.cmd') -Destination $copie
+    [IO.File]::WriteAllText((Join-Path $copie 'envoyer-captures.local.psd1'),
+        "@{ DossierCaptures = '$captures'; ConfigSsh = '$configSsh' }`n")
+    # La touche attendue par « pause » est fournie par « echo. » ; lanceur intermédiaire sans espace dans le chemin.
+    # 2>&1 dans cmd.exe : les erreurs de lancement (sortie d'erreur) sont capturées avec la sortie normale.
+    $doubleClic = Join-Path $racine 'double-clic.cmd'
+    [IO.File]::WriteAllText($doubleClic, "@echo off`r`necho.| call `"$(Join-Path $copie 'envoyer-captures.cmd')`" 2>&1`r`nexit /b %ERRORLEVEL%`r`n")
+    $tempAvant = $env:TEMP
+    $env:TEMP = $travail  # valeur par défaut du dossier de travail (TEMP), sans écrire hors du dépôt
+    try {
+        $script:sortieEnvoi = & cmd.exe /d /c $doubleClic | Out-String
+        $code = $LASTEXITCODE
+    } finally {
+        $env:TEMP = $tempAvant
+    }
+    Test-Condition 'double-clic sans paramètre : pas d''erreur de lancement' ($sortieEnvoi -notmatch 'Join-Path|Impossible de lier')
+    Test-Condition 'double-clic sans paramètre : code 0' ($code -eq 0)
+    Test-Condition 'double-clic sans paramètre : captures rangées' (@(Get-Ranges).Count -eq 10 -and @(Get-Restants).Count -eq 0)
+    Test-Condition 'double-clic sans paramètre : dossier de travail vidé' (@(Get-ChildItem -LiteralPath $travail).Count -eq 0)
 }
 finally {
     & docker rm -f $conteneur | Out-Null

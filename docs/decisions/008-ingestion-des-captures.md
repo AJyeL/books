@@ -187,6 +187,21 @@ en place, pages 2 manquantes, informations. Le bilan affiché sur le PC reprend 
 >   rien à envoyer, collision). Le mot de passe y est fourni par `SSH_ASKPASS` : la saisie au clavier reste à vérifier
 >   lors du premier envoi réel ; un échec y serait sans danger (transfert échoué, rien déplacé).
 
+> Correction du 7 octobre 2026 : le premier envoi réel, lancé par `envoyer-captures.cmd`, a échoué avant toute
+> connexion (rien envoyé, rien déplacé). Sous PowerShell 5.1, `$PSScriptRoot` est vide dans les valeurs par défaut
+> de `param()` quand le script est lancé par `powershell -File` ; les tests passaient toujours les paramètres
+> explicitement, si bien que cette ligne n'avait jamais été exécutée.
+> - Les valeurs par défaut (réglage local, dossier de travail) sont désormais calculées dans le corps du script.
+> - Nouveau test : lancement par le `.cmd`, **sans aucun paramètre**, avec un réglage local de test ; contre-épreuve :
+>   il échoue avec l'ancienne version, sur l'erreur observée.
+> - Inventaire des valeurs par défaut que les tests ne traversaient pas : réglage local, alias `atlas`, configuration
+>   SSH de l'utilisateur, dossier de travail (TEMP), lanceur `.cmd`, vraie commande d'ingestion sur atlas.
+>   Toutes sont maintenant exécutées par un test, sauf la commande `ssh` sans `-F` (configuration SSH de
+>   l'utilisateur), vérifiée lors de l'envoi réel. La commande d'ingestion (`docker compose … run --rm -T collector`)
+>   a été exécutée telle quelle en développement.
+> - Le réglage local accepte une clé facultative `ConfigSsh`, et refuse toute clé inconnue (une faute de frappe
+>   dans une clé était auparavant ignorée en silence).
+
 ## Conséquences
 
 - Les quatre questions ouvertes de la décision 005 sont tranchées ; des notes datées l'indiquent dans les décisions
