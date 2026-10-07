@@ -50,8 +50,8 @@ class FakeSource:
         self.asked.append(request)
         content = self.pages[request] if request in self.pages else self.pages.get(request.node)
         if content is None:
-            return Fetched(content=None, origin="nulle part", error="absente")
-        return Fetched(content=content, origin=f"page {request.node}")
+            return Fetched(content=None, origin="nulle part", capture_method="manual-html", error="absente")
+        return Fetched(content=content, origin=f"page {request.node}", capture_method="manual-html")
 
 
 def page_for(fixture_page, node: str, fixture: str = "bestsellers_exemple.html") -> bytes:
@@ -278,3 +278,11 @@ def test_plafond_controle_pendant_la_tournee(fixture_page, tmp_path):
     assert source.asked == [P1, P2]
     assert repo.closed["status"] == "failed"
     assert "plafond de 2 requêtes" in repo.closed["notes"]
+
+
+def test_methode_de_capture_reportee_sur_chaque_ligne(fixture_page, tmp_path):
+    repo = FakeRepo()
+    source = FakeSource({P1: fixture_page("bestsellers_page1_complete.html"), P2: None})
+    run([P1], source, repo, tmp_path)
+    assert [(p.fetch_status, p.capture_method) for p in repo.pages] == [
+        ("ok", "manual-html"), ("network_error", "manual-html")]

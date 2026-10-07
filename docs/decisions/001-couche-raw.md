@@ -2,6 +2,13 @@
 
 Date : 4 octobre 2026 · Migration : `sql/migrations/001_couche_raw.sql`
 
+> Note du 7 octobre 2026 : la migration 004 (décision 008) ajoute à `raw.raw_page` la méthode de capture
+> (`capture_method` : `extension-dom` ou `manual-html`), l'emplacement du JSON de la capture déposé dans RAW
+> (`metadata_path`) et son empreinte (`metadata_sha256`). Les lignes antérieures gardent une méthode `NULL`
+> (« non enregistrée ») : aucune n'est modifiée. La méthode est obligatoire pour les nouvelles lignes par une
+> contrainte `NOT VALID` ; ne jamais la valider (`VALIDATE CONSTRAINT`), ce qui échouerait sur les lignes antérieures.
+> Un index unique partiel garantit qu'une capture de l'extension n'est déposée qu'une fois.
+
 ## Contexte
 
 B.O.O.K.S. collecte des pages amazon.fr (listes de meilleures ventes et fiches produit)

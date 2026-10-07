@@ -11,12 +11,13 @@
 --   - Test 4 : ERROR violation de la contrainte « raw_page_content_ck »
 --   - Vérification finale : runs_test = 0 et pages_test = 0, quelle que soit la quantité de vraies données
 -- Chaque test est annulé par ROLLBACK : aucune donnée n'est conservée.
+-- capture_method : obligatoire pour toute nouvelle ligne depuis la migration 004.
 
 -- Test 1 : une suppression doit être refusée
 BEGIN;
 INSERT INTO raw.collect_run (collector_version) VALUES ('test');
-INSERT INTO raw.raw_page (run_id, page_type, asin, requested_url, fetch_status)
-  VALUES ((SELECT max(id) FROM raw.collect_run), 'product', 'B0F8VVKM5S', 'https://test', 'network_error');
+INSERT INTO raw.raw_page (run_id, page_type, asin, requested_url, fetch_status, capture_method)
+  VALUES ((SELECT max(id) FROM raw.collect_run), 'product', 'B0F8VVKM5S', 'https://test', 'network_error', 'manual-html');
 DELETE FROM raw.raw_page;
 ROLLBACK;
 
@@ -28,15 +29,15 @@ ROLLBACK;
 -- Test 3 : un ASIN invalide doit être refusé
 BEGIN;
 INSERT INTO raw.collect_run (collector_version) VALUES ('test');
-INSERT INTO raw.raw_page (run_id, page_type, asin, requested_url, fetch_status)
-  VALUES ((SELECT max(id) FROM raw.collect_run), 'product', 'pas-un-asin', 'https://test', 'network_error');
+INSERT INTO raw.raw_page (run_id, page_type, asin, requested_url, fetch_status, capture_method)
+  VALUES ((SELECT max(id) FROM raw.collect_run), 'product', 'pas-un-asin', 'https://test', 'network_error', 'manual-html');
 ROLLBACK;
 
 -- Test 4 : une collecte « ok » sans fichier doit être refusée
 BEGIN;
 INSERT INTO raw.collect_run (collector_version) VALUES ('test');
-INSERT INTO raw.raw_page (run_id, page_type, asin, requested_url, fetch_status)
-  VALUES ((SELECT max(id) FROM raw.collect_run), 'product', 'B0F8VVKM5S', 'https://test', 'ok');
+INSERT INTO raw.raw_page (run_id, page_type, asin, requested_url, fetch_status, capture_method)
+  VALUES ((SELECT max(id) FROM raw.collect_run), 'product', 'B0F8VVKM5S', 'https://test', 'ok', 'manual-html');
 ROLLBACK;
 
 -- Vérification finale : aucune ligne créée par les tests ne doit subsister

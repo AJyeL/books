@@ -95,6 +95,15 @@ Tests SQL de la migration 003 (statut `invalid`), même principe :
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U books_collector -d "$POSTGRES_DB"' < tests/sql/test_003_statut_invalid.sql
 ```
 
+Tests SQL de la migration 004 (méthode de capture), même principe :
+
+```bash
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U books_collector -d "$POSTGRES_DB"' < tests/sql/test_004_methode_de_capture.sql
+```
+
+Les tests SQL supposent **toutes** les migrations appliquées : depuis la 004, leurs lignes de test portent
+une méthode de capture.
+
 ## Restauration d'une sauvegarde
 
 Une sauvegarde `pg_dump` (voir `scripts/backup.sh`) ne contient **ni les rôles, ni les droits portant

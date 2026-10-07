@@ -25,6 +25,7 @@ class PageRecord:
     request: PageRequest
     fetched_at: datetime
     fetch_status: str
+    capture_method: str  # obligatoire pour toute nouvelle ligne (migration 004)
     error_message: str | None = None
     http_status: int | None = None
     final_url: str | None = None
@@ -62,8 +63,8 @@ class PgRepository:
             INSERT INTO raw.raw_page (
                 run_id, page_type, category_node, list_type, page_number,
                 requested_url, final_url, fetched_at, http_status, fetch_status, error_message,
-                content_sha256, content_bytes, storage_path)
-            VALUES (%s, 'bestseller_list', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                content_sha256, content_bytes, storage_path, capture_method)
+            VALUES (%s, 'bestseller_list', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (
@@ -73,6 +74,7 @@ class PgRepository:
                 stored.sha256 if stored else None,
                 stored.size if stored else None,
                 stored.relative_path if stored else None,
+                record.capture_method,
             ),
         ).fetchone()
         return page_id

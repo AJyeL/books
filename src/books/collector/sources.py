@@ -16,6 +16,10 @@ from typing import Protocol
 from books.collector.targets import PageRequest
 
 
+# Pages enregistrées à la main (Ctrl+S, « HTML uniquement ») : développement uniquement (décision 007)
+MANUAL_HTML = "manual-html"
+
+
 class SourceError(Exception):
     """Source impossible à construire (mauvais environnement, configuration absente)."""
 
@@ -26,6 +30,9 @@ class Fetched:
 
     content: bytes | None
     origin: str  # d'où vient la page (nom du fichier local, adresse demandée…), pour le journal
+    # Méthode de capture enregistrée dans RAW (migration 004) : « manual-html » pour une page
+    # enregistrée à la main, « extension-dom » pour une capture de l'extension (décision 007)
+    capture_method: str
     http_status: int | None = None
     final_url: str | None = None
     error: str | None = None  # renseigné si aucun contenu n'a été obtenu
@@ -60,10 +67,10 @@ class LocalSource:
         # La date AAAA-MM-JJ en fin de nom : l'ordre alphabétique est l'ordre chronologique
         candidates = sorted(p for p in self.samples_dir.glob(pattern) if exact.fullmatch(p.name))
         if not candidates:
-            return Fetched(content=None, origin=str(self.samples_dir),
+            return Fetched(content=None, origin=str(self.samples_dir), capture_method=MANUAL_HTML,
                            error=f"aucune page enregistrée ({pattern}) dans {self.samples_dir}")
         path = candidates[-1]
-        return Fetched(content=path.read_bytes(), origin=path.name)
+        return Fetched(content=path.read_bytes(), origin=path.name, capture_method=MANUAL_HTML)
 
 
 class NetworkSource:

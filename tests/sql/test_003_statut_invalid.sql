@@ -6,6 +6,7 @@
 -- Les tests se vérifient eux-mêmes : chaque vérification réussie affiche « NOTICE:  OK … »,
 -- et psql s'arrête au premier « ÉCHEC » (code de sortie 0 = tout est conforme).
 -- Tout se déroule dans une transaction annulée par ROLLBACK : aucune donnée n'est conservée.
+-- capture_method : obligatoire pour toute nouvelle ligne depuis la migration 004.
 
 BEGIN;
 
@@ -23,25 +24,35 @@ BEGIN
 
     -- Test 1 : une page invalide, avec son fichier conservé pour diagnostic, est acceptée
     INSERT INTO raw.raw_page (run_id, page_type, category_node, list_type, page_number, requested_url,
-                              fetch_status, error_message, content_sha256, content_bytes, storage_path)
+                              fetch_status, error_message, content_sha256, content_bytes, storage_path,
+                              capture_method)
         VALUES (run_id, 'bestseller_list', '10000000001', 'paid', 1, 'https://test',
-                'invalid', 'test', repeat('0', 64), 1, 'test');
+                'invalid', 'test', repeat('0', 64), 1, 'test', 'manual-html');
     RAISE NOTICE 'OK test 1 : statut invalid accepté avec fichier';
 
     -- Test 2 : une page invalide sans fichier est acceptée aussi (seul « ok » exige un fichier)
     INSERT INTO raw.raw_page (run_id, page_type, category_node, list_type, page_number, requested_url,
-                              fetch_status)
-        VALUES (run_id, 'bestseller_list', '10000000001', 'paid', 1, 'https://test', 'invalid');
+                              fetch_status, capture_method)
+        VALUES (run_id, 'bestseller_list', '10000000001', 'paid', 1, 'https://test', 'invalid', 'manual-html');
     RAISE NOTICE 'OK test 2 : statut invalid accepté sans fichier';
 
     -- Test 3 : un statut inconnu reste refusé par la contrainte
     BEGIN
         INSERT INTO raw.raw_page (run_id, page_type, category_node, list_type, page_number, requested_url,
-                                  fetch_status)
-            VALUES (run_id, 'bestseller_list', '10000000001', 'paid', 1, 'https://test', 'inconnu');
+                                  fetch_status, capture_method)
+            VALUES (run_id, 'bestseller_list', '10000000001', 'paid', 1, 'https://test', 'inconnu', 'manual-html');
         RAISE EXCEPTION 'ÉCHEC test 3 : statut inconnu accepté';
     EXCEPTION WHEN check_violation THEN
-        RAISE NOTICE 'OK test 3 : statut inconnu refusé (%)', SQLERRM;
+        -- Le refus doit venir de la contrainte du statut, et pas d'une autre
+        DECLARE
+            violated text;
+        BEGIN
+            GET STACKED DIAGNOSTICS violated = CONSTRAINT_NAME;
+            IF violated IS DISTINCT FROM 'raw_page_fetch_status_check' THEN
+                RAISE EXCEPTION 'ÉCHEC test 3 : refusé par % au lieu de raw_page_fetch_status_check', violated;
+            END IF;
+        END;
+        RAISE NOTICE 'OK test 3 : statut inconnu refusé par raw_page_fetch_status_check';
     END;
 END;
 $$;

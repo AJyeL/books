@@ -27,8 +27,9 @@ BEGIN
 
     -- Test 1 : INSERT accepté dans les deux tables (identifiants générés, sans droit sur les séquences)
     INSERT INTO raw.collect_run (collector_version) VALUES ('test') RETURNING id INTO run_id;
-    INSERT INTO raw.raw_page (run_id, page_type, asin, requested_url, fetch_status)
-        VALUES (run_id, 'product', 'B0F8VVKM5S', 'https://test', 'network_error')
+    -- capture_method : obligatoire pour toute nouvelle ligne depuis la migration 004
+    INSERT INTO raw.raw_page (run_id, page_type, asin, requested_url, fetch_status, capture_method)
+        VALUES (run_id, 'product', 'B0F8VVKM5S', 'https://test', 'network_error', 'manual-html')
         RETURNING id INTO page_id;
     RAISE NOTICE 'OK test 1 : INSERT accepté (collect_run %, raw_page %)', run_id, page_id;
 

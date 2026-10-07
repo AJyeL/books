@@ -1,6 +1,6 @@
 # 008 — Ingestion des captures
 
-Date : 7 octobre 2026
+Date : 7 octobre 2026 · Migration : `sql/migrations/004_methode_de_capture.sql` (étape 1 du code)
 
 ## Contexte
 

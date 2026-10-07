@@ -85,7 +85,7 @@ def collect(
             if fetched.content is None:
                 repo.record_page(run.id, PageRecord(
                     request=request, fetched_at=fetched_at, fetch_status=fetched.error_status,
-                    error_message=fetched.error, http_status=fetched.http_status,
+                    capture_method=fetched.capture_method, error_message=fetched.error, http_status=fetched.http_status,
                     final_url=fetched.final_url,
                 ))
                 pages_failed += 1
@@ -98,7 +98,7 @@ def collect(
             stored = store_raw(raw_dir, raw_relative_path(run.id, run.started_at, request), fetched.content)
             repo.record_page(run.id, PageRecord(
                 request=request, fetched_at=fetched_at, fetch_status=verdict.status,
-                error_message=verdict.reason, http_status=fetched.http_status,
+                capture_method=fetched.capture_method, error_message=verdict.reason, http_status=fetched.http_status,
                 final_url=fetched.final_url, stored=stored,
             ))
 

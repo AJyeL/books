@@ -116,3 +116,10 @@ def test_prod_n_utilise_jamais_la_source_locale(samples):
 def test_environnement_inconnu(samples, env):
     with pytest.raises(SourceError, match="aucune source"):
         make_source(env, {"BOOKS_SAMPLES_DIR": str(samples)})
+
+
+def test_source_locale_methode_manual_html(samples):
+    # Méthode enregistrée dans RAW (migration 004), y compris pour une page non trouvée
+    source = LocalSource("dev", samples)
+    assert source.fetch(REQUEST).capture_method == "manual-html"
+    assert source.fetch(PageRequest("10000000003", "paid", 1)).capture_method == "manual-html"
