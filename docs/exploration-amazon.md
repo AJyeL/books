@@ -234,3 +234,66 @@ et Top 100 gratuits page 1. Étude hors ligne, mêmes contrôles que pour Fantas
 - Aucun ASIN commun entre le Top payant (pages 1 et 2) et le Top gratuit.
 - Limite : la page 1 payante date du 5 octobre, les deux autres du 6 ; l'absence d'ASIN commun entre pages
   de jours différents n'a donc pas la même portée qu'entre pages du même jour.
+
+## Premières captures de l'extension (7 octobre 2026)
+
+Une séance complète capturée le 7 octobre 2026 par l'extension (version 0.1.1, format de la décision 007) :
+7 captures, Top payant et Top gratuit des deux catégories, pages 1 et 2 quand elles existent. Étude hors ligne,
+fichiers ouverts en lecture seule ; ils restent hors du dépôt. Aucune valeur réelle ci-dessous.
+
+### Intégrité (décision 007, section 6)
+Contrôle indépendant de l'extension, fondé sur le seul contrat : **7 captures conformes, 0 anomalie**.
+- Jumeaux `.html` et `.json` présents ; aucun fichier hors format ni orphelin.
+- JSON : les 8 champs du schéma version 1, avec leurs types ; `capture_method` = `extension-dom`.
+- `captured_at` identique à l'horodatage du nom ; catégorie, liste et page déduites de `displayed_url`
+  (règles de la section 2 et de ses compléments) identiques au nom.
+- `html_sha256` et `html_bytes` exacts ; HTML et JSON en UTF-8 sans BOM.
+- Chaque HTML commence par `<!DOCTYPE html><html`, sans séparateur, comme le prévoit la section 3.
+- Formes d'adresses affichées observées (valeurs retirées) : page 1 payante sans paramètre ;
+  `…/ref=zg_bs?ie=UTF8&tf=1` (gratuit) ; `…/ref=zg_bs_pg_2_digital-text?ie=UTF8&pg=2` (page 2),
+  avec `&tf=1` pour la page 2 gratuite.
+
+### Capture DOM et HTML brut : comparaison de structure
+Comparaison d'une capture (Top payant p1 de Fantasy épique, 7 octobre) avec l'échantillon brut de la même liste
+(5 octobre). Jours différents : seule la structure est comparée, jamais les données.
+
+| Mesure | HTML brut | Capture DOM |
+|---|---|---|
+| Taille | 494 Ko | 511 Ko |
+| Balises | 2 055 | 2 373 |
+| Scripts en ligne / externes | 90 / 1 | 89 / 12 |
+| Octets dans les scripts | 241 Ko | 233 Ko |
+| Cartes `gridItemRoot` | 30 | 30 |
+| Attributs `data-client-recs-list` | 1 | 1 |
+
+- **Taille** : les captures DOM (500 à 522 Ko) sont légèrement plus lourdes que le HTML brut (474 à 497 Ko pour
+  les 6 échantillons enregistrés en « HTML uniquement »). Les fichiers d'environ 1,2 Mo étaient les pages enveloppées
+  par `view-source:`, pas le source brut.
+- **Ce qui apparaît** (ajouté par les scripts de la page après le chargement) : 11 scripts externes chargés
+  dynamiquement, un `iframe`, 26 éléments `aria-modal` (fenêtres surgissantes préparées), des attributs de mesure
+  d'audience (`data-csa-c-id`, `data-mix-*`), des `onclick` ; classes de détection sur `<html>`
+  (`a-js`… au lieu de `a-no-js`) ; un `tbody` (inséré par le navigateur dans tout tableau) ; environ 230 `div` de plus.
+- **Ce qui disparaît** : les attributs de contenu différé (`data-acp-path`, `data-acp-params`, `data-acp-stamp`),
+  remplacés par le contenu chargé ; quelques sauts de ligne (sérialisation par le navigateur).
+- **Ce qui ne change pas** : le texte des scripts en ligne est conservé ; une seule liste `data-client-recs-list` ;
+  30 cartes détaillées. Les captures ont été faites sans défilement : aucune carte supplémentaire chargée.
+  Une capture après défilement pourrait en contenir davantage (non observé).
+
+### Les quatre indices de la décision 004 dans le DOM
+Sur les 7 captures :
+- **canonical** : un seul lien, égal à l'adresse canonique de la catégorie ;
+- **onglet actif** : un seul `span aria-current="page"` dans la rangée d'onglets, du type du nom ;
+- **pagination** : page active égale à la page du nom ; « Page 2 » annoncée sur les pages 1 des listes de 50 rangs ;
+  aucun bloc de pagination pour le Top gratuit court ;
+- **rangs** : une seule liste classée ; 50 rangs (1 à 50 en page 1, 51 à 100 en page 2), sauf le Top gratuit
+  de Fantasy épique : **46 rangs** (45 le 5 octobre), sans pagination, donc sans page 2. D'où 7 captures et non 8.
+- 30 cartes détaillées par capture ; aucune occurrence du mot « captcha ».
+
+### Validation actuelle sur les captures
+Validation du collecteur (décision 004, quatre indices), sans aucune modification, lancée sur chaque capture
+avec la demande correspondant à son nom : **7 captures `ok`**, sans raison ni note ; « page 2 annoncée » vrai
+pour les 3 pages 1 de 50 rangs, faux ailleurs. La réserve de la décision 005 (« validation à vérifier sur les captures
+DOM ») est levée pour ces 7 captures.
+
+Limites : une seule séance, un seul jour, une seule version de l'extension et de Chrome ; captures sans défilement.
+À revérifier si l'extension, le navigateur ou la façon de consulter les pages changent.
