@@ -17,6 +17,10 @@ Date : 5 octobre 2026 · Migration : `sql/migrations/003_statut_invalid.sql`
 > une capture `blocked` ou `invalid` est déposée dans RAW avec son statut, et l'ingestion se poursuit.
 > Le code de sortie 3 et le statut de tournée `aborted` ne sont plus utilisés ; les codes deviennent 0 (sans anomalie),
 > 1 (au moins une anomalie) et 2 (configuration). La validation (quatre indices) est inchangée.
+> Précision du même jour (étape 3 du code de la décision 008) : la tournée de développement suit les mêmes règles.
+> Une page `blocked` ou `invalid` y est déposée avec son statut et la tournée continue ; une page non obtenue est
+> une anomalie (`partial`) ; `failed` est réservé aux erreurs d'exécution. La règle des deux signaux de page 2
+> (`next_page`) est commune à la tournée de développement et à l'ingestion.
 
 ## Contexte
 

@@ -95,7 +95,8 @@ def test_page_non_obtenue_tournee_partielle(fixture_page, tmp_path):
 def test_aucune_page_obtenue_tournee_en_echec(tmp_path):
     repo = FakeRepo()
     result = run([R1, R2], FakeSource({}), repo, tmp_path)
-    assert result.status == "failed"
+    # Le programme a fonctionné : anomalies, pas erreur d'exécution (décision 008)
+    assert result.status == "partial" and EXIT_CODES[result.status] == 1
     assert (repo.closed["pages_ok"], repo.closed["pages_failed"]) == (0, 2)
 
 
@@ -104,7 +105,7 @@ def test_aucune_page_obtenue_tournee_en_echec(tmp_path):
     ("bestsellers_sans_rang.html", "invalid"),
     ("bestsellers_autre_categorie.html", "invalid"),
 ])
-def test_page_anormale_arrete_la_tournee(fixture_page, tmp_path, fixture, status):
+def test_page_anormale_deposee_et_tournee_continue(fixture_page, tmp_path, fixture, status):
     repo = FakeRepo()
     source = FakeSource({
         R1.node: page_for(fixture_page, R1.node),
@@ -113,17 +114,17 @@ def test_page_anormale_arrete_la_tournee(fixture_page, tmp_path, fixture, status
     })
     result = run([R1, R2, R3], source, repo, tmp_path)
 
-    assert result.status == "aborted" and EXIT_CODES[result.status] == 3
-    # La 3e catégorie n'est jamais demandée : arrêt immédiat
-    assert source.asked == [R1, R2]
-    assert [p.fetch_status for p in repo.pages] == ["ok", status]
+    assert result.status == "partial" and EXIT_CODES[result.status] == 1
+    # La tournée continue : la 3e catégorie est demandée et déposée (décision 008)
+    assert source.asked == [R1, R2, R3]
+    assert [p.fetch_status for p in repo.pages] == ["ok", status, "ok"]
     # La page anormale est conservée dans RAW, avec la raison du rejet
     anomalous = repo.pages[1]
     assert anomalous.stored is not None
     assert (tmp_path / anomalous.stored.relative_path).exists()
     assert anomalous.error_message
-    assert (repo.closed["pages_ok"], repo.closed["pages_failed"]) == (1, 1)
-    assert f"Arrêt : {R2.label}" in repo.closed["notes"]
+    assert (repo.closed["pages_ok"], repo.closed["pages_failed"]) == (2, 1)
+    assert f"Anomalie : {R2.label} : {status}" in repo.closed["notes"]
 
 
 def test_titre_captcha_ne_bloque_pas(fixture_page, tmp_path):
@@ -161,12 +162,12 @@ def test_fichier_existant_jamais_ecrase(fixture_page, tmp_path):
     assert repo.closed["status"] == "failed"
 
 
-def test_page_gratuite_servie_pour_le_payant_arrete_la_tournee(fixture_page, tmp_path):
+def test_page_gratuite_servie_pour_le_payant_refusee(fixture_page, tmp_path):
     # Le cas qui a motivé la triangulation : même catégorie, même canonical, mauvaise liste
     repo = FakeRepo()
     source = FakeSource({R1.node: fixture_page("bestsellers_gratuit.html")})
     result = run([R1], source, repo, tmp_path)
-    assert result.status == "aborted"
+    assert result.status == "partial"
     assert repo.pages[0].fetch_status == "invalid"
     assert "onglet actif" in repo.pages[0].error_message
 
@@ -210,7 +211,7 @@ def test_liste_courte_sans_page_2_ni_manquante(fixture_page, tmp_path):
     assert source.asked == [P1]
     assert result.status == "success"
     assert (repo.closed["pages_ok"], repo.closed["pages_failed"]) == (1, 0)
-    assert "non demandée" not in repo.closed["notes"]  # signaux concordants : rien d'anormal
+    assert "non attendue" not in repo.closed["notes"]  # signaux concordants : rien d'anormal
 
 
 def test_50_rangs_sans_pagination_divergence_signalee(fixture_page, tmp_path):
@@ -221,7 +222,7 @@ def test_50_rangs_sans_pagination_divergence_signalee(fixture_page, tmp_path):
     assert source.asked == [P1]
     assert result.status == "success"
     assert repo.closed["pages_failed"] == 0
-    assert "50 rangs, mais la pagination n'annonce pas de page 2 : page 2 non demandée" in repo.closed["notes"]
+    assert "50 rangs, mais la pagination n'annonce pas de page 2 : page 2 non attendue" in repo.closed["notes"]
 
 
 def test_page_2_annoncee_mais_moins_de_50_rangs_divergence_signalee(fixture_page, tmp_path):
@@ -247,11 +248,11 @@ def test_page_1_absente_page_2_jamais_demandee(tmp_path):
     source = FakeSource({P1: None})
     result = run([P1], source, repo, tmp_path)
     assert source.asked == [P1]
-    assert result.status == "failed"
+    assert result.status == "partial"
     assert repo.closed["pages_failed"] == 1  # seule la page 1 compte comme manquante
 
 
-def test_page_2_non_conforme_arrete_la_tournee(fixture_page, tmp_path):
+def test_page_2_non_conforme_tournee_continue(fixture_page, tmp_path):
     repo = FakeRepo()
     source = FakeSource({
         P1: fixture_page("bestsellers_page1_complete.html"),
@@ -259,9 +260,9 @@ def test_page_2_non_conforme_arrete_la_tournee(fixture_page, tmp_path):
         F1: fixture_page("bestsellers_gratuit.html"),
     })
     result = run([P1, F1], source, repo, tmp_path)
-    assert result.status == "aborted"
-    assert source.asked == [P1, P2]  # le Top gratuit n'est jamais demandé
-    assert repo.pages[1].fetch_status == "invalid"
+    assert result.status == "partial"
+    assert source.asked == [P1, P2, F1]  # le Top gratuit est demandé malgré la page 2 non conforme
+    assert [p.fetch_status for p in repo.pages] == ["ok", "invalid", "ok"]
     assert "page active 1, page demandée : 2" in repo.pages[1].error_message
 
 
@@ -286,3 +287,8 @@ def test_methode_de_capture_reportee_sur_chaque_ligne(fixture_page, tmp_path):
     run([P1], source, repo, tmp_path)
     assert [(p.fetch_status, p.capture_method) for p in repo.pages] == [
         ("ok", "manual-html"), ("network_error", "manual-html")]
+
+
+def test_codes_de_sortie():
+    # Décision 008 : plus de code 3 ni de statut « aborted »
+    assert EXIT_CODES == {"success": 0, "partial": 1, "failed": 1}

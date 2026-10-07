@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 import pytest
 
 from books.collector.ingestion import ingest
+from books.collector.run import EXIT_CODES
 from books.collector.repository import RunInfo
 from conftest import FIXTURES
 
@@ -85,12 +86,12 @@ def inbox_files(captures):
 
 def test_depot_d_une_capture(dirs):
     captures, raw = dirs
-    add(captures, PAID_P1)
+    add(captures, PAID_P1, PAID_P2)  # la page 1 (50 rangs) annonce une page 2 : elle est dans le lot
     repo = FakeRepo()
     result = run(dirs, repo)
 
     assert result.status == "success"
-    (run_id, record), = repo.pages
+    (run_id, record), _ = repo.pages
     assert record.capture_method == "extension-dom"
     assert record.fetch_status == "ok"
     assert record.fetched_at == datetime(2026, 10, 6, 20, 0, 0, tzinfo=UTC)  # captured_at
@@ -132,7 +133,7 @@ def test_plusieurs_lots_dans_l_ordre(dirs):
 
 def test_deux_observations_de_la_meme_page(dirs):
     captures, _ = dirs
-    add(captures, PAID_P1)
+    add(captures, PAID_P1, PAID_P2)
     lot_dir = captures / "inbox" / LOT
     # Seconde capture de la même page, une minute plus tard : contenu différent, deux observations conservées
     stem2 = PAID_P1.replace("T200000Z", "T200100Z")
@@ -145,8 +146,9 @@ def test_deux_observations_de_la_meme_page(dirs):
     (lot_dir / f"{stem2}.json").write_text(json.dumps(data), encoding="utf-8")
     repo = FakeRepo()
     assert run(dirs, repo).status == "success"
-    assert len(repo.pages) == 2
-    assert len({r.stored.relative_path for _, r in repo.pages}) == 2  # deux fichiers RAW distincts
+    paid_p1 = [r for _, r in repo.pages if r.request.page_number == 1]
+    assert len(paid_p1) == 2
+    assert len({r.stored.relative_path for r in paid_p1}) == 2  # deux fichiers RAW distincts
 
 
 def test_inbox_vide(dirs):
@@ -184,29 +186,33 @@ def test_fichiers_hors_format_et_orphelins(dirs):
     assert len(repo.pages) == 1
     notes = repo.last["notes"]
     assert "nom hors format" in notes and "JSON orphelin" in notes and "HTML orphelin" in notes
-    assert "perdu.txt : signalé, laissé en place" in notes
+    assert "perdu.txt : fichier hors de tout lot" in notes
     assert inbox_files(captures) == ["perdu.txt"]  # seul l'élément sans lot reste
 
 
-def test_capture_blocked_deposee_puis_arret_provisoire(dirs):
+def test_capture_blocked_deposee_et_ingestion_continue(dirs):
     captures, _ = dirs
     # Ordre des noms : …_paid_p1_… (page de vérification) avant …_paid_p2_…
     add(captures, CAPTCHA, PAID_P2)
     repo = FakeRepo()
     result = run(dirs, repo)
-    # Étape 2 : déposée avec son statut, puis arrêt (poursuite sans arrêt à l'étape 3)
-    assert result.status == "aborted"
-    assert [r.fetch_status for _, r in repo.pages] == ["blocked"]
-    assert inbox_files(captures) == [LOT, f"{LOT}/{PAID_P2}.html", f"{LOT}/{PAID_P2}.json"]
+    # Déposée avec son statut, et la suite est traitée (décision 008)
+    assert result.status == "partial" and EXIT_CODES[result.status] == 1
+    assert [r.fetch_status for _, r in repo.pages] == ["blocked", "ok"]
+    assert inbox_files(captures) == []
+    assert len(result.report.rejected_pages) == 1
+    assert result.report.rejected_pages[0].startswith(f"{LOT}/{CAPTCHA} : blocked : CAPTCHA détecté")
 
 
 def test_plafond_de_captures(dirs):
     captures, _ = dirs
     add(captures, PAID_P1, PAID_P2, FREE_P1)
     repo = FakeRepo()
-    run(dirs, repo, max_captures=2)
+    result = run(dirs, repo, max_captures=2)
     assert len(repo.pages) == 2
-    assert "Plafond de 2 captures atteint" in repo.last["notes"]
+    assert result.report.cap_reached.startswith("2 captures atteint")
+    assert result.report.anomalies == 1
+    assert repo.last["status"] == "partial"  # des captures restent dans inbox/ : anomalie
     assert len(inbox_files(captures)) == 3  # le lot et les deux fichiers de la troisième capture
 
 
@@ -227,7 +233,7 @@ def test_meme_fichier_recu_deux_fois(dirs):
 
 def test_interruption_apres_les_fichiers_avant_la_ligne(dirs, monkeypatch):
     captures, raw = dirs
-    add(captures, PAID_P1)
+    add(captures, FREE_P1)  # aucune page 2 attendue : seule l'interruption est testée
     repo = FakeRepo()
 
     def broken(run_id, record):
@@ -298,3 +304,158 @@ def test_interruption_entre_le_json_et_le_html(dirs, monkeypatch):
 def test_dossier_inbox_absent(tmp_path):
     with pytest.raises(FileNotFoundError, match="inbox"):
         ingest(tmp_path, PERIMETER, FakeRepo(), tmp_path, "0.1.0", log=lambda m: None)
+
+
+# --- Page 2 manquante au sein du lot, bilan, statuts ---------------------------------------
+
+def make_capture(lot_dir, fixture, node, list_type, page, stamp, url_tail=""):
+    """Capture conforme (décision 007) construite à partir d'une fausse page : empreinte et taille exactes."""
+    import json
+    page_html = (FIXTURES / fixture).read_text(encoding="utf-8").replace("10000000001", node)
+    html = ("<!DOCTYPE html>" + page_html[len("<!doctype html>"):]).encode("utf-8")
+    stem = f"amazon_fr_bestsellers_{node}_{list_type}_p{page}_{stamp}"
+    meta = {"schema_version": 1,
+            "displayed_url": f"https://www.amazon.fr/gp/bestsellers/digital-text/{node}{url_tail}",
+            "captured_at": f"{stamp[:13]}:{stamp[13:15]}:{stamp[15:17]}Z",
+            "capture_method": "extension-dom", "extension_version": "0.1.1", "user_agent": "test",
+            "html_sha256": hashlib.sha256(html).hexdigest(), "html_bytes": len(html)}
+    lot_dir.mkdir(parents=True, exist_ok=True)
+    (lot_dir / f"{stem}.html").write_bytes(html)
+    (lot_dir / f"{stem}.json").write_text(json.dumps(meta), encoding="utf-8")
+    return stem
+
+
+def test_page_2_manquante_dans_le_lot(dirs):
+    captures, _ = dirs
+    add(captures, PAID_P1)  # 50 rangs, page 2 annoncée, mais pas de page 2 dans le lot
+    repo = FakeRepo()
+    result = run(dirs, repo)
+    assert result.status == "partial"
+    assert result.report.missing_page2 == [f"10000000001 paid : page 2 annoncée, absente du lot {LOT}"]
+    assert result.report.anomalies == 1
+
+
+def test_page_2_presente_dans_le_lot(dirs):
+    captures, _ = dirs
+    add(captures, PAID_P1, PAID_P2)
+    repo = FakeRepo()
+    result = run(dirs, repo)
+    assert result.status == "success"
+    assert result.report.missing_page2 == []
+
+
+def test_page_2_dans_un_autre_lot_est_manquante(dirs):
+    captures, _ = dirs
+    add(captures, PAID_P1, lot="2026-10-06T201500Z")
+    add(captures, PAID_P2, lot="2026-10-06T230000Z")  # autre séance
+    repo = FakeRepo()
+    result = run(dirs, repo)
+    assert result.status == "partial"
+    assert "absente du lot 2026-10-06T201500Z" in repo.last["notes"]
+    assert len(repo.pages) == 2  # les deux pages sont déposées, l'absence est seulement signalée
+
+
+def test_page_2_en_quarantaine_pas_comptee_deux_fois(dirs):
+    import json
+    captures, _ = dirs
+    lot_dir = add(captures, PAID_P1, PAID_P2)
+    meta = json.loads((lot_dir / f"{PAID_P2}.json").read_text(encoding="utf-8"))
+    meta["html_bytes"] += 1  # page 2 non intègre : quarantaine
+    (lot_dir / f"{PAID_P2}.json").write_text(json.dumps(meta), encoding="utf-8")
+    repo = FakeRepo()
+    result = run(dirs, repo)
+    assert len(result.report.quarantined) == 1
+    assert result.report.missing_page2 == []  # présente dans le lot : signalée une seule fois
+    assert result.report.anomalies == 1
+
+
+def test_signaux_divergents_information_sans_anomalie(dirs):
+    captures, _ = dirs
+    make_capture(captures / "inbox" / LOT, "bestsellers_page1_complete_sans_pagination.html",
+                 "10000000001", "paid", 1, "2026-10-06T200000Z")
+    repo = FakeRepo()
+    result = run(dirs, repo)
+    assert result.status == "success"  # 50 rangs sans annonce : information seulement
+    assert result.report.missing_page2 == []
+    assert any("50 rangs, mais la pagination n'annonce pas de page 2 : page 2 non attendue" in i
+               for i in result.report.information)
+
+
+def test_liste_courte_sans_page_2(dirs):
+    captures, _ = dirs
+    make_capture(captures / "inbox" / LOT, "bestsellers_liste_courte.html", "10000000001", "paid", 1,
+                 "2026-10-06T200000Z")
+    repo = FakeRepo()
+    assert run(dirs, repo).status == "success"
+    assert "liste courte (45 rangs sur 50)" in repo.last["notes"]
+
+
+def test_page_1_deja_ingeree_pas_revérifiee(dirs):
+    captures, _ = dirs
+    add(captures, PAID_P1)
+    repo = FakeRepo()
+    run(dirs, repo)  # 1re fois : page 2 manquante signalée
+    add(captures, PAID_P1, lot="2026-10-06T220000Z")
+    result = run(dirs, repo)
+    assert result.status == "success"  # 2e fois : déjà ingérée, pas de nouvelle alerte
+    assert result.report.already == 1 and result.report.missing_page2 == []
+
+
+def test_bilan_complet(dirs):
+    captures, _ = dirs
+    add(captures, CAPTCHA, PAID_P2, OUTSIDE)
+    (captures / "inbox" / "perdu.txt").write_text("x")
+    repo = FakeRepo()
+    result = run(dirs, repo)
+    report = result.report
+    assert report.lots == [LOT]
+    assert report.deposited == {"ok": 1, "blocked": 1, "invalid": 0}
+    assert len(report.rejected_pages) == 1 and len(report.quarantined) == 1 and len(report.left_in_place) == 1
+    assert report.missing_page2 == [] and report.anomalies == 3 and report.status == "partial"
+
+
+def test_inbox_vide_bilan_success(dirs):
+    repo = FakeRepo()
+    run(dirs, repo)
+    assert repo.last["notes"].splitlines()[-1] == "Résultat : success, 0 anomalie(s) — code de sortie 0"
+
+
+def test_erreur_d_execution_statut_failed(dirs, monkeypatch):
+    captures, _ = dirs
+    add(captures, PAID_P1)
+    repo = FakeRepo()
+    monkeypatch.setattr(repo, "record_page", lambda run_id, record: (_ for _ in ()).throw(RuntimeError("panne")))
+    with pytest.raises(RuntimeError):
+        run(dirs, repo)
+    assert repo.last["status"] == "failed"
+    assert repo.last["notes"].splitlines()[-1] == "Résultat : failed, 0 anomalie(s) — code de sortie 1"
+    assert "RuntimeError : panne" in repo.last["notes"]
+
+
+# Bilan de référence, écrit en dur : il vérifie la mise en forme elle-même (alignement des libellés
+# sur 19 caractères, ordre des rubriques, puces, ligne de résultat), que les autres tests ne vérifient pas.
+BILAN_DE_REFERENCE = """\
+Bilan de l'ingestion 42 — lot(s) : 2026-10-06T201500Z
+  Déposées dans RAW  : 2 (ok 1, blocked 1, invalid 0)
+  Déjà ingérées      : 0
+  Pages anormales    : 1
+    - 2026-10-06T201500Z/amazon_fr_bestsellers_10000000001_paid_p1_2026-10-06T200030Z : blocked : CAPTCHA détecté : lien canonical absent ; onglet actif introuvable ; aucune liste contenant render.zg.rank
+  Quarantaine        : 1
+    - 2026-10-06T201500Z/amazon_fr_bestsellers_10000000009_paid_p1_2026-10-06T200040Z : hors périmètre : catégorie 10000000009, liste paid absente de config/targets.toml
+  Laissés en place   : 1
+    - perdu.txt : fichier hors de tout lot
+  Pages 2 manquantes : 1
+    - 10000000001 paid : page 2 annoncée, absente du lot 2026-10-06T201500Z
+  Informations       : 1
+    - lots vidés et supprimés : 2026-10-06T201500Z
+Résultat : partial, 4 anomalie(s) — code de sortie 1"""
+
+
+def test_bilan_de_reference(dirs):
+    captures, _ = dirs
+    add(captures, PAID_P1, CAPTCHA, OUTSIDE)  # page 2 absente du lot, page de vérification, hors périmètre
+    (captures / "inbox" / "perdu.txt").write_text("x")
+    repo = FakeRepo()
+    result = run(dirs, repo)
+    assert result.notes == BILAN_DE_REFERENCE
+    assert repo.last["notes"] == BILAN_DE_REFERENCE

@@ -30,8 +30,9 @@ docker compose --profile collector run --rm collector
   Ne **jamais** définir `COMPOSE_FILE` sur atlas.
 - Modifier `config/targets.toml` impose de reconstruire l'image (`docker compose build collector`).
 
-Codes de sortie : 0 succès ; 1 tournée partielle ou en échec ; 2 configuration invalide ;
-3 arrêt de sécurité (page bloquée ou non conforme).
+Codes de sortie (décision 008) : 0 aucune anomalie (`success`) ; 1 au moins une anomalie (`partial`)
+ou erreur d'exécution (`failed`) ; 2 configuration invalide. Une page bloquée ou non conforme est déposée
+avec son statut, sans arrêt ; le bilan de fin d'ingestion détaille les anomalies.
 
 Le collecteur se connecte avec le rôle `books_collector` (migration 002), aux droits limités,
 jamais avec le propriétaire de la base.

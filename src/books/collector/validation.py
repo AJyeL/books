@@ -23,7 +23,7 @@ import re
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 
-from books.collector.targets import PageRequest, canonical_url
+from books.collector.targets import MAX_PAGES_PER_LIST, PageRequest, canonical_url
 
 RANK_KEY = "render.zg.rank"
 # Une page de classement compte au plus 50 rangs ; en dessous, c'est une liste courte (information)
@@ -218,3 +218,27 @@ def validate_bestseller_page(content: bytes, request: PageRequest) -> Verdict:
                        rank_count=rank_count)
     return Verdict(status="invalid", reason="Page non conforme : " + " ; ".join(problems),
                    rank_count=rank_count)
+
+
+def next_page(request: PageRequest, verdict: Verdict) -> tuple[PageRequest | None, str | None]:
+    """Page suivante attendue après une page conforme, et éventuelle information à signaler.
+
+    Deux signaux doivent concorder : la page compte 50 rangs, et sa pagination annonce la page suivante.
+    S'ils divergent, la page suivante n'est ni attendue ni comptée comme manquante : la divergence est signalée
+    pour information (décisions 004 et 008). Utilisée par la tournée de dev (page 2 demandée) et par l'ingestion
+    (page 2 attendue dans le même lot).
+    """
+    if request.page_number >= MAX_PAGES_PER_LIST:
+        return None, None
+    full = verdict.rank_count == FULL_LIST_SIZE
+    announced = verdict.next_page_announced
+    following = request.page_number + 1
+    if full and announced:
+        return PageRequest(request.node, request.list_type, following), None
+    if full:
+        return None, (f"{FULL_LIST_SIZE} rangs, mais la pagination n'annonce pas de page {following} : "
+                      f"page {following} non attendue")
+    if announced:
+        return None, (f"page {following} annoncée par la pagination, mais seulement {verdict.rank_count} rangs : "
+                      f"page {following} non attendue")
+    return None, None

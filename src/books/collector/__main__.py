@@ -3,8 +3,8 @@
 - En prod : ingestion des captures de l'extension déposées dans BOOKS_CAPTURES_DIR/inbox/ (décision 008).
 - En dev : tournée sur les pages enregistrées à la main (data/samples/, manual-html).
 
-Codes de sortie : 0 succès ; 1 tournée ou ingestion partielle ou en échec, ou erreur de base de données ;
-2 configuration invalide ; 3 arrêt de sécurité (page bloquée ou non conforme ; provisoire, décision 008).
+Codes de sortie (décision 008) : 0 aucune anomalie ; 1 au moins une anomalie (statut partial), erreur d'exécution
+(statut failed) ou erreur de base de données ; 2 configuration invalide.
 """
 
 import os

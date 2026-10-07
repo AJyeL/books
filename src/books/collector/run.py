@@ -1,12 +1,13 @@
-"""Déroulement d'une tournée de collecte (décisions 001, 002 et 004).
+"""Tournée de développement sur les pages enregistrées à la main (décisions 004 et 008).
 
 Pour chaque page demandée : obtenir, valider, déposer dans RAW (fichier + ligne raw_page).
 - Les pages 1 viennent du fichier des cibles ; une page 2 n'est demandée que si deux signaux
-  concordent sur la page 1 du même type : 50 rangs ET pagination annonçant une page 2.
-  On ne demande jamais une page que le site n'annonce pas. Elle est demandée juste après sa page 1.
-- Une page « blocked » ou « invalid » arrête la tournée (disjoncteur de la décision 002) ;
-  la logique de reprise des nuits suivantes n'est pas encore écrite.
-- Le plafond de requêtes est contrôlé au chargement des cibles, puis à nouveau pendant la tournée.
+  concordent sur la page 1 du même type : 50 rangs ET pagination annonçant une page 2
+  (books.collector.validation.next_page). Elle est demandée juste après sa page 1.
+- Une page « blocked » ou « invalid » est déposée avec son statut et la tournée continue,
+  comme l'ingestion des captures (décision 008).
+- Statuts : success (aucune anomalie), partial (le programme a fonctionné, au moins une anomalie),
+  failed (erreur d'exécution). Le plafond de requêtes est contrôlé au chargement des cibles, puis pendant la tournée.
 """
 
 from collections import deque
@@ -18,11 +19,12 @@ from pathlib import Path
 from books.collector.repository import PageRecord, Repository
 from books.collector.sources import PageSource
 from books.collector.storage import raw_relative_path, store_raw
-from books.collector.targets import MAX_PAGES_PER_LIST, MAX_REQUESTS_PER_RUN, PageRequest
-from books.collector.validation import FULL_LIST_SIZE, Verdict, validate_bestseller_page
+from books.collector.targets import MAX_REQUESTS_PER_RUN, PageRequest
+from books.collector.validation import FULL_LIST_SIZE, next_page, validate_bestseller_page
 
-# Codes de sortie du collecteur (2 = configuration, dans __main__)
-EXIT_CODES = {"success": 0, "partial": 1, "failed": 1, "aborted": 3}
+# Codes de sortie du collecteur (décision 008) : 0 sans anomalie, 1 au moins une anomalie ou erreur
+# d'exécution ; 2 = configuration, dans __main__. Le code 3 et le statut « aborted » ne sont plus utilisés.
+EXIT_CODES = {"success": 0, "partial": 1, "failed": 1}
 
 
 @dataclass(frozen=True)
@@ -32,28 +34,6 @@ class RunResult:
     pages_ok: int
     pages_failed: int
     notes: str
-
-
-def next_page(request: PageRequest, verdict: Verdict) -> tuple[PageRequest | None, str | None]:
-    """Page suivante à demander après une page conforme, et éventuelle anomalie à signaler.
-
-    Deux signaux doivent concorder : la page compte 50 rangs, et sa pagination annonce la page suivante.
-    S'ils divergent, la page suivante n'est ni demandée ni comptée comme manquante : l'anomalie est signalée.
-    """
-    if request.page_number >= MAX_PAGES_PER_LIST:
-        return None, None
-    full = verdict.rank_count == FULL_LIST_SIZE
-    announced = verdict.next_page_announced
-    following = request.page_number + 1
-    if full and announced:
-        return PageRequest(request.node, request.list_type, following), None
-    if full:
-        return None, (f"{FULL_LIST_SIZE} rangs, mais la pagination n'annonce pas de page {following} : "
-                      f"page {following} non demandée")
-    if announced:
-        return None, (f"page {following} annoncée par la pagination, mais seulement {verdict.rank_count} rangs : "
-                      f"page {following} non demandée")
-    return None, None
 
 
 def collect(
@@ -118,20 +98,12 @@ def collect(
                     queue.appendleft(following)  # demandée juste après sa page 1
                 continue
 
+            # Page déposée avec son statut ; la tournée continue (décision 008)
             pages_failed += 1
-            status = "aborted"
-            notes.append(f"Arrêt : {request.label} : {verdict.reason}.")
+            notes.append(f"Anomalie : {request.label} : {verdict.status} : {verdict.reason}.")
             log(f"  {request.label} : {verdict.status} : {verdict.reason}")
-            log("  Arrêt de la tournée (décision 002).")
-            break
 
-        if status is None:
-            if pages_failed == 0:
-                status = "success"
-            elif pages_ok == 0:
-                status = "failed"
-            else:
-                status = "partial"
+        status = "success" if pages_failed == 0 else "partial"
     except BaseException as exc:
         status = "failed"
         notes.append(f"Erreur : {type(exc).__name__} : {exc}.")

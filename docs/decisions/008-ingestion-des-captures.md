@@ -77,13 +77,22 @@ sur une première séance de 7 captures DOM, toutes conformes (`docs/exploration
 | Code | Situation |
 |---|---|
 | 0 | Toutes les captures traitées sont `ok` (ou déjà ingérées), aucune anomalie ; `inbox/` vide compris |
-| 1 | Au moins une anomalie : capture `blocked` ou `invalid`, quarantaine, page 2 manquante ; ou ingestion déjà en cours ; ou erreur d'exécution |
+| 1 | Au moins une anomalie : capture `blocked` ou `invalid`, quarantaine, page 2 manquante, élément laissé en place, plafond de captures atteint ; ou ingestion déjà en cours ; ou erreur d'exécution |
 | 2 | Configuration invalide |
 
-**Le code 3 (arrêt de sécurité) disparaît.** Chaque ingestion est enregistrée comme une tournée (`raw.collect_run`) :
-statut `success` sans anomalie, `partial` avec anomalie, `failed` sur erreur d'exécution ; le statut `aborted`
-n'est plus utilisé. Les notes de la tournée détaillent : captures déposées par statut, déjà ingérées,
-mises en quarantaine (avec la raison), pages 2 manquantes. Le bilan affiché sur le PC reprend ces informations.
+**Le code 3 (arrêt de sécurité) disparaît.** Chaque ingestion est enregistrée comme une tournée (`raw.collect_run`),
+avec un statut défini par sa règle (précisé le 7 octobre 2026) :
+
+| Statut | Règle | Code |
+|---|---|---|
+| `success` | Aucune anomalie | 0 |
+| `partial` | Le programme a fonctionné, mais il y a au moins une anomalie | 1 |
+| `failed` | Erreur d'exécution | 1 |
+
+Le statut `aborted` n'est plus utilisé. Les informations (capture déjà ingérée, liste courte, trou dans les rangs,
+divergence entre les deux signaux de page 2) ne sont pas des anomalies. Les notes de la tournée contiennent le bilan :
+captures déposées par statut, déjà ingérées, pages anormales, mises en quarantaine (avec la raison), éléments laissés
+en place, pages 2 manquantes, informations. Le bilan affiché sur le PC reprend ces informations.
 
 ### 5. Doublons
 
@@ -113,6 +122,23 @@ mises en quarantaine (avec la raison), pages 2 manquantes. Le bilan affiché sur
 > - Vérifié le 7 octobre 2026 sur des copies des 7 captures réelles, dans un PostgreSQL jetable (migrations 001 à 004) :
 >   7 captures déposées, empreintes du HTML et du JSON exactes ; une seconde ingestion des mêmes fichiers donne
 >   « déjà ingérées 7 » et aucune nouvelle ligne.
+
+> Note du 7 octobre 2026 (étape 3 du code) : la mesure provisoire de l'étape 2 est levée.
+> - Une capture `blocked` ou `invalid` est déposée avec son statut, et l'ingestion continue.
+> - Anomalies : capture `blocked` ou `invalid`, quarantaine, page 2 manquante, **élément laissé en place** et
+>   **plafond de captures atteint** (des captures restent alors dans `inbox/` : le code 0 doit signifier
+>   « tout est fait »).
+> - Page 2 manquante : vérifiée en fin d'ingestion, pour chaque page 1 déposée `ok` dont les deux signaux concordent,
+>   contre l'inventaire des noms du lot. Une page 2 présente dans le lot mais mise en quarantaine n'est pas comptée
+>   comme manquante (l'anomalie est déjà signalée par la quarantaine) ; une page 1 « déjà ingérée » n'est pas
+>   revérifiée. La règle des deux signaux est commune à l'ingestion et à la tournée de développement.
+> - La contrainte de `raw.collect_run` accepte encore la valeur `aborted` : elle n'est plus produite, et la retirer
+>   demanderait une migration sans utilité (aucune tournée ne la porte).
+> - La tournée de développement (`run.py`) est alignée sur ces règles : poursuite sans arrêt, mêmes statuts,
+>   mêmes codes ; une page non obtenue y est une anomalie (`partial`), même si aucune page n'est obtenue.
+> - Vérifié le 7 octobre 2026 dans un PostgreSQL jetable, sur des copies des 7 captures réelles dont la page 2 gratuite
+>   de Romance sportive retirée, plus une capture CAPTCHA inventée : 6 `ok` et 1 `blocked` déposées, page 2 manquante
+>   signalée, `partial`, 2 anomalies, code de sortie 1.
 
 ## Conséquences
 
