@@ -3,3 +3,9 @@
 # et les fausses pages servent à les générer.
 tests/fixtures/*.html -text
 tests/fixtures/captures/** -text
+
+# Scripts exécutés par bash (atlas, tests) : fins de ligne Unix, quelle que soit la machine
+*.sh text eol=lf
+tests/shell/faux-docker text eol=lf
+# Lanceurs Windows : fins de ligne Windows
+*.cmd text eol=crlf

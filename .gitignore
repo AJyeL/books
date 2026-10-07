@@ -27,6 +27,9 @@ Thumbs.db
 # --- Extension de capture : code conservé dans un dépôt privé séparé (décision 006) ---
 extension/
 
+# --- Réglages locaux du script d'envoi (chemins personnels) ---
+scripts/*.local.psd1
+
 # --- Notes privées : jamais publiées ---
 CLAUDE.md
 CLAUDE.local.md

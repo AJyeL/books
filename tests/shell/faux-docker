@@ -1,0 +1,14 @@
+#!/bin/sh
+# Doublure de test : remplace « docker compose --profile collector run … » sur un faux atlas.
+# Déplace les lots de inbox/ dans ~/recues/ (pour vérifier les octets reçus), affiche un faux bilan
+# et rend le code de sortie écrit dans ~/code-ingestion (0 par défaut).
+captures="$HOME/books-data/captures"
+mkdir -p "$HOME/recues"
+n=$(find "$captures/inbox" -type f | wc -l)
+for lot in "$captures"/inbox/*/; do
+    [ -d "$lot" ] && mv "$lot" "$HOME/recues/"
+done
+code=$(cat "$HOME/code-ingestion" 2>/dev/null || echo 0)
+echo "Bilan factice : $n fichier(s) ingéré(s)"
+echo "Résultat factice — code de sortie $code"
+exit "$code"

@@ -107,6 +107,32 @@ docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U books_colle
 Les tests SQL supposent **toutes** les migrations appliquées : depuis la 004, leurs lignes de test portent
 une méthode de capture.
 
+Tests du script de réception (`scripts/recevoir-captures.sh`), dans un conteneur Debian jetable :
+
+```bash
+docker run --rm -v "${PWD}:/src:ro" debian:bookworm-slim bash /src/tests/shell/test_recevoir_captures.sh
+```
+
+Tests du script d'envoi (`scripts/envoyer-captures.ps1`), sur le PC, contre un faux atlas en conteneur
+(publié sur `127.0.0.1:2222` le temps des tests), Docker Desktop démarré :
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File tests\powershell\Test-EnvoyerCaptures.ps1
+```
+
+## Envoi des captures vers atlas (PC)
+
+Décision 008. Après une séance de capture, double-cliquer sur `scripts\envoyer-captures.cmd`,
+puis saisir le mot de passe d'atlas quand `ssh` le demande. Le script envoie les paires complètes,
+atlas les vérifie, les place dans `inbox/` et lance l'ingestion ; le bilan s'affiche.
+
+- **Prérequis** : l'alias SSH `atlas` dans `C:\Users\<vous>\.ssh\config` (fichier sans extension),
+  et le réglage local `scripts\envoyer-captures.local.psd1`, copié depuis `envoyer-captures.exemple.psd1`
+  (ignoré par Git : il contient votre chemin personnel).
+- **Issues** : transfert échoué (code 3) : rien n'est déplacé sur le PC, relancer ; transfert réussi :
+  les captures passent dans `envoyees\AAAA-MM\`, que l'ingestion soit sans anomalie (code 0) ou non (code 1).
+- `envoyees\` est une archive permanente : ne jamais la vider.
+
 ## Restauration d'une sauvegarde
 
 Une sauvegarde `pg_dump` (voir `scripts/backup.sh`) ne contient **ni les rôles, ni les droits portant

@@ -163,6 +163,30 @@ en place, pages 2 manquantes, informations. Le bilan affiché sur le PC reprend 
 >   après l'arrêt brutal du premier, sur un volume Linux ; ingestion de bout en bout dans le conteneur, en dev,
 >   sur des captures inventées.
 
+> Note du 7 octobre 2026 (étape 5 du code : transfert) :
+> - **Deux scripts** : `scripts/envoyer-captures.ps1` sur le PC, et `scripts/recevoir-captures.sh` sur atlas,
+>   versionné et appelé par la connexion SSH (`ssh atlas bash books/scripts/recevoir-captures.sh {lot}`).
+> - **Manifeste** : `MANIFEST.sha256` (format de `sha256sum`), calculé sur les originaux et placé dans l'archive :
+>   un seul flux, donc une seule connexion. Sur atlas : fichiers ordinaires seulement, exactement ceux du
+>   manifeste, empreintes vérifiées ; nom de lot strictement contrôlé (aucune injection de commande).
+> - **Octets préservés** : copie des paires dans un dossier de préparation, archive `tar` au format ustar,
+>   transmise par une redirection de `cmd.exe`, jamais par un tuyau PowerShell (qui traite les données comme du
+>   texte). Outils de Windows appelés par leur chemin complet (`System32\OpenSSH\ssh.exe`, `System32\tar.exe`).
+> - **Repères** lus par le PC : `BOOKS:TRANSFERT:OK {lot} {n}`, puis `BOOKS:INGESTION:CODE {code}` ;
+>   `BOOKS:TRANSFERT:ECHEC {raison}` en cas d'échec (le lot reste alors dans `attente/`).
+> - **Codes du script d'envoi** : 0 transfert réussi et ingestion sans anomalie (ou rien à envoyer) ;
+>   1 transfert réussi, ingestion avec anomalies ou non effectuée ; 2 réglage, dossier ou outil invalide, ou
+>   collision dans `envoyees\` (rien envoyé) ; 3 transfert échoué (rien déplacé sur le PC).
+> - **Réglage local** non versionné (`scripts/envoyer-captures.local.psd1`) : le chemin personnel des captures
+>   n'entre jamais dans le dépôt. **Lanceur** `scripts/envoyer-captures.cmd` pour un double-clic
+>   (`-ExecutionPolicy Bypass` pour ce seul lancement, sans modifier les réglages du système).
+> - Vérifié le 7 octobre 2026 : script de réception dans un conteneur Debian (lot valide, empreinte fausse,
+>   fichier en trop ou manquant, manifeste absent, sous-dossier, membre « .. », entrée non tar, nom de lot invalide,
+>   lot déjà présent, inbox/ absent) ; script d'envoi contre un faux atlas en conteneur, avec les vrais outils de
+>   Windows (trois issues, octets identiques à l'arrivée, mauvais mot de passe, orphelin et fichier hors format,
+>   rien à envoyer, collision). Le mot de passe y est fourni par `SSH_ASKPASS` : la saisie au clavier reste à vérifier
+>   lors du premier envoi réel ; un échec y serait sans danger (transfert échoué, rien déplacé).
+
 ## Conséquences
 
 - Les quatre questions ouvertes de la décision 005 sont tranchées ; des notes datées l'indiquent dans les décisions
