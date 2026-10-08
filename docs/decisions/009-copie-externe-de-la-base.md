@@ -77,7 +77,7 @@ Les captures ne sont pas concernées : leurs originaux restent sur le PC, dans `
 - Une copie de la base existe hors d'atlas, vérifiée octet par octet à son arrivée.
 - **Limites** :
   - le manifeste prouve que le fichier reçu est identique à celui produit sur atlas, **pas que la base est
-    restaurable** : un test de restauration d'une copie (dans un PostgreSQL jetable) reste à mettre en place ;
+    restaurable** : la restauration a été testée une fois à la main le 8 octobre, pas encore automatisée ;
   - le dump ne contient ni les rôles ni leurs droits (voir README, « Restauration d'une sauvegarde ») ;
   - les fichiers bruts (`~/books-data/raw`) ne sont pas concernés par cette étape : leur copie externe reste à décider ;
   - le dump n'est pas chiffré : le dossier choisi sur le PC ne doit pas être synchronisé vers un service en ligne
@@ -112,3 +112,19 @@ Les captures ne sont pas concernées : leurs originaux restent sur le PC, dans `
 > - Reste à vérifier lors du premier rapatriement réel : la saisie du mot de passe au clavier, la commande `ssh`
 >   sans `-F` (configuration SSH de l'utilisateur) et le `pg_dump` d'atlas. Un échec y serait sans danger :
 >   rien n'est ajouté au dossier des sauvegardes.
+
+> Note du 8 octobre 2026 (premier rapatriement réel et restauration vérifiée) :
+> - Premier rapatriement réel réussi : books_2026-10-08T16-02-45Z.dump, 15 149 octets,
+>   SHA-256 725f83e8…166f conforme ; mot de passe demandé à l'invite ; configuration SSH de l'utilisateur.
+>   Dossier du PC hors de tout service de synchronisation.
+> - Exercice de restauration sur atlas : pg_dump -Fc versé par pg_restore (--no-owner --no-privileges
+>   --exit-on-error) dans une base jetable, puis comparaison des comptes de lignes table par table :
+>   identiques (schema_migration 4, raw.collect_run 2, raw.raw_page 16). Base jetable supprimée.
+> - Fichiers bruts : 2,1 Mo, un seul dossier (amazon_fr), cohérent avec les 16 captures. Leurs originaux restent
+>   sur le PC dans `envoyees\`, mais ils ne sont **pas** reconstructibles par simple réingestion à côté d'une base
+>   restaurée : l'ingestion reconnaît une capture « déjà ingérée » à son empreinte dans `raw.raw_page`, sans vérifier
+>   le fichier, et n'en redépose aucun. Une réingestion ne reconstruit RAW que dans une base vide (nouvelles tournées,
+>   nouveaux chemins). La copie externe des fichiers bruts reste donc nécessaire (étape 2).
+>   En cas de perte totale d'atlas, la reprise cohérente est donc une base vide suivie de la réingestion
+>   de tout `envoyees\` ; ne jamais restaurer un dump sans les fichiers bruts du même moment.
+> - Reste ouvert : automatiser ce test de restauration (étape 2, avec le NAS).
