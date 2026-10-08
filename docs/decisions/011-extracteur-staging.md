@@ -136,6 +136,10 @@ détaillée.
   Elle rend visibles les pages en échec, qui n'ont aucune ligne dans `ranking_entry`, et indique ce qui reste à faire.
 - **Pages traitées** par une exécution : celles du périmètre sans ligne dans `page_extraction`, ou extraites par
   une autre version de l'extracteur ; une option force la réextraction de tout le périmètre.
+- **Règle du projet : toute modification des règles d'analyse de l'extracteur incrémente `EXTRACTOR_VERSION` dans
+  le même commit.** C'est ce numéro, enregistré dans `extract_run` et `page_extraction`, qui déclenche la
+  réextraction des pages : une règle changée sans nouvelle version laisserait dans STAGING des lignes produites
+  par l'ancienne règle, sans que rien ne le signale.
 - Une seule extraction à la fois : verrou consultatif de PostgreSQL (`pg_try_advisory_lock`), libéré à la fin de
   la session ; verrou occupé : message, code 1, aucune exécution enregistrée.
 
