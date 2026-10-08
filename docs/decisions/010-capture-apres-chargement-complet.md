@@ -136,5 +136,8 @@ Elle ne fait qu'observer et lire le DOM, comme aujourd'hui. Le seul changement p
 >   des rangs 31-50 et 81-100 ont toutes un prix et une couverture, 123 une note et un nombre d'évaluations.
 > - **Quatre indices** revalidés sur ces pages : `ok` pour leur propre demande, `invalid` pour les 21 demandes
 >   croisées.
-> - Le test automatique de la page sans `p13n-desktop-grid` appartient au dépôt de l'extension ; il n'est pas
->   examiné ici.
+> - **Test automatique de la page sans `p13n-desktop-grid`** (dépôt privé de l'extension, non examiné ici) :
+>   résultat rapporté par la session de travail de l'extension. Test « élément porteur sans p13n-desktop-grid :
+>   attente, pas de capture immédiate, puis capture à n = m » (`tests/completeness.test.js`), réussi au commit
+>   `842b4d3` de ce dépôt (68 tests sur 68, vérifiés sur une extraction exacte du commit par `git archive`).
+>   Deux tests voisins : la liste est reconnue sans la classe, et la classe seule ne fait pas une liste classée.
