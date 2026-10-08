@@ -114,3 +114,13 @@ Elle ne fait qu'observer et lire le DOM, comme aujourd'hui. Le seul changement p
   l'extension, pendant la séance.
 - Le volume reste celui de la décision 005 : mêmes pages, même nombre de visites. Seuls les livres déjà affichés
   à l'écran sont désormais enregistrés en entier.
+
+> Note du 8 octobre 2026 :
+> - **Recette, test de la page sans `p13n-desktop-grid`** : assuré par un **test automatique de l'extension**, et non
+>   par une page de test ouverte dans le navigateur. La liste blanche (décision 005, section 4) n'autorise l'extension
+>   que sur les pages de classement d'amazon.fr : elle ne s'exécute sur aucune page locale.
+> - **Définition commune de la liste classée** : `validation.py` ne retient un élément comme classé que si son
+>   `metadataMap` est un objet JSON portant la clé `render.zg.rank`. Un `metadataMap` nombre, booléen, liste ou texte
+>   vaut « pas de rang » : la page est déposée `invalid`, jamais un plantage. Avant cette correction, un nombre ou un
+>   booléen faisait échouer l'ingestion (`TypeError`), et la capture, restée dans `inbox/`, l'aurait fait échouer
+>   à chaque ingestion suivante. L'extension applique la même règle.

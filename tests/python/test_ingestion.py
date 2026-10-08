@@ -459,3 +459,36 @@ def test_bilan_de_reference(dirs):
     result = run(dirs, repo)
     assert result.notes == BILAN_DE_REFERENCE
     assert repo.last["notes"] == BILAN_DE_REFERENCE
+
+
+# --- Liste classée malformée : page invalid, jamais un plantage ----------------------------
+
+@pytest.mark.parametrize("valeur", ["5", "true", "[&quot;render.zg.rank&quot;]", "&quot;render.zg.rank&quot;"],
+                         ids=["nombre", "booleen", "liste", "texte"])
+def test_metadatamap_qui_n_est_pas_un_objet(dirs, valeur):
+    """metadataMap nombre, booléen, liste ou texte : « pas de rang », capture déposée invalid, ingestion terminée."""
+    import re
+    captures, _ = dirs
+    stem = make_capture(captures / "inbox" / LOT, "bestsellers_exemple.html", "10000000001", "paid", 1,
+                        "2026-10-06T200000Z")
+    lot_dir = captures / "inbox" / LOT
+    html = (lot_dir / f"{stem}.html").read_text(encoding="utf-8")
+    html, n = re.subn(r"&quot;metadataMap&quot;:\{[^}]*\}", f"&quot;metadataMap&quot;:{valeur}", html)
+    assert n == 5  # les 5 livres de la fausse page
+    # Capture intègre (décision 007) : empreinte et taille recalculées sur le HTML modifié
+    import json
+    content = html.encode("utf-8")
+    meta = json.loads((lot_dir / f"{stem}.json").read_text(encoding="utf-8"))
+    meta.update(html_sha256=hashlib.sha256(content).hexdigest(), html_bytes=len(content))
+    (lot_dir / f"{stem}.html").write_bytes(content)
+    (lot_dir / f"{stem}.json").write_text(json.dumps(meta), encoding="utf-8")
+
+    repo = FakeRepo()
+    result = run(dirs, repo)
+
+    (_, record), = repo.pages
+    assert record.fetch_status == "invalid"
+    assert "aucune liste contenant render.zg.rank" in record.error_message
+    assert result.status == "partial" and EXIT_CODES[result.status] == 1
+    assert result.report.error is None
+    assert inbox_files(captures) == []  # retirée de inbox/ : elle ne bloque pas les ingestions suivantes

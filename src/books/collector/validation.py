@@ -121,9 +121,11 @@ def _ranked_items(raw_value: str) -> list[dict] | None:
         return None
     if not isinstance(items, list):
         return None
+    # metadataMap qui n'est pas un objet JSON (nombre, booléen, liste, texte) : pas de rang, jamais un plantage ;
+    # « in » lèverait TypeError sur un nombre, et chercherait une sous-chaîne dans un texte
     ranked = [
         item for item in items
-        if isinstance(item, dict) and RANK_KEY in (item.get("metadataMap") or {})
+        if isinstance(item, dict) and isinstance(item.get("metadataMap"), dict) and RANK_KEY in item["metadataMap"]
     ]
     return ranked or None
 
