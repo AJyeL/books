@@ -174,7 +174,7 @@ def test_rang_non_numerique(fixture_page):
         b"&quot;render.zg.rank&quot;:&quot;3&quot;", b"&quot;render.zg.rank&quot;:&quot;trois&quot;", 1)
     v = validate_bestseller_page(page, demande())
     assert v.status == "invalid"
-    assert "non numérique" in v.reason
+    assert "non entier" in v.reason
 
 
 # --- Catégorie, liste classée, CAPTCHA (règles inchangées) -------------------

@@ -463,25 +463,28 @@ def test_bilan_de_reference(dirs):
 
 # --- Liste classée malformée : page invalid, jamais un plantage ----------------------------
 
-@pytest.mark.parametrize("valeur", ["5", "true", "[&quot;render.zg.rank&quot;]", "&quot;render.zg.rank&quot;"],
-                         ids=["nombre", "booleen", "liste", "texte"])
-def test_metadatamap_qui_n_est_pas_un_objet(dirs, valeur):
-    """metadataMap nombre, booléen, liste ou texte : « pas de rang », capture déposée invalid, ingestion terminée."""
-    import re
-    captures, _ = dirs
-    stem = make_capture(captures / "inbox" / LOT, "bestsellers_exemple.html", "10000000001", "paid", 1,
-                        "2026-10-06T200000Z")
-    lot_dir = captures / "inbox" / LOT
-    html = (lot_dir / f"{stem}.html").read_text(encoding="utf-8")
-    html, n = re.subn(r"&quot;metadataMap&quot;:\{[^}]*\}", f"&quot;metadataMap&quot;:{valeur}", html)
-    assert n == 5  # les 5 livres de la fausse page
-    # Capture intègre (décision 007) : empreinte et taille recalculées sur le HTML modifié
+def make_modified_capture(captures, pattern, replacement, expected_count):
+    """Capture intègre (décision 007) de la fausse page d'exemple (5 livres, Top payant p1), dont la liste classée
+    est modifiée par une expression régulière ; empreinte et taille recalculées sur le HTML modifié."""
     import json
+    import re
+    lot_dir = captures / "inbox" / LOT
+    stem = make_capture(lot_dir, "bestsellers_exemple.html", "10000000001", "paid", 1, "2026-10-06T200000Z")
+    html, n = re.subn(pattern, replacement, (lot_dir / f"{stem}.html").read_text(encoding="utf-8"))
+    assert n == expected_count
     content = html.encode("utf-8")
     meta = json.loads((lot_dir / f"{stem}.json").read_text(encoding="utf-8"))
     meta.update(html_sha256=hashlib.sha256(content).hexdigest(), html_bytes=len(content))
     (lot_dir / f"{stem}.html").write_bytes(content)
     (lot_dir / f"{stem}.json").write_text(json.dumps(meta), encoding="utf-8")
+
+
+@pytest.mark.parametrize("valeur", ["5", "true", "[&quot;render.zg.rank&quot;]", "&quot;render.zg.rank&quot;"],
+                         ids=["nombre", "booleen", "liste", "texte"])
+def test_metadatamap_qui_n_est_pas_un_objet(dirs, valeur):
+    """metadataMap nombre, booléen, liste ou texte : « pas de rang », capture déposée invalid, ingestion terminée."""
+    captures, _ = dirs
+    make_modified_capture(captures, r"&quot;metadataMap&quot;:\{[^}]*\}", f"&quot;metadataMap&quot;:{valeur}", 5)
 
     repo = FakeRepo()
     result = run(dirs, repo)
@@ -492,3 +495,29 @@ def test_metadatamap_qui_n_est_pas_un_objet(dirs, valeur):
     assert result.status == "partial" and EXIT_CODES[result.status] == 1
     assert result.report.error is None
     assert inbox_files(captures) == []  # retirée de inbox/ : elle ne bloque pas les ingestions suivantes
+
+
+@pytest.mark.parametrize("valeur, statut", [
+    ("1", "ok"),                       # entier JSON : rang valide
+    ("&quot;1&quot;", "ok"),           # texte d'entier (forme des vraies pages) : rang valide
+    ("true", "invalid"),               # booléen : int(True) vaudrait 1
+    ("false", "invalid"),
+    ("1.0", "invalid"),                # décimal : int(1.7) vaudrait 1
+    ("&quot;1.0&quot;", "invalid"),
+    ("&quot;\u0661&quot;", "invalid"),  # chiffre arabo-indien : int() l'accepterait
+], ids=["entier", "texte-entier", "vrai", "faux", "decimal", "texte-decimal", "chiffre-non-ascii"])
+def test_rang_qui_n_est_pas_un_entier(dirs, valeur, statut):
+    """Valeur du premier rang : seuls un entier JSON (jamais un booléen) ou un texte de chiffres sont des rangs."""
+    captures, _ = dirs
+    make_modified_capture(captures, r"&quot;render\.zg\.rank&quot;:&quot;1&quot;",
+                          f"&quot;render.zg.rank&quot;:{valeur}", 1)
+
+    repo = FakeRepo()
+    result = run(dirs, repo)
+
+    (_, record), = repo.pages
+    assert record.fetch_status == statut
+    if statut == "invalid":
+        assert "render.zg.rank non entier" in record.error_message
+    assert result.report.error is None
+    assert inbox_files(captures) == []

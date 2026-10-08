@@ -130,6 +130,18 @@ def _ranked_items(raw_value: str) -> list[dict] | None:
     return ranked or None
 
 
+def _rank_value(value: object) -> int | None:
+    """Rang lu : entier JSON ou texte de chiffres ; None sinon. Un booléen n'est jamais un rang (int(True) vaut 1),
+    un décimal non plus (int(3.7) vaudrait 3)."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and re.fullmatch(r"[0-9]+", value):
+        return int(value)
+    return None
+
+
 def _check_canonical(scanner: _PageScanner, request: PageRequest) -> list[str]:
     expected = canonical_url(request.node)
     canonicals = set(scanner.canonicals)
@@ -177,10 +189,10 @@ def _check_ranks(scanner: _PageScanner, request: PageRequest) -> tuple[list[str]
     if len(ranked_lists) > 1:
         return [f"{len(ranked_lists)} listes contenant {RANK_KEY} (une seule attendue)"], [], 0
     items = ranked_lists[0]
-    try:
-        ranks = sorted(int(item["metadataMap"][RANK_KEY]) for item in items)
-    except (TypeError, ValueError):
-        return [f"{RANK_KEY} non numérique"], [], len(items)
+    values = [_rank_value(item["metadataMap"][RANK_KEY]) for item in items]
+    if None in values:
+        return [f"{RANK_KEY} non entier"], [], len(items)
+    ranks = sorted(values)
 
     low = (request.page_number - 1) * FULL_LIST_SIZE + 1
     high = request.page_number * FULL_LIST_SIZE

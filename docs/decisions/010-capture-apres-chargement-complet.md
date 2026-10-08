@@ -123,4 +123,4 @@ Elle ne fait qu'observer et lire le DOM, comme aujourd'hui. Le seul changement p
 >   `metadataMap` est un objet JSON portant la clé `render.zg.rank`. Un `metadataMap` nombre, booléen, liste ou texte
 >   vaut « pas de rang » : la page est déposée `invalid`, jamais un plantage. Avant cette correction, un nombre ou un
 >   booléen faisait échouer l'ingestion (`TypeError`), et la capture, restée dans `inbox/`, l'aurait fait échouer
->   à chaque ingestion suivante. L'extension applique la même règle.
+>   à chaque ingestion suivante. L'extension 0.2.0 applique la même règle.
