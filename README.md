@@ -120,6 +120,18 @@ Tests du script d'envoi (`scripts/envoyer-captures.ps1`), sur le PC, contre un f
 powershell -NoProfile -ExecutionPolicy Bypass -File tests\powershell\Test-EnvoyerCaptures.ps1
 ```
 
+Tests du script d'export de la sauvegarde (`scripts/exporter-sauvegarde.sh`), dans un conteneur Debian jetable :
+
+```bash
+docker run --rm -v "${PWD}:/src:ro" debian:bookworm-slim bash /src/tests/shell/test_exporter_sauvegarde.sh
+```
+
+Tests du script de rapatriement (`scripts/rapatrier-sauvegarde.ps1`), même principe que ceux du script d'envoi :
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File tests\powershell\Test-RapatrierSauvegarde.ps1
+```
+
 ## Envoi des captures vers atlas (PC)
 
 Décision 008. Après une séance de capture, double-cliquer sur `scripts\envoyer-captures.cmd`,
@@ -132,6 +144,20 @@ atlas les vérifie, les place dans `inbox/` et lance l'ingestion ; le bilan s'af
 - **Issues** : transfert échoué (code 3) : rien n'est déplacé sur le PC, relancer ; transfert réussi :
   les captures passent dans `envoyees\AAAA-MM\`, que l'ingestion soit sans anomalie (code 0) ou non (code 1).
 - `envoyees\` est une archive permanente : ne jamais la vider.
+
+## Copie de la base sur le PC
+
+Décision 009. Une fois par mois au moins, double-cliquer sur `scripts\rapatrier-sauvegarde.cmd`, puis saisir
+le mot de passe d'atlas quand `ssh` le demande. Atlas fait une sauvegarde neuve de la base ; le PC la reçoit,
+vérifie son empreinte SHA-256 et la range avec son manifeste (`books_….dump` et `books_….dump.sha256`).
+
+- **Prérequis** : l'alias SSH `atlas` (comme pour l'envoi des captures), et le réglage local
+  `scripts\rapatrier-sauvegarde.local.psd1`, copié depuis `rapatrier-sauvegarde.exemple.psd1`, qui désigne
+  un dossier existant (ignoré par Git).
+- **Issues** : code 0, copie reçue et vérifiée ; code 1, échec (rien n'est ajouté au dossier, relancer) ;
+  code 2, réglage à corriger (aucune connexion).
+- Aucune copie n'est supprimée ; le bilan signale le seuil de révision (24 copies ou 5 Go).
+- Pour restaurer une copie : la remettre sur atlas, puis suivre la section suivante.
 
 ## Restauration d'une sauvegarde
 

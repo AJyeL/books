@@ -1,7 +1,28 @@
 #!/bin/sh
-# Doublure de test : remplace « docker compose --profile collector run … » sur un faux atlas.
-# Déplace les lots de inbox/ dans ~/recues/ (pour vérifier les octets reçus), affiche un faux bilan
-# et rend le code de sortie écrit dans ~/code-ingestion (0 par défaut).
+# Doublure de test de « docker », sur un faux atlas ou dans un conteneur de test.
+#
+# « docker compose exec … » (pg_dump de scripts/backup.sh et scripts/exporter-sauvegarde.sh) :
+#   écrit sur la sortie standard le contenu de ~/faux-dump (à défaut, un petit faux dump binaire)
+#   et rend le code écrit dans ~/code-pg-dump (0 par défaut ; message sur la sortie d'erreur sinon).
+#
+# Autres appels (« docker compose --profile collector run … », ingestion de scripts/recevoir-captures.sh) :
+#   déplace les lots de inbox/ dans ~/recues/ (pour vérifier les octets reçus), affiche un faux bilan
+#   et rend le code de sortie écrit dans ~/code-ingestion (0 par défaut).
+if [ "${1:-}" = compose ] && [ "${2:-}" = exec ]; then
+    code=$(cat "$HOME/code-pg-dump" 2>/dev/null || echo 0)
+    if [ "$code" -ne 0 ]; then
+        echo "pg_dump factice : erreur simulée" >&2
+        exit "$code"
+    fi
+    if [ -f "$HOME/faux-dump" ]; then
+        cat "$HOME/faux-dump"
+    else
+        # Signature du format custom, puis des octets délicats : nul, retour chariot, saut de ligne, 0x1A, 0xFF
+        printf 'PGDMP\001\016\000\r\n\032\377fin'
+    fi
+    exit 0
+fi
+
 captures="$HOME/books-data/captures"
 mkdir -p "$HOME/recues"
 n=$(find "$captures/inbox" -type f | wc -l)

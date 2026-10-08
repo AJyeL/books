@@ -157,7 +157,7 @@ en place, pages 2 manquantes, informations. Le bilan affiché sur le PC reprend 
 > - **`envoyees\` n'est jamais vidé** : c'est une archive permanente, la seule copie des captures hors d'atlas,
 >   dont les sauvegardes sont sur le même disque.
 > - La base de données reste concernée par la copie externe prévue (copie mensuelle vers le PC, puis vers un NAS),
->   qui n'est pas encore en place.
+>   qui n'est pas encore en place. (Note du 8 octobre 2026 : copie vers le PC définie par la décision 009.)
 > - Vérifié le 7 octobre 2026 : `docker compose config` valide avec un `.env` de type atlas, avec ou sans
 >   `BOOKS_CAPTURES_DIR`, et avec les seules variables PostgreSQL ; verrou refusé à un second conteneur puis rendu
 >   après l'arrêt brutal du premier, sur un volume Linux ; ingestion de bout en bout dans le conteneur, en dev,
