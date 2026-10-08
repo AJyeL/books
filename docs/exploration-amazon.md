@@ -365,3 +365,37 @@ comparée à la capture de l'extension du 7 octobre (sans défilement). Jours di
   - la décision 005 laisse ouverte la question d'une nouvelle requête lors d'un Ctrl+S.
   Seule une capture de l'extension après chargement complet peut servir en production (décision 010).
 - Limites : une page, une catégorie, Top payant p1 seulement ; ni page 2 ni Top gratuit défilés.
+
+## Recette de la décision 010 : captures après chargement complet (8 octobre 2026)
+
+Séance du 8 octobre 2026 vers 18 h 20 UTC, extension 0.2.0, chaque page défilée à la main jusqu'en bas :
+7 captures (les mêmes listes que le 7 octobre). Étude hors ligne, en lecture seule, même méthode que l'inventaire
+(comptes et formes seulement ; l'auteur n'est pas lu). La liste classée est repérée par la définition de
+`src/books/collector/validation.py` (`_ranked_items`), les cartes par `[id="gridItemRoot"]` à l'intérieur de
+l'élément qui la porte ; n = ASIN distincts de la liste qui ont une carte, m = rangs de la liste.
+
+| Capture | 7 oct. (0.1.1) n/m | 8 oct. (0.2.0) n/m | Rangs des cartes (8 oct.) |
+|---|---|---|---|
+| FE gratuit p1 | 30/46 | **44/44** | 1-44 |
+| FE payant p1 | 30/50 | **50/50** | 1-50 |
+| FE payant p2 | 30/50 | **50/50** | 51-100 |
+| RS gratuit p1 | 30/50 | **50/50** | 1-50 |
+| RS gratuit p2 | 30/50 | **50/50** | 51-100 |
+| RS payant p1 | 30/50 | **50/50** | 1-50 |
+| RS payant p2 | 30/50 | **50/50** | 51-100 |
+| **Total** | **210/346 (61 %)** | **344/344 (100 %)** | |
+
+- Les 7 JSON portent `extension_version` 0.2.0 et `capture_method` `extension-dom` ; empreinte et taille du HTML exactes.
+- Rangs des cartes continus ; les 344 cartes concordent avec la liste (même ASIN au même rang) ; aucun ASIN en double,
+  aucune carte hors liste.
+- **Rangs 31-50 et 81-100** (134 cartes, absentes le 7 octobre) : prix 134, couverture 134 (adresse d'origine
+  d'Amazon), note 123, nombre d'évaluations 123 ; note et évaluations toujours ensemble. Prix du Top gratuit :
+  tous à `0,00⍽€`, sur ces rangs comme sur les autres.
+- Formes sur ces rangs, identiques à celles des rangs 1-30 : prix `9,99⍽€` (133), `99,99⍽€` (1) ;
+  note `9,9 sur 9⍽étoiles` ; évaluations `9`, `99`, `999`, `9⍽999`, `99⍽999`, `999⍽999`.
+- Top gratuit de Fantasy épique : 44 rangs (45 le 5 octobre, 46 le 7) : liste courte, sans pagination.
+- **Quatre indices (décision 004)**, par la validation du collecteur : les 7 captures sont `ok` pour leur propre
+  demande ; « page 2 annoncée » vrai pour les 3 pages 1 de 50 rangs qui ont une page 2 ; les 21 demandes croisées
+  (autre liste, autre page, autre catégorie) sont `invalid`. Résultat identique sur les 7 captures du 7 octobre
+  (30 cartes) : la validation ne dépend pas du nombre de cartes chargées.
+- Limites : une séance, un jour, deux catégories, une version de l'extension et de Chrome.

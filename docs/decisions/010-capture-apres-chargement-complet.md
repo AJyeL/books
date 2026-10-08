@@ -124,3 +124,17 @@ Elle ne fait qu'observer et lire le DOM, comme aujourd'hui. Le seul changement p
 >   vaut « pas de rang » : la page est déposée `invalid`, jamais un plantage. Avant cette correction, un nombre ou un
 >   booléen faisait échouer l'ingestion (`TypeError`), et la capture, restée dans `inbox/`, l'aurait fait échouer
 >   à chaque ingestion suivante. L'extension 0.2.0 applique la même règle.
+
+> Note du 8 octobre 2026 (recette) :
+> - **Séance réelle** du 8 octobre vers 18 h 20 UTC avec l'extension 0.2.0, chaque page défilée à la main :
+>   7 captures, dont deux pages 2 de Top payant, une page 2 de Top gratuit et un Top gratuit court.
+>   Rapporté par le porteur du projet : badge d'attente « ATT » affiché tant que la page n'était pas complète ;
+>   une page quittée avant la fin du chargement a été comptée par l'extension, et rien n'a été capturé.
+> - **Ingestion 12** sur atlas : 7 captures `ok`, aucune anomalie.
+> - **Inventaire par Claude Code** (`docs/exploration-amazon.md`, « Recette de la décision 010 ») : **n = m sur les
+>   7 captures** (50/50, et 44/44 pour le Top gratuit court), contre 30 cartes par page le 7 octobre ; les 134 cartes
+>   des rangs 31-50 et 81-100 ont toutes un prix et une couverture, 123 une note et un nombre d'évaluations.
+> - **Quatre indices** revalidés sur ces pages : `ok` pour leur propre demande, `invalid` pour les 21 demandes
+>   croisées.
+> - Le test automatique de la page sans `p13n-desktop-grid` appartient au dépôt de l'extension ; il n'est pas
+>   examiné ici.
