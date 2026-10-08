@@ -353,7 +353,8 @@ comparée à la capture de l'extension du 7 octobre (sans défilement). Jours di
 - **Repères du DOM** (identiques dans les trois pages examinées) :
   - la liste classée est portée par **un seul** `div.p13n-desktop-grid`, attribut `data-client-recs-list` ;
     ce même élément porte `data-index-offset="30"` (cartes du HTML initial) et `data-offset` (50, ou 46 pour le Top
-    gratuit court) ;
+    gratuit court). C'est une observation : la liste classée se repère par son attribut et ses rangs, comme dans
+    `src/books/collector/validation.py`, jamais par cette classe (décision 010) ;
   - chaque carte détaillée est un `div` d'identifiant `gridItemRoot`, **répété sur chaque carte** (identifiant non
     unique, contraire à la norme HTML) : il se compte avec `[id="gridItemRoot"]` ; `getElementById` n'en renverrait
     qu'une. Toutes les cartes sont à l'intérieur du `div.p13n-desktop-grid` et portent un `data-asin` non vide.

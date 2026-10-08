@@ -22,17 +22,27 @@ toutes les cartes chargées, sans rien faire elle-même pour les charger.
 
 Constatés le 8 octobre 2026 sur trois pages (deux captures de l'extension, une page défilée) :
 
-- **Liste classée** : l'attribut `data-client-recs-list` du **seul** élément `div.p13n-desktop-grid` de la page.
-  Sa valeur est un tableau JSON ; chaque élément porte un ASIN (`id`) et, pour un livre classé,
-  un rang (`metadataMap["render.zg.rank"]`). Le nombre de rangs attendus, **m**, est le nombre d'éléments qui
-  portent un `render.zg.rank` non vide (50 ; 46 pour le Top gratuit court observé).
-- **Cartes détaillées** : les éléments `[id="gridItemRoot"]` situés **à l'intérieur** de ce `div.p13n-desktop-grid`.
-  L'identifiant `gridItemRoot` est répété sur chaque carte (contraire à la norme HTML) : il faut ce sélecteur
+- **Liste classée** : définie **exactement comme dans `src/books/collector/validation.py`**, référence commune
+  à l'extension, à la validation et à l'extracteur (une seule définition de la liste classée) :
+  - un élément portant l'attribut `data-client-recs-list` dont la valeur est un tableau JSON, et dont au moins un
+    élément porte la clé `render.zg.rank` dans `metadataMap` (`_ranked_items`) ;
+  - il doit y avoir **exactement une** liste classée dans la page (`_check_ranks`) ;
+  - le nombre de rangs attendus, **m**, est le nombre d'éléments de cette liste qui portent cette clé
+    (50 ; 46 pour le Top gratuit court observé). Chaque élément porte aussi un ASIN (`id`).
+  - La liste n'est **pas** repérée par la classe de l'élément qui la porte (`div.p13n-desktop-grid` dans les pages
+    observées) : une classe de présentation peut changer sans que la liste change.
+- **Cartes détaillées** : les éléments `[id="gridItemRoot"]` situés **à l'intérieur** de l'élément qui porte la liste
+  classée. L'identifiant `gridItemRoot` est répété sur chaque carte (contraire à la norme HTML) : il faut ce sélecteur
   d'attribut, et non `getElementById`, qui n'en renverrait qu'une. Chaque carte contient un élément `[data-asin]`.
   Le nombre de cartes chargées, **n**, est le nombre d'ASIN distincts de la liste classée qui ont une carte
   (ASIN de `[data-asin]` dans une carte, présent dans la liste).
-- Ces repères sont des noms d'Amazon, susceptibles de changer : un changement se traduit par une page qui reste
-  en attente (section 3), donc visible, jamais par une capture silencieusement incomplète.
+- Ces repères sont des noms d'Amazon, susceptibles de changer. Selon le repère renommé :
+  - **attribut `data-client-recs-list` ou clé `render.zg.rank`** : la page est « sans liste classée » (section 2),
+    capturée telle quelle, puis classée `invalid` à l'ingestion ;
+  - **repère des cartes (`gridItemRoot`, `data-asin`)** : n reste inférieur à m, la page reste en **attente visible**
+    (section 3), et rien n'est capturé.
+
+  Dans aucun cas une capture incomplète ne peut être classée `ok`.
 
 ### 2. Capture unique, après chargement complet
 
@@ -44,8 +54,8 @@ Constatés le 8 octobre 2026 sur trois pages (deux captures de l'extension, une 
 - **Une capture par chargement** : la même page n'est pas recapturée, même si le DOM change encore. Une nouvelle
   capture demande un nouveau chargement de la page, par le porteur du projet lui-même.
 - Le chargement des cartes vient **uniquement du défilement fait à la main** par le porteur du projet.
-- **Page sans liste classée** (aucun `div.p13n-desktop-grid` portant des rangs, par exemple une page de vérification) :
-  rien n'est à attendre. Elle est capturée telle quelle, une fois le document chargé (`document.readyState`
+- **Page sans liste classée unique** (aucune liste classée au sens de la section 1, ou plusieurs ; par exemple une page
+  de vérification) : rien n'est à attendre. Elle est capturée telle quelle, une fois le document chargé (`document.readyState`
   à `complete`), comme aujourd'hui. L'ingestion la classe alors `blocked` ou `invalid` (décisions 004 et 008),
   ce qui garde la trace de l'incident dans RAW.
 
@@ -84,6 +94,9 @@ Elle ne fait qu'observer et lire le DOM, comme aujourd'hui. Le seul changement p
 1. **Une séance réelle** après modification de l'extension, avec défilement à la main de chaque page jusqu'en bas,
    comprenant au moins une **page 2** et un **Top gratuit** ; puis une page quittée volontairement sans défilement
    (attendu : rien capturé, compteur à 1, n/m affiché).
+   Avant cette séance, un **test de l'extension sur une page de test** (valeurs inventées) où l'élément qui porte
+   `data-client-recs-list` n'a **pas** la classe `p13n-desktop-grid` : attendu, la liste est reconnue, la page passe
+   en attente (n/m affiché) et **n'est pas capturée immédiatement** ; elle l'est seulement quand n = m.
 2. **Inventaire par Claude Code** des captures de cette séance, selon la méthode du 8 octobre (lecture seule,
    comptes et formes seulement) : **n = m sur chaque capture** (50/50, ou m/m pour une liste courte), rangs continus,
    cartes concordantes avec la liste ; présence des champs sur les rangs 31 à 50 et 81 à 100.
