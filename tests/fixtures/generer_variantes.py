@@ -105,6 +105,11 @@ def variants() -> dict[str, tuple[str, str]]:
                                              set_ranks(BASE, [1, 2, 3, 4, 51]))
     v["bestsellers_rang_trou.html"] = ("trou dans la suite des rangs (1, 2, 3, 4, 7)",
                                        set_ranks(BASE, [1, 2, 3, 4, 7]))
+    v["bestsellers_rang_double.html"] = ("rang en double dans la liste classée (1, 2, 3, 4, 4)",
+                                         set_ranks(BASE, [1, 2, 3, 4, 4]))
+    v["bestsellers_asin_double.html"] = ("ASIN en double dans la liste classée (cinquième = quatrième)",
+                                         replace(BASE, "&quot;id&quot;:&quot;B0FAUX0005&quot;",
+                                                 "&quot;id&quot;:&quot;B0FAUX0004&quot;"))
 
     # Liste courte réaliste : 45 livres classés, donc pas de page 2 ni de pagination
     s = re.sub(r'data-client-recs-list="[^"]*"', lambda m: f'data-client-recs-list="{recs_list(45)}"', BASE)

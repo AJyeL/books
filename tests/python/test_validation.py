@@ -69,12 +69,18 @@ def test_trou_dans_les_rangs_seulement_signale(fixture_page):
     assert "non continue" in v.notes[0]
 
 
-def test_doublon_de_rang_seulement_signale(fixture_page):
-    page = fixture_page("bestsellers_exemple.html").replace(
-        b"&quot;render.zg.rank&quot;:&quot;5&quot;", b"&quot;render.zg.rank&quot;:&quot;4&quot;", 1)
-    v = validate_bestseller_page(page, demande())
-    assert v.status == "ok"
-    assert "non continue" in v.notes[0]
+def test_rang_en_double_non_conforme(fixture_page):
+    # Décision 011, section 5 bis : un doublon n'est plus une simple information
+    v = verdict(fixture_page, "bestsellers_rang_double.html")
+    assert v.status == "invalid"
+    assert "1 rang(s) en double (ex. : 4)" in v.reason
+    assert v.notes == ()
+
+
+def test_asin_en_double_non_conforme(fixture_page):
+    v = verdict(fixture_page, "bestsellers_asin_double.html")
+    assert v.status == "invalid"
+    assert "1 ASIN en double dans la liste classée (ex. : B0FAUX0004)" in v.reason
 
 
 # --- Type de liste (onglet actif) -------------------------------------------

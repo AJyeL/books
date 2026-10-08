@@ -39,6 +39,8 @@ que par le point testé. Après toute modification de l'exemple, les régénére
 | `bestsellers_rang_decale.html` | premier rang 2 | paid p1 | `invalid` |
 | `bestsellers_rang_hors_plage.html` | un rang à 51 en page 1 | paid p1 | `invalid` |
 | `bestsellers_rang_trou.html` | rangs 1, 2, 3, 4, 7 | paid p1 | ok, trou signalé |
+| `bestsellers_rang_double.html` | rangs 1, 2, 3, 4, 4 | paid p1 | `invalid` (décision 011) |
+| `bestsellers_asin_double.html` | cinquième ASIN égal au quatrième | paid p1 | `invalid` (décision 011) |
 | `bestsellers_sans_rang.html` | aucun `render.zg.rank` | paid p1 | `invalid` |
 | `bestsellers_autre_categorie.html` | canonical vers `10000000002` | paid p1 | `invalid` |
 | `bestsellers_captcha.html` | page CAPTCHA | paid p1 | `blocked` |

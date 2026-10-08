@@ -521,3 +521,42 @@ def test_rang_qui_n_est_pas_un_entier(dirs, valeur, statut):
         assert "render.zg.rank non entier" in record.error_message
     assert result.report.error is None
     assert inbox_files(captures) == []
+
+
+# --- Doublons dans la liste classée : page invalid (décision 011, section 5 bis) ----------
+
+@pytest.mark.parametrize("fixture, motif", [
+    ("bestsellers_rang_double.html", "1 rang(s) en double (ex. : 4)"),
+    ("bestsellers_asin_double.html", "1 ASIN en double dans la liste classée (ex. : B0FAUX0004)"),
+], ids=["rang-double", "asin-double"])
+def test_doublon_dans_la_liste_classee(dirs, fixture, motif):
+    """Doublon : capture déposée invalid avec son motif, anomalie au bilan, et la capture suivante est traitée."""
+    captures, _ = dirs
+    lot_dir = captures / "inbox" / LOT
+    make_capture(lot_dir, fixture, "10000000001", "paid", 1, "2026-10-06T200000Z")
+    make_capture(lot_dir, "bestsellers_gratuit.html", "10000000001", "free", 1, "2026-10-06T200100Z",
+                 "/ref=zg_bs?ie=UTF8&tf=1")
+    repo = FakeRepo()
+    result = run(dirs, repo)
+
+    pages = {record.request.list_type: record for _, record in repo.pages}
+    assert len(pages) == 2
+    assert pages["paid"].fetch_status == "invalid" and motif in pages["paid"].error_message
+    assert pages["free"].fetch_status == "ok"  # l'autre capture du lot est traitée (décision 008)
+    assert result.status == "partial" and EXIT_CODES[result.status] == 1
+    assert result.report.anomalies == 1
+    assert motif in repo.last["notes"]
+    assert inbox_files(captures) == []
+
+
+def test_trou_dans_la_liste_classee_reste_une_information(dirs):
+    captures, _ = dirs
+    make_capture(captures / "inbox" / LOT, "bestsellers_rang_trou.html", "10000000001", "paid", 1,
+                 "2026-10-06T200000Z")
+    repo = FakeRepo()
+    result = run(dirs, repo)
+
+    (_, record), = repo.pages
+    assert record.fetch_status == "ok"
+    assert result.status == "success" and result.report.anomalies == 0
+    assert any("suite de rangs non continue (trou)" in i for i in result.report.information)

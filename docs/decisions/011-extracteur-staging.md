@@ -187,3 +187,16 @@ détaillée.
 - Le service `transformer` s'ajoute à `docker-compose.yml`, avec les garde-fous de montage de `BOOKS_RAW_DIR`
   (décision 003), en lecture seule.
 - CORE (livres, auteurs, catégories) et les analyses restent à décider : STAGING ne déduplique rien et n'agrège rien.
+
+> Note du 8 octobre 2026 (étape 1 du code : liste classée commune et validation durcie) :
+> - **Module commun** `src/books/amazon/ranked_list.py` : `RANK_KEY`, `ranked_items` et `rank_value`, déplacées de
+>   `validation.py` sous des noms publics, sans changement de comportement (suite de tests inchangée : 207 réussis).
+>   La validation l'importe ; l'extracteur l'importera, plutôt que des fonctions privées de la validation.
+> - **Validation durcie** (section 5 bis) : un rang ou un ASIN en double rend la page `invalid`, motifs
+>   « N rang(s) en double (ex. : …) » et « N ASIN en double dans la liste classée (ex. : …) ». Seuls les ASIN
+>   en texte sont comparés. La note d'un trou devient « suite de rangs non continue (trou) ».
+> - Vérifié le 8 octobre 2026 : deux fausses pages (`bestsellers_rang_double.html`, `bestsellers_asin_double.html`) ;
+>   tests de la validation, et par `ingest()` (capture déposée `invalid` avec son motif, anomalie au bilan,
+>   autre capture du lot traitée ; un trou reste une information sans anomalie) ; suite complète : 211 réussis.
+>   Contre-épreuve : sans les nouvelles règles, les 4 tests de doublons échouent. Les 14 captures réelles
+>   de `data/captures/` restent `ok`.

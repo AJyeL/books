@@ -8,8 +8,8 @@ concordent avec la demande (catégorie, type de liste, numéro de page) :
 3. pagination : si elle existe, la page active est la page demandée ; si elle est absente,
    seule une demande de page 1 est acceptée (liste courte) ;
 4. rangs (render.zg.rank) : une seule liste classée, premier rang = (page - 1) × 50 + 1,
-   tous les rangs dans la plage de la page (1-50, 51-100). Un trou ou un doublon dans la suite
-   est seulement signalé (information).
+   tous les rangs dans la plage de la page (1-50, 51-100), aucun rang ni ASIN en double (décision 011).
+   Un trou dans la suite est seulement signalé (information).
 Un indice introuvable rend la page non conforme : rien n'est supposé par défaut. Les prix ne servent pas d'indice.
 
 La structure décide, le mot « captcha » ne fait que qualifier :
@@ -18,14 +18,14 @@ La structure décide, le mot « captcha » ne fait que qualifier :
 - page non conforme sans signe de CAPTCHA : « invalid ».
 """
 
-import json
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 
+# Définition de la liste classée commune à la validation et à l'extracteur (décision 011)
+from books.amazon.ranked_list import RANK_KEY, rank_value, ranked_items
 from books.collector.targets import MAX_PAGES_PER_LIST, PageRequest, canonical_url
-
-RANK_KEY = "render.zg.rank"
 # Une page de classement compte au plus 50 rangs ; en dessous, c'est une liste courte (information)
 FULL_LIST_SIZE = 50
 # Libellé de l'onglet actif pour chaque type de liste (textes d'interface observés le 5 octobre 2026)
@@ -113,35 +113,6 @@ class _PageScanner(HTMLParser):
             self._tab_text.append(data)
 
 
-def _ranked_items(raw_value: str) -> list[dict] | None:
-    """Éléments d'une liste data-client-recs-list, si c'est une liste classée ; sinon None."""
-    try:
-        items = json.loads(raw_value)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(items, list):
-        return None
-    # metadataMap qui n'est pas un objet JSON (nombre, booléen, liste, texte) : pas de rang, jamais un plantage ;
-    # « in » lèverait TypeError sur un nombre, et chercherait une sous-chaîne dans un texte
-    ranked = [
-        item for item in items
-        if isinstance(item, dict) and isinstance(item.get("metadataMap"), dict) and RANK_KEY in item["metadataMap"]
-    ]
-    return ranked or None
-
-
-def _rank_value(value: object) -> int | None:
-    """Rang lu : entier JSON ou texte de chiffres ; None sinon. Un booléen n'est jamais un rang (int(True) vaut 1),
-    un décimal non plus (int(3.7) vaudrait 3)."""
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, int):
-        return value
-    if isinstance(value, str) and re.fullmatch(r"[0-9]+", value):
-        return int(value)
-    return None
-
-
 def _check_canonical(scanner: _PageScanner, request: PageRequest) -> list[str]:
     expected = canonical_url(request.node)
     canonicals = set(scanner.canonicals)
@@ -183,13 +154,13 @@ def _check_pagination(scanner: _PageScanner, request: PageRequest) -> list[str]:
 
 def _check_ranks(scanner: _PageScanner, request: PageRequest) -> tuple[list[str], list[str], int]:
     """Problèmes, informations et nombre de rangs de la liste classée."""
-    ranked_lists = [r for r in map(_ranked_items, scanner.recs_lists) if r is not None]
+    ranked_lists = [r for r in map(ranked_items, scanner.recs_lists) if r is not None]
     if not ranked_lists:
         return [f"aucune liste contenant {RANK_KEY}"], [], 0
     if len(ranked_lists) > 1:
         return [f"{len(ranked_lists)} listes contenant {RANK_KEY} (une seule attendue)"], [], 0
     items = ranked_lists[0]
-    values = [_rank_value(item["metadataMap"][RANK_KEY]) for item in items]
+    values = [rank_value(item["metadataMap"][RANK_KEY]) for item in items]
     if None in values:
         return [f"{RANK_KEY} non entier"], [], len(items)
     ranks = sorted(values)
@@ -202,9 +173,18 @@ def _check_ranks(scanner: _PageScanner, request: PageRequest) -> tuple[list[str]
     outside = [r for r in ranks if not low <= r <= high]
     if outside:
         problems.append(f"{len(outside)} rang(s) hors de la plage {low}-{high} (ex. : {outside[0]})")
+    # Doublons : page non conforme (décision 011, section 5 bis). Seuls les ASIN en texte sont comparés :
+    # une autre valeur ne peut pas être un ASIN, et un objet ne pourrait pas être compté.
+    duplicate_ranks = sorted(r for r, n in Counter(ranks).items() if n > 1)
+    if duplicate_ranks:
+        problems.append(f"{len(duplicate_ranks)} rang(s) en double (ex. : {duplicate_ranks[0]})")
+    asins = Counter(item.get("id") for item in items if isinstance(item.get("id"), str))
+    duplicate_asins = sorted(a for a, n in asins.items() if n > 1)
+    if duplicate_asins:
+        problems.append(f"{len(duplicate_asins)} ASIN en double dans la liste classée (ex. : {duplicate_asins[0]})")
     notes: list[str] = []
     if not problems and ranks != list(range(low, low + len(ranks))):
-        notes.append(f"suite de rangs non continue (trou ou doublon) entre {ranks[0]} et {ranks[-1]}")
+        notes.append(f"suite de rangs non continue (trou) entre {ranks[0]} et {ranks[-1]}")
     return problems, notes, len(items)
 
 
