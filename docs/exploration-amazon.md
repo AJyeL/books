@@ -297,3 +297,70 @@ DOM ») est levée pour ces 7 captures.
 
 Limites : une seule séance, un seul jour, une seule version de l'extension et de Chrome ; captures sans défilement.
 À revérifier si l'extension, le navigateur ou la façon de consulter les pages changent.
+
+## Inventaire des 7 captures et expérience du défilement (8 octobre 2026)
+
+Étude hors ligne, fichiers ouverts en lecture seule, par un script jetable qui ne relève que des comptes et des formes
+(chiffres remplacés par 9). Aucun titre, aucun ASIN ; l'auteur est seulement compté, son texte n'est jamais lu
+(décision RGPD en attente). Notation : `⍽` = espace insécable.
+
+### Inventaire des 7 captures de l'extension (séance du 7 octobre 2026)
+Les 7 captures de `data/captures/` : Fantasy épique (FE) Top gratuit p1, Top payant p1 et p2 ;
+Romance sportive (RS) Top gratuit p1 et p2, Top payant p1 et p2.
+
+| Capture | Liste classée | Cartes détaillées | Rangs sans carte |
+|---|---|---|---|
+| FE gratuit p1 | 46 (rangs 1-46) | 30 (1-30) | 31-46 |
+| FE payant p1 / RS gratuit p1 / RS payant p1 | 50 (1-50) | 30 (1-30) | 31-50 |
+| FE payant p2 / RS gratuit p2 / RS payant p2 | 50 (51-100) | 30 (51-80) | 81-100 |
+| **Total** | **346** | **210** | **136** |
+
+- Aucune irrégularité : une seule liste classée par page, rangs continus, aucun ASIN vide ni en double ; les 210 cartes
+  concordent avec la liste (même ASIN au même rang) ; aucun `data-asin` de la page hors de la liste classée.
+- Sans défilement, **61 % des livres** (210 sur 346) ont des champs détaillés ; les autres n'ont que l'ASIN et le rang.
+- Présence des champs sur les 210 cartes : rang, ASIN, titre, prix, URL de couverture, « Format Kindle » : 210 ;
+  auteur affiché par un lien (`a.a-link-child`) : 205 ; note et nombre d'évaluations : 191 ;
+  « N formats disponibles » : 142 ; « Kindle Unlimited » en texte : 0 ; `ku-sticker` dans l'URL : 148.
+- **Note et nombre d'évaluations vont toujours ensemble** : 191 cartes ont les deux, 19 aucun des deux (dont 15 dans
+  le Top gratuit), aucune l'un sans l'autre.
+- **Cinq cartes sans lien auteur**, toutes dans un Top gratuit : le lien `a.a-link-child` est absent (et non vide),
+  mais une ligne de texte de même style subsiste hors lien. Hypothèse, non vérifiée (texte non lu) : auteur affiché
+  sans page auteur. Un parser qui ne lirait que `a.a-link-child` conclurait à tort à l'absence d'auteur.
+- **Prix du Top gratuit : les 90 valent exactement `0,00⍽€`** ; le mot « Gratuit » n'apparaît dans aucune page.
+  Les 120 prix du Top payant sont non nuls.
+- Formes rencontrées :
+  - rang : `#9`, `#99` ;
+  - prix : `9,99⍽€`, `99,99⍽€` ;
+  - note : `9,9 sur 9⍽étoiles` (toujours une décimale) ;
+  - nombre d'évaluations, texte visible : `9`, `99`, `999`, `9⍽999`, `99⍽999`, `999⍽999` ;
+  - `aria-label` du lien des étoiles : `9,9 sur 9⍽étoiles, 9⍽999⍽évaluations` ;
+  - autres formats : `9⍽formats disponibles`.
+- `ku-sticker` (indice KU non vérifié) : 36 sur 90 cartes du Top gratuit, 112 sur 120 du Top payant.
+  Simple constat sur 7 pages d'un jour ; rien n'est établi sur Kindle Unlimited.
+
+### Expérience du défilement
+Une page FE Top payant p1, défilée à la main jusqu'en bas puis enregistrée par Ctrl+S, « Page Web complète »,
+comparée à la capture de l'extension du 7 octobre (sans défilement). Jours différents : seule la structure est comparée.
+
+| | Extension, sans défilement (7 oct.) | Ctrl+S après défilement (8 oct.) |
+|---|---|---|
+| Liste classée | 50 rangs (1-50) | 50 rangs (1-50) |
+| Cartes détaillées | 30 (rangs 1-30) | **50 (rangs 1-50)**, continues, concordantes avec la liste |
+| Rangs 31-50 : prix / note / évaluations | aucune carte | 20 / 19 / 19 (note et évaluations ensemble) |
+
+- **Le défilement charge les cartes manquantes**, avec la même structure : mêmes sélecteurs, mêmes formes.
+  La réserve du 7 octobre (« une capture après défilement pourrait en contenir davantage ») est levée sur cette page.
+- **Repères du DOM** (identiques dans les trois pages examinées) :
+  - la liste classée est portée par **un seul** `div.p13n-desktop-grid`, attribut `data-client-recs-list` ;
+    ce même élément porte `data-index-offset="30"` (cartes du HTML initial) et `data-offset` (50, ou 46 pour le Top
+    gratuit court) ;
+  - chaque carte détaillée est un `div` d'identifiant `gridItemRoot`, **répété sur chaque carte** (identifiant non
+    unique, contraire à la norme HTML) : il se compte avec `[id="gridItemRoot"]` ; `getElementById` n'en renverrait
+    qu'une. Toutes les cartes sont à l'intérieur du `div.p13n-desktop-grid` et portent un `data-asin` non vide.
+- **Ctrl+S exclu comme méthode de capture** :
+  - commentaire `<!-- saved from url=… -->` en tête, pas de JSON jumeau, nom hors format (décision 007) ;
+  - les adresses `src` des 50 couvertures sont réécrites vers le dossier local `…_files` ; l'adresse d'origine
+    ne subsiste que dans `data-a-dynamic-image` ;
+  - la décision 005 laisse ouverte la question d'une nouvelle requête lors d'un Ctrl+S.
+  Seule une capture de l'extension après chargement complet peut servir en production (décision 010).
+- Limites : une page, une catégorie, Top payant p1 seulement ; ni page 2 ni Top gratuit défilés.

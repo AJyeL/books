@@ -86,6 +86,10 @@ Aucun programme du projet n'envoie de requête à Amazon : ni le collecteur, ni 
   par leurs jetons propres à chaque requête (`docs/exploration-amazon.md`), sans qu'on sache lequel des deux
   avait provoqué la nouvelle requête. La capture par l'extension n'a pas cette incertitude.
 
+> Note du 8 octobre 2026 : le moment de la capture est précisé par la décision 010
+> (`010-capture-apres-chargement-complet.md`) : l'extension attend, sans agir sur la page, que toutes les cartes
+> de la liste classée soient chargées par le défilement manuel, puis capture une seule fois.
+
 ## Conséquences
 
 - **La source réseau est abandonnée** : elle ne sera pas écrite.
