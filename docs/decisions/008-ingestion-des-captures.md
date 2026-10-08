@@ -215,3 +215,7 @@ en place, pages 2 manquantes, informations. Le bilan affiché sur le PC reprend 
 - Les captures restent aussi sur le PC (`envoyees\`), en plus de RAW et de sa sauvegarde sur atlas.
 - En développement, le même traitement s'applique à un dossier `inbox/` local, alimenté par des captures inventées
   ou recopiées à la main ; aucune connexion à atlas.
+
+> Note du 8 octobre 2026 : la validation appliquée à la section 3 est durcie par la décision 011 (section 5 bis) :
+> un rang ou un ASIN en double dans la liste classée rend la capture `invalid` (déposée avec son statut, anomalie
+> au bilan) ; un trou dans les rangs reste une information.
