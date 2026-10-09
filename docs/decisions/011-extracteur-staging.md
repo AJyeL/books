@@ -239,3 +239,27 @@ détaillée.
 >   dont une ligne d'une autre exécution refusée, une ligne sans `page_extraction` refusée, la mise à jour de
 >   `page_extraction` refusée avant la suppression des lignes, la réextraction complète acceptée ; colonne absente.
 >   Contre-épreuve sans la clé composée : échec au test 3. Tests 002 et 004 conformes.
+
+> Note du 9 octobre 2026 (étape 3 du code : analyse pure) :
+> - `src/books/transformer/parsing.py` : `parse_ranking_page(contenu)` rend une ligne par livre classé ou lève
+>   `ParseError` avec un motif (champ et rang). Elle n'accède ni à la base ni aux fichiers, utilise l'analyseur HTML
+>   de la bibliothèque standard (aucune dépendance ajoutée) et la liste classée commune (`books.amazon.ranked_list`).
+>   **`EXTRACTOR_VERSION = "1"`**.
+> - **Titre** (remplace « espaces de début et de fin retirés », section 3) : le nettoyage se limite au **décodage des
+>   entités HTML** et à la **réduction des espaces** (toute suite d'espaces, insécables comprises, devient une espace ;
+>   aucune en début ni en fin). Rien d'autre : ni changement de casse, ni retrait de ponctuation, ni troncature.
+>   Un titre vide après nettoyage fait échouer la page.
+> - **Prix** en `Decimal`, jamais en nombre à virgule flottante, cohérent avec `numeric(8,2)` ; au-delà de 999 999,99 :
+>   échec. **Devise** par liste d'autorisation : `€` → `EUR`, et rien d'autre. Note aussi en `Decimal`.
+> - **Formes** : l'espace insécable attendue est U+00A0, écrite `&nbsp;` dans les captures (`exploration-amazon.md`,
+>   9 octobre 2026) ; espace ordinaire ou espace fine à sa place : échec. Libellé « évaluations » au pluriel seulement.
+> - Contrôles complémentaires : badge de rang obligatoire sur chaque carte ; adresse de couverture en `https://`
+>   seulement (une adresse réécrite par un enregistrement manuel est refusée) ; un seul élément par champ.
+>   L'auteur n'est jamais lu : le titre est `a[role=link] > span > div`, et le lien de l'auteur n'a pas `role="link"`.
+> - Vérifié le 9 octobre 2026 : `tests/python/test_parsing.py` (53 tests) sur trois fausses pages générées
+>   (`generer_pages_extraction.py`), conformes à la validation ; suite complète : 264 réussis. **Contre-épreuves** :
+>   une version qui lit l'auteur fait échouer le test RGPD (auteur inventé absent de tout champ et de tout motif) ;
+>   un prix accepté avec tout espace, ou le dollar ajouté aux devises, fait échouer les tests de liste d'autorisation ;
+>   un champ de détail donné à un livre sans carte fait échouer les tests `has_card`.
+>   Sur les 14 captures réelles, en lecture seule : aucune page en échec ; 344 cartes sur 344 rangs (dont 314 notées)
+>   pour les captures 0.2.0, 210 cartes (dont 191 notées) pour celles du 7 octobre, comme l'inventaire.

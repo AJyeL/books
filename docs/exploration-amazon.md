@@ -399,3 +399,18 @@ l'élément qui la porte ; n = ASIN distincts de la liste qui ont une carte, m =
   (autre liste, autre page, autre catégorie) sont `invalid`. Résultat identique sur les 7 captures du 7 octobre
   (30 cartes) : la validation ne dépend pas du nombre de cartes chargées.
 - Limites : une séance, un jour, deux catégories, une version de l'extension et de Chrome.
+
+## Espace insécable : écrite `&nbsp;` dans les captures (9 octobre 2026)
+
+Comptage d'octets sur les 14 captures de `data/captures/`, en lecture seule, sans aucune valeur extraite :
+- dans les captures de l'extension (DOM sérialisé par le navigateur), l'espace insécable est **toujours** écrite sous
+  la forme de l'entité `&nbsp;`, jamais comme caractère U+00A0 ; aucune espace fine insécable (U+202F, `&#8239;`) ;
+- emplacements : devant `€` dans les 554 prix (344 captures 0.2.0, 210 du 7 octobre), dans `sur 5&nbsp;étoiles`
+  (icône et `aria-label`), entre les groupes de milliers, et devant `évaluations` ;
+- dans l'`aria-label` des étoiles, la virgule est suivie d'une espace **ordinaire** :
+  `4,5 sur 5&nbsp;étoiles, 1&nbsp;234&nbsp;évaluations` (valeurs inventées) ; libellé toujours au pluriel,
+  y compris pour une seule évaluation (aucun « évaluation » au singulier observé) ;
+- adresses des couvertures : toujours `https://`, sur trois hôtes d'Amazon
+  (`images-eu.ssl-images-amazon.com`, `m.media-amazon.com`, `images-na.ssl-images-amazon.com`).
+L'inventaire du 8 octobre notait `⍽` sans distinguer ces caractères : son outil décodait les entités.
+Un analyseur HTML décode `&nbsp;` en U+00A0 : c'est ce caractère que l'extracteur attend (décision 011).

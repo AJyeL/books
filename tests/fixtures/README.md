@@ -62,3 +62,20 @@ version 1, avec empreinte et taille exactes. Après toute modification des fauss
 
 Les captures non intègres (JSON altéré, empreinte fausse, orphelins, noms hors format) sont fabriquées dans les tests,
 sur une copie, à partir de ces paires.
+
+## Pages de l'extracteur (`extraction_*.html`, décision 011)
+
+Générées par `generer_pages_extraction.py` à partir de la tête et de la fin de `bestsellers_exemple.html`
+(`python tests/fixtures/generer_pages_extraction.py`). Contrairement à l'exemple, leurs cartes reprennent les formes
+**réelles** de l'inventaire du 8 octobre 2026 : espace insécable écrite `&nbsp;`, note toujours avec une décimale.
+Un auteur inventé et reconnaissable, `Quentin Sentinelle-Rgpd` (identifiant `B0SENTINL1`), signe plusieurs cartes :
+le test RGPD vérifie qu'il n'apparaît dans aucun résultat de l'extracteur.
+
+| Fichier | Contenu | Validation |
+|---|---|---|
+| `extraction_page1_complete.html` | Top payant p1, 50 rangs, 50 cartes ; rangs 1 à 7 : une forme acceptée chacun (carte complète, sans évaluation, titre à entités et espaces, milliers et prix > 999 €, insécables en caractères, une évaluation, sans couverture) | paid p1 : ok |
+| `extraction_page1_30_cartes.html` | Top payant p1, 50 rangs, 30 cartes (capture sans défilement) | paid p1 : ok |
+| `extraction_gratuit.html` | Top gratuit p1, 50 rangs, 50 cartes à `0,00 €` | free p1 : ok |
+
+`bestsellers_exemple.html` écrit ses prix et ses notes avec une espace **ordinaire** (`4,99 €`) et une note sans
+décimale (`4 sur 5 étoiles`) : formes jamais observées dans les captures, refusées par l'extracteur (testé).
