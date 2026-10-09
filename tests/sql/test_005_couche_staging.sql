@@ -42,7 +42,8 @@ BEGIN
 END;
 $$;
 
--- Préparation, en tant que propriétaire : une tournée et deux pages RAW de test
+-- Préparation, en tant que propriétaire : une tournée et trois pages RAW de test
+-- (pages 1 et 2 de la catégorie 10000000001, page 1 de la catégorie 10000000002)
 DO $$
 BEGIN
     IF NOT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) THEN
@@ -52,9 +53,10 @@ BEGIN
     INSERT INTO raw.raw_page (run_id, page_type, category_node, list_type, page_number, requested_url,
                               fetch_status, content_sha256, content_bytes, storage_path,
                               capture_method, metadata_path, metadata_sha256)
-        SELECT id, 'bestseller_list', '10000000001', 'paid', n, 'https://test', 'ok',
-               'fe' || repeat(n::text, 62), 1, 'test', 'extension-dom', 'test.json', 'fe' || repeat('c', 62)
-          FROM raw.collect_run, (VALUES (1), (2)) AS v(n)
+        SELECT id, 'bestseller_list', v.node, 'paid', v.page, 'https://test', 'ok',
+               'fe' || repeat(v.n::text, 62), 1, 'test', 'extension-dom', 'test.json', 'fe' || repeat('c', 62)
+          FROM raw.collect_run,
+               (VALUES (1, '10000000001', 1), (2, '10000000001', 2), (3, '10000000002', 1)) AS v(n, node, page)
          WHERE collector_version = 'test';
     RAISE NOTICE 'OK test 0 : connecté en tant que propriétaire ; lignes RAW de test créées';
 END;
@@ -62,8 +64,12 @@ $$;
 
 -- Identifiants des lignes de test, pour les instructions construites plus bas
 CREATE TEMP TABLE test_ids ON COMMIT DROP AS
-    SELECT (SELECT id FROM raw.raw_page WHERE requested_url = 'https://test' AND page_number = 1) AS page1,
-           (SELECT id FROM raw.raw_page WHERE requested_url = 'https://test' AND page_number = 2) AS page2;
+    SELECT (SELECT id FROM raw.raw_page WHERE requested_url = 'https://test'
+                                          AND category_node = '10000000001' AND page_number = 1) AS page1,
+           (SELECT id FROM raw.raw_page WHERE requested_url = 'https://test'
+                                          AND category_node = '10000000001' AND page_number = 2) AS page2,
+           (SELECT id FROM raw.raw_page WHERE requested_url = 'https://test'
+                                          AND category_node = '10000000002') AS page3;
 GRANT SELECT ON test_ids TO books_transformer;
 
 -- ============================================================================================================
@@ -75,8 +81,10 @@ DO $$
 DECLARE
     page1 bigint := (SELECT page1 FROM test_ids);
     page2 bigint := (SELECT page2 FROM test_ids);
-    run   bigint;
-    -- Ligne valide de référence, avec carte ; chaque cas refusé n'en change qu'un point
+    page3 bigint := (SELECT page3 FROM test_ids);
+    run1  bigint;  -- première exécution
+    run   bigint;  -- seconde exécution, qui réextrait la page 1
+    -- Colonnes de ranking_entry ; chaque cas refusé ne diffère d'une ligne valide que par un point
     cols  text := 'raw_page_id, extract_run_id, rank, asin, has_card, title, price_amount, currency, rating, '
                   'review_count, cover_url, ku_sticker_hint';
     t     record;
@@ -86,51 +94,64 @@ BEGIN
     END IF;
 
     -- Test 1 : lecture de raw
-    IF (SELECT count(*) FROM raw.raw_page WHERE requested_url = 'https://test') <> 2
+    IF (SELECT count(*) FROM raw.raw_page WHERE requested_url = 'https://test') <> 3
        OR NOT EXISTS (SELECT 1 FROM raw.collect_run WHERE collector_version = 'test') THEN
         RAISE EXCEPTION 'ÉCHEC test 1 : lignes RAW de test non lues';
     END IF;
     RAISE NOTICE 'OK test 1 : books_transformer lit raw.collect_run et raw.raw_page';
 
     -- Test 2 : une extraction complète est acceptée (exécution, page, trois lignes)
-    INSERT INTO staging.extract_run (extractor_version) VALUES ('test') RETURNING id INTO run;
-    INSERT INTO staging.page_extraction (raw_page_id, extract_run_id, extractor_version, status, entry_count)
-        VALUES (page1, run, 'test', 'ok', 3);
+    INSERT INTO staging.extract_run (extractor_version) VALUES ('test') RETURNING id INTO run1;
+    INSERT INTO staging.page_extraction (raw_page_id, extract_run_id, status, entry_count)
+        VALUES (page1, run1, 'ok', 3);
     EXECUTE format('INSERT INTO staging.ranking_entry (%s) VALUES '
         '(%s, %s, 1, %L, true, %L, 4.99, %L, 4.5, 1234, %L, true), '      -- carte complète
         '(%s, %s, 2, %L, true, %L, 0.00, %L, NULL, NULL, %L, false), '    -- carte sans évaluation, prix nul
         '(%s, %s, 31, %L, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL)', -- sans carte : tout inconnu
-        cols, page1, run, 'B0FAUX0001', 'Titre inventé', 'EUR', 'https://test/couverture.jpg',
-              page1, run, 'B0FAUX0002', 'Autre titre', 'EUR', 'https://test/couverture2.jpg',
-              page1, run, 'B0FAUX0031');
+        cols, page1, run1, 'B0FAUX0001', 'Titre inventé', 'EUR', 'https://test/couverture.jpg',
+              page1, run1, 'B0FAUX0002', 'Autre titre', 'EUR', 'https://test/couverture2.jpg',
+              page1, run1, 'B0FAUX0031');
     RAISE NOTICE 'OK test 2 : extraction acceptée (avec carte, carte sans évaluation, sans carte)';
 
-    -- Test 3 : réextraction : suppression des lignes de la page, nouvelle insertion, page_extraction remplacée
+    -- Test 3 : changer l'exécution d'une page est refusé tant que des lignes de l'ancienne exécution existent
+    INSERT INTO staging.extract_run (extractor_version) VALUES ('test-2') RETURNING id INTO run;
+    PERFORM pg_temp.expect_refusal(3, 'nouvelle exécution enregistrée avant la suppression des anciennes lignes',
+        format('UPDATE staging.page_extraction SET extract_run_id = %s WHERE raw_page_id = %s', run, page1),
+        '23503', 'ranking_entry_page_extraction_fk');
+
+    -- Test 4 : réextraction complète, dans l'ordre de la décision 011 : DELETE, UPDATE, INSERT
     DELETE FROM staging.ranking_entry WHERE raw_page_id = page1;
+    UPDATE staging.page_extraction
+       SET extract_run_id = run, status = 'ok', error_message = NULL, entry_count = 1, extracted_at = now()
+     WHERE raw_page_id = page1;
     EXECUTE format('INSERT INTO staging.ranking_entry (%s) VALUES '
         '(%s, %s, 1, %L, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL)', cols, page1, run, 'B0FAUX0001');
-    INSERT INTO staging.page_extraction (raw_page_id, extract_run_id, extractor_version, status, entry_count)
-        VALUES (page1, run, 'test-2', 'ok', 1)
-        ON CONFLICT (raw_page_id) DO UPDATE
-        SET extract_run_id = EXCLUDED.extract_run_id, extractor_version = EXCLUDED.extractor_version,
-            status = EXCLUDED.status, error_message = EXCLUDED.error_message,
-            entry_count = EXCLUDED.entry_count, extracted_at = EXCLUDED.extracted_at;
-    IF (SELECT extractor_version FROM staging.page_extraction WHERE raw_page_id = page1) <> 'test-2'
-       OR (SELECT count(*) FROM staging.ranking_entry WHERE raw_page_id = page1) <> 1 THEN
-        RAISE EXCEPTION 'ÉCHEC test 3 : réextraction incomplète';
+    IF (SELECT extract_run_id FROM staging.page_extraction WHERE raw_page_id = page1) <> run
+       OR (SELECT count(*) FROM staging.ranking_entry WHERE raw_page_id = page1) <> 1
+       OR EXISTS (SELECT 1 FROM staging.ranking_entry WHERE raw_page_id = page1 AND extract_run_id <> run) THEN
+        RAISE EXCEPTION 'ÉCHEC test 4 : réextraction incomplète';
     END IF;
-    RAISE NOTICE 'OK test 3 : réextraction acceptée (DELETE, INSERT, page_extraction remplacée)';
+    RAISE NOTICE 'OK test 4 : réextraction acceptée (DELETE, UPDATE de page_extraction, INSERT)';
 
-    -- Test 4 : page en échec, avec motif et sans ligne ; clôture de l'exécution
-    INSERT INTO staging.page_extraction (raw_page_id, extract_run_id, extractor_version, status, error_message,
-                                         entry_count)
-        VALUES (page2, run, 'test', 'parse_failed', 'prix illisible au rang 7', 0);
+    -- Tests 5 et 6 : la clé composée refuse une ligne d'une autre exécution, et une ligne sans page_extraction
+    PERFORM pg_temp.expect_refusal(5, 'ligne de l''ancienne exécution pour une page réextraite',
+        format('INSERT INTO staging.ranking_entry (%s) VALUES '
+               '(%s, %s, 2, %L, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL)', cols, page1, run1, 'B0FAUX0002'),
+        '23503', 'ranking_entry_page_extraction_fk');
+    PERFORM pg_temp.expect_refusal(6, 'ligne d''une page sans page_extraction',
+        format('INSERT INTO staging.ranking_entry (%s) VALUES '
+               '(%s, %s, 1, %L, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL)', cols, page3, run, 'B0FAUX0001'),
+        '23503', 'ranking_entry_page_extraction_fk');
+
+    -- Test 7 : page en échec, avec motif et sans ligne ; clôture de l'exécution
+    INSERT INTO staging.page_extraction (raw_page_id, extract_run_id, status, error_message, entry_count)
+        VALUES (page2, run, 'parse_failed', 'prix illisible au rang 7', 0);
     UPDATE staging.extract_run
        SET finished_at = now(), status = 'partial', pages_extracted = 1, pages_failed = 1, notes = 'test'
      WHERE id = run;
-    RAISE NOTICE 'OK test 4 : page en échec enregistrée, exécution close';
+    RAISE NOTICE 'OK test 7 : page en échec enregistrée, exécution close';
 
-    -- Tests 10 à 34 : lignes refusées, chacune par la contrainte attendue
+    -- Tests 10 à 29 : lignes refusées, chacune par la contrainte attendue
     FOR t IN
         SELECT * FROM (VALUES
             (10, 'sans carte mais avec un prix',
@@ -189,26 +210,27 @@ BEGIN
                  '23505', 'ranking_entry_asin_uq'),
             (28, 'page RAW inexistante',
                  format('(%s, %s, 58, %L, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL)', -1, run, 'B0FAUX0058'),
-                 '23503', 'ranking_entry_raw_page_id_fkey'),
+                 '23503', 'ranking_entry_page_extraction_fk'),
             (29, 'exécution inexistante',
                  format('(%s, %s, 59, %L, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL)', page1, -1, 'B0FAUX0059'),
-                 '23503', 'ranking_entry_extract_run_id_fkey')
+                 '23503', 'ranking_entry_page_extraction_fk')
         ) AS v(num, label, row_sql, state, expected)
         ORDER BY num
     LOOP
         PERFORM pg_temp.expect_refusal(t.num, t.label,
             format('INSERT INTO staging.ranking_entry (%s) VALUES %s', cols, t.row_sql), t.state, t.expected);
     END LOOP;
-    -- Le même ASIN dans une autre page reste permis (une ligne par page et par rang)
+
+    -- Test 30 : le même ASIN dans une autre page reste permis (une ligne par page et par rang)
+    INSERT INTO staging.page_extraction (raw_page_id, extract_run_id, status, entry_count) VALUES (page3, run, 'ok', 1);
     EXECUTE format('INSERT INTO staging.ranking_entry (%s) VALUES '
-        '(%s, %s, 1, %L, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL)', cols, page2, run, 'B0FAUX0001');
+        '(%s, %s, 1, %L, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL)', cols, page3, run, 'B0FAUX0001');
     RAISE NOTICE 'OK test 30 : même ASIN dans une autre page accepté';
 
     -- Tests 31 à 36 : page_extraction et extract_run
     PERFORM pg_temp.expect_refusal(31, 'page en statut inconnu',
         -- Motif présent et aucune ligne : seul le statut est en faute (page_extraction_result_ck respectée)
-        format('INSERT INTO staging.page_extraction (raw_page_id, extract_run_id, extractor_version, status, '
-               'error_message, entry_count) VALUES (%s, %s, %L, %L, %L, 0)', page1, run, 'test', 'aborted', 'motif'),
+        format('UPDATE staging.page_extraction SET status = %L WHERE raw_page_id = %s', 'aborted', page2),
         '23514', 'page_extraction_status_ck');
     PERFORM pg_temp.expect_refusal(32, 'page ok avec un motif d''échec',
         format('UPDATE staging.page_extraction SET error_message = %L WHERE raw_page_id = %s', 'motif', page1),
@@ -335,6 +357,14 @@ BEGIN
         RAISE EXCEPTION 'ÉCHEC test 72 : PUBLIC ou books_collector a un droit sur staging';
     END IF;
     RAISE NOTICE 'OK test 72 : aucun droit de PUBLIC ni de books_collector sur staging';
+
+    -- La version de l'extracteur d'une page s'obtient par jointure avec extract_run : pas de copie redondante
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'staging' AND table_name = 'page_extraction'
+                  AND column_name = 'extractor_version') THEN
+        RAISE EXCEPTION 'ÉCHEC test 73 : page_extraction.extractor_version existe encore';
+    END IF;
+    RAISE NOTICE 'OK test 73 : version de l''extracteur obtenue par jointure avec extract_run seulement';
 END;
 $$;
 

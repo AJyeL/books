@@ -24,17 +24,20 @@ CREATE TABLE staging.extract_run (
 );
 
 -- Une ligne par page RAW examinée : rend visibles les pages en échec, qui n'ont aucune ligne dans
--- ranking_entry, et indique quelle version de l'extracteur a traité chaque page
+-- ranking_entry, et indique quelle exécution (donc quelle version de l'extracteur, par jointure avec
+-- extract_run) a traité chaque page
 CREATE TABLE staging.page_extraction (
     raw_page_id       bigint PRIMARY KEY REFERENCES raw.raw_page (id),
     extract_run_id    bigint NOT NULL REFERENCES staging.extract_run (id),
-    extractor_version text NOT NULL,
     status            text NOT NULL
                       CONSTRAINT page_extraction_status_ck
                       CHECK (status IN ('ok', 'parse_failed', 'integrity_failed')),
     error_message     text,
     entry_count       integer NOT NULL,
     extracted_at      timestamptz NOT NULL DEFAULT now(),
+    -- Cible de la clé étrangère composée de ranking_entry (raw_page_id est déjà unique : cette contrainte
+    -- ne restreint rien de plus, elle permet de désigner le couple page + exécution)
+    CONSTRAINT page_extraction_run_uq UNIQUE (raw_page_id, extract_run_id),
     -- Page extraite : au moins une ligne, aucun motif ; page en échec : un motif, aucune ligne
     CONSTRAINT page_extraction_result_ck CHECK (
         (status = 'ok' AND error_message IS NULL AND entry_count >= 1)
@@ -45,8 +48,8 @@ CREATE TABLE staging.page_extraction (
 -- Une ligne par (page RAW, rang). Le contexte (catégorie, liste, page, horodatage, méthode) s'obtient par
 -- jointure avec raw.raw_page : il n'est pas recopié.
 CREATE TABLE staging.ranking_entry (
-    raw_page_id     bigint NOT NULL REFERENCES raw.raw_page (id),
-    extract_run_id  bigint NOT NULL REFERENCES staging.extract_run (id),
+    raw_page_id     bigint NOT NULL,
+    extract_run_id  bigint NOT NULL,
     rank            smallint NOT NULL CONSTRAINT ranking_entry_rank_ck CHECK (rank BETWEEN 1 AND 100),
     asin            text NOT NULL CONSTRAINT ranking_entry_asin_ck CHECK (asin ~ '^[A-Z0-9]{10}$'),
     has_card        boolean NOT NULL,
@@ -59,6 +62,13 @@ CREATE TABLE staging.ranking_entry (
     ku_sticker_hint boolean,
     CONSTRAINT ranking_entry_pk PRIMARY KEY (raw_page_id, rank),
     CONSTRAINT ranking_entry_asin_uq UNIQUE (raw_page_id, asin),
+    -- Jamais deux versions mélangées pour une page (décision 011, section 6) : une ligne n'existe que pour
+    -- l'exécution enregistrée dans page_extraction pour sa page. La page RAW et l'exécution sont garanties par
+    -- les clés étrangères de page_extraction. Réextraction, dans une transaction : suppression des lignes de la
+    -- page, puis mise à jour de page_extraction (nouvelle exécution), puis insertion des nouvelles lignes ;
+    -- tant que des lignes de l'ancienne exécution existent, la mise à jour de page_extraction est refusée.
+    CONSTRAINT ranking_entry_page_extraction_fk FOREIGN KEY (raw_page_id, extract_run_id)
+        REFERENCES staging.page_extraction (raw_page_id, extract_run_id),
     -- Sans carte détaillée, tous les champs de détail sont inconnus (NULL) : jamais une valeur supposée
     CONSTRAINT ranking_entry_no_card_ck CHECK (
         has_card
@@ -88,9 +98,9 @@ GRANT SELECT ON raw.collect_run, raw.raw_page TO books_transformer;
 GRANT USAGE ON SCHEMA staging TO books_transformer;
 -- Réextraction d'une page : suppression de ses lignes, puis insertion des nouvelles
 GRANT SELECT, INSERT, DELETE ON staging.ranking_entry TO books_transformer;
--- Une ligne par page, remplacée à chaque extraction (INSERT … ON CONFLICT DO UPDATE) ; raw_page_id non modifiable
+-- Une ligne par page, mise à jour à chaque extraction ; raw_page_id non modifiable
 GRANT SELECT, INSERT ON staging.page_extraction TO books_transformer;
-GRANT UPDATE (extract_run_id, extractor_version, status, error_message, entry_count, extracted_at)
+GRANT UPDATE (extract_run_id, status, error_message, entry_count, extracted_at)
     ON staging.page_extraction TO books_transformer;
 -- Clôture d'une exécution : modification limitée à ces colonnes
 GRANT SELECT, INSERT ON staging.extract_run TO books_transformer;

@@ -217,3 +217,25 @@ détaillée.
 >   Contre-épreuves dans la base jetable : sans `ranking_entry_no_card_ck`, échec au test 10 ; avec un droit de
 >   lecture sur `staging` accordé à `books_collector`, échec au test 60. Tests 002 et 004 toujours conformes.
 >   Rien n'est appliqué sur atlas à cette étape.
+
+> Note du 9 octobre 2026 (correction de la migration 005, **exception unique**) :
+> - La migration 005 a été **modifiée sur place** après son application en développement. C'est une exception :
+>   elle n'avait jamais été appliquée sur atlas, et `staging` était vide en développement. Une migration appliquée
+>   en production n'est jamais modifiée ; toute évolution passe par une nouvelle migration. En développement,
+>   `staging` et le rôle `books_transformer` ont été supprimés (`DROP SCHEMA staging CASCADE`,
+>   `DROP OWNED BY` et `DROP ROLE books_transformer`, ligne 5 de `schema_migration`), puis la migration réappliquée.
+> - **« Jamais deux versions mélangées » garanti par la base** (section 6) : `page_extraction` reçoit
+>   `UNIQUE (raw_page_id, extract_run_id)`, et `ranking_entry` une **clé étrangère composée**
+>   `(raw_page_id, extract_run_id)` vers `page_extraction`, à la place de ses deux clés étrangères simples
+>   (la page RAW et l'exécution restent garanties par celles de `page_extraction`). Une ligne n'existe donc que pour
+>   l'exécution enregistrée pour sa page. **Ordre de réextraction**, dans une transaction : suppression des lignes de
+>   la page, mise à jour de `page_extraction` (nouvelle exécution), insertion des nouvelles lignes ; la base refuse
+>   la mise à jour tant que des lignes de l'ancienne exécution existent. Ceci remplace l'`INSERT … ON CONFLICT DO
+>   UPDATE` mentionné dans la note précédente.
+> - **`page_extraction.extractor_version` supprimée** : redondante avec `extract_run.extractor_version`, obtenue par
+>   jointure. Elle est retirée du droit `UPDATE` de `books_transformer`. Les pages « extraites par une autre version »
+>   (section 6) se repèrent par cette jointure.
+> - Vérifié le 9 octobre 2026, dans un PostgreSQL 17 jetable puis en développement : test 005 (63 vérifications),
+>   dont une ligne d'une autre exécution refusée, une ligne sans `page_extraction` refusée, la mise à jour de
+>   `page_extraction` refusée avant la suppression des lignes, la réextraction complète acceptée ; colonne absente.
+>   Contre-épreuve sans la clé composée : échec au test 3. Tests 002 et 004 conformes.
