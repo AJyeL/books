@@ -77,5 +77,6 @@ le test RGPD vérifie qu'il n'apparaît dans aucun résultat de l'extracteur.
 | `extraction_page1_30_cartes.html` | Top payant p1, 50 rangs, 30 cartes (capture sans défilement) | paid p1 : ok |
 | `extraction_gratuit.html` | Top gratuit p1, 50 rangs, 50 cartes à `0,00 €` | free p1 : ok |
 
-`bestsellers_exemple.html` écrit ses prix et ses notes avec une espace **ordinaire** (`4,99 €`) et une note sans
-décimale (`4 sur 5 étoiles`) : formes jamais observées dans les captures, refusées par l'extracteur (testé).
+Depuis le 9 octobre 2026, `bestsellers_exemple.html` (et donc ses variantes et les captures de test qui en dérivent)
+écrit aussi les formes observées : `4,99&nbsp;€`, `4,0 sur 5&nbsp;étoiles`, `1&nbsp;234&nbsp;évaluations`.
+Toute fausse page conforme à la validation passe l'extracteur (testé dans `test_parsing.py`).

@@ -243,7 +243,32 @@ def test_contenu_qui_n_est_pas_utf8():
         parse_ranking_page(read(COMPLETE).encode("utf-8") + b"\xff")
 
 
-def test_page_d_exemple_de_la_validation_refusee():
-    # bestsellers_exemple.html écrit « 4,99 € » avec une espace ordinaire : forme jamais observée dans les captures
-    with pytest.raises(ParseError, match="rang 1 : prix de forme inconnue '4,99 €'"):
-        parse_ranking_page((FIXTURES / "bestsellers_exemple.html").read_bytes())
+def _request_for(name: str):
+    """Demande correspondant à une fausse page, d'après son nom."""
+    if "gratuit" in name:
+        return demande("free")
+    if "page2" in name:
+        return demande("paid", 2)
+    return demande()
+
+
+# Fausses pages de classement conformes à la validation ; les autres variantes sont non conformes par construction
+VALID_PAGES = {
+    "bestsellers_exemple.html", "bestsellers_titre_captcha.html", "bestsellers_gratuit.html", "bestsellers_page2.html",
+    "bestsellers_sans_pagination.html", "bestsellers_rang_trou.html", "bestsellers_liste_courte.html",
+    "bestsellers_page1_complete.html", "bestsellers_page1_complete_sans_pagination.html",
+    COMPLETE, THIRTY, FREE,
+}
+
+
+def test_toutes_les_fausses_pages_conformes_passent_l_extracteur():
+    pages = sorted(p.name for p in FIXTURES.glob("*.html"))
+    valid = {name for name in pages
+             if validate_bestseller_page((FIXTURES / name).read_bytes(), _request_for(name)).status == "ok"}
+    assert valid == VALID_PAGES  # une dérive des fausses pages se voit ici
+    for name in sorted(valid):
+        rows = parse_ranking_page((FIXTURES / name).read_bytes())  # aucune ParseError
+        assert rows, name
+        for row in rows:
+            if not row.has_card:
+                assert all(getattr(row, f) is None for f in DETAIL_FIELDS), (name, row)
