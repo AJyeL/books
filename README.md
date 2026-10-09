@@ -52,10 +52,13 @@ docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_
 
 Migrations déjà appliquées : table `public.schema_migration`.
 
-## Mot de passe du rôle books_collector
+## Mot de passe des rôles books_collector et books_transformer
 
-À faire une fois par environnement (PC, atlas), après la migration 002, et après toute restauration.
-Le mot de passe n'est jamais écrit dans le dépôt.
+À faire une fois par environnement (PC, atlas) et pour chaque rôle : après la migration 002 pour
+`books_collector` (collecteur), après la migration 005 pour `books_transformer` (extracteur, décision 011),
+et après toute restauration. Les deux mots de passe sont différents ; aucun n'est jamais écrit dans le dépôt.
+La procédure est décrite pour `books_collector` ; pour l'autre rôle, remplacer son nom, et la variable
+`BOOKS_COLLECTOR_PASSWORD` par `BOOKS_TRANSFORMER_PASSWORD`.
 
 1. Ouvrir psql en tant que propriétaire :
 
@@ -102,6 +105,14 @@ Tests SQL de la migration 004 (méthode de capture), même principe :
 
 ```bash
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U books_collector -d "$POSTGRES_DB"' < tests/sql/test_004_methode_de_capture.sql
+```
+
+Tests SQL de la migration 005 (couche STAGING, rôle `books_transformer`). Ils se lancent **en tant que
+propriétaire** de la base : il prépare des lignes de test dans `raw`, puis endosse tour à tour `books_transformer`
+et `books_collector` (`SET LOCAL ROLE`), pour vérifier les droits réels de chacun :
+
+```bash
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_005_couche_staging.sql
 ```
 
 Les tests SQL supposent **toutes** les migrations appliquées : depuis la 004, leurs lignes de test portent
@@ -162,9 +173,9 @@ vérifie son empreinte SHA-256 et la range avec son manifeste (`books_….dump` 
 ## Restauration d'une sauvegarde
 
 Une sauvegarde `pg_dump` (voir `scripts/backup.sh`) ne contient **ni les rôles, ni les droits portant
-sur la base elle-même**. Après restauration sur un serveur neuf, `schema_migration` indiquerait la
-migration 002 comme appliquée, alors que `books_collector` n'existerait pas et que le retrait du droit
-`TEMPORARY` serait perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
+sur la base elle-même**. Après restauration sur un serveur neuf, `schema_migration` indiquerait les
+migrations 002 et 005 comme appliquées, alors que `books_collector` et `books_transformer` n'existeraient pas
+et que le retrait du droit `TEMPORARY` serait perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
 
 1. Démarrer PostgreSQL :
 
@@ -172,10 +183,11 @@ migration 002 comme appliquée, alors que `books_collector` n'existerait pas et 
    docker compose up -d postgres
    ```
 
-2. Créer le rôle **avant** la restauration (sinon ses droits sur `raw` ne peuvent pas être restaurés) :
+2. Créer les deux rôles **avant** la restauration (sinon leurs droits sur `raw` et `staging` ne peuvent pas être
+   restaurés, et `--exit-on-error` arrête la restauration) :
 
    ```bash
-   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE ROLE books_collector LOGIN"'
+   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE ROLE books_collector LOGIN" -c "CREATE ROLE books_transformer LOGIN"'
    ```
 
 3. Restaurer la sauvegarde choisie :
@@ -190,9 +202,10 @@ migration 002 comme appliquée, alors que `books_collector` n'existerait pas et 
    docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "REVOKE TEMPORARY ON DATABASE \"$POSTGRES_DB\" FROM PUBLIC"'
    ```
 
-5. Définir le mot de passe de `books_collector` (section ci-dessus) et le reporter dans `.env`.
+5. Définir les mots de passe de `books_collector` et de `books_transformer` (section ci-dessus) et les reporter
+   dans `.env`.
 
-6. Vérifier avec les tests SQL de la migration 002 (section Tests).
+6. Vérifier avec les tests SQL des migrations 002 et 005 (section Tests).
 
 Les pages brutes se restaurent à part, depuis `~/books-backup/raw` vers `~/books-data/raw`.
 

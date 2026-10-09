@@ -204,3 +204,16 @@ détaillée.
 >   autre capture du lot traitée ; un trou reste une information sans anomalie) ; suite complète : 211 réussis.
 >   Contre-épreuve : sans les nouvelles règles, les 4 tests de doublons échouent. Les 14 captures réelles
 >   de `data/captures/` restent `ok`.
+
+> Note du 9 octobre 2026 (étape 2 du code : migration 005) :
+> - `sql/migrations/005_couche_staging.sql` : schéma `staging`, tables `extract_run`, `page_extraction` et
+>   `ranking_entry` avec les contraintes de la section 4, toutes nommées ; commentaires sur `ku_sticker_hint` et
+>   `has_card` ; rôle `books_transformer` et ses droits (section 7). `page_extraction` a de plus une contrainte de
+>   cohérence : page `ok` avec au moins une ligne et sans motif, page en échec avec un motif et aucune ligne.
+>   Son `UPDATE` exclut `raw_page_id` (remplacement par `INSERT … ON CONFLICT DO UPDATE`).
+> - `tests/sql/test_005_couche_staging.sql`, lancé par le propriétaire, qui endosse tour à tour les deux rôles
+>   (`SET LOCAL ROLE`) : 59 vérifications. Chaque refus doit venir de la contrainte nommée ou du droit attendu.
+> - Vérifié le 9 octobre 2026 dans un PostgreSQL 17 jetable (migrations 001 à 005), puis en développement.
+>   Contre-épreuves dans la base jetable : sans `ranking_entry_no_card_ck`, échec au test 10 ; avec un droit de
+>   lecture sur `staging` accordé à `books_collector`, échec au test 60. Tests 002 et 004 toujours conformes.
+>   Rien n'est appliqué sur atlas à cette étape.
