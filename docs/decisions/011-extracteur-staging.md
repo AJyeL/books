@@ -354,3 +354,19 @@ détaillée.
 >   Tous ces comptes sont ceux de l'inventaire du 8 octobre (`docs/exploration-amazon.md`).
 > - Limite de la dernière ligne : deux séances à un jour d'intervalle ; un ASIN commun aux deux séances ne dit rien de
 >   son évolution de rang, et ces comptes ne constituent pas une mesure de stabilité des classements.
+
+> Note du 9 octobre 2026 (déploiement sur atlas, rapporté par le porteur du projet) :
+> - Migration 005 appliquée sur atlas (`COMMIT`).
+> - **Première extraction en production** : 37 pages extraites, 1 832 lignes dont 1 382 avec carte ; 0 échec d'analyse,
+>   0 échec d'intégrité ; code 0.
+> - Contrôle par ingestion (pages et lignes rattachées à chaque ingestion d'origine) :
+>
+>   | Ingestion | Pages | Contenu |
+>   |---|---|---|
+>   | 10 | 16 | séances du 6 et du 7 octobre |
+>   | 11 | 7 | séance du 8 octobre, 30 cartes par page (sans défilement) |
+>   | 12 | 7 | recette 0.2.0 : 344 lignes, 344 avec carte |
+>   | 13 | 7 | séance du 9 octobre : 348 lignes, 348 avec carte |
+>
+> - Observation de pratique : une séance sans défilement dure environ 1 minute, une séance avec défilement jusqu'en bas
+>   (décision 010) environ 3 minutes.
