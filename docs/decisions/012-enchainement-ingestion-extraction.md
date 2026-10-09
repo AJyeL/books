@@ -76,3 +76,11 @@ en échec (décision 011), ou ne fait rien ; dans tous les cas, son bilan dit ce
 >   d'extraction absent (atlas pas à jour) → code 1, transfert échoué → ni ingestion ni extraction.
 >   Contre-épreuves : extraction conditionnée à une ingestion réussie → 2 échecs ; code final tiré de l'ingestion
 >   seule → 3 échecs ; repère absent lu comme un succès → 2 échecs.
+
+> Note du 9 octobre 2026 (premier envoi réel, rapporté par le porteur du projet) :
+> - Premier envoi avec extraction enchaînée : **réussi**. Ingestion 14 : 7 captures `ok` (information : liste courte,
+>   Top gratuit de Fantasy épique, 48 rangs) ; extraction : 7 pages, 348 lignes, 348 avec carte, 37 pages déjà à jour ;
+>   codes 0 et 0 ; résultat affiché par étape sur le PC.
+> - Correction de la consigne de déploiement : la vérification `grep -c "BOOKS:EXTRACTION:CODE"` sur
+>   `recevoir-captures.sh` renvoie **2** et non 1 (le repère figure dans le commentaire d'en-tête et dans l'`echo`) ;
+>   l'attendu annoncé était faux, le script était correct.
