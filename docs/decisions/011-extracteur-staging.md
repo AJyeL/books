@@ -326,3 +326,31 @@ détaillée.
 >   que des captures réelles.
 > - Tests : `test_transformer_main.py` (configuration invalide → code 2, base injoignable → code 1) ; suite complète
 >   contre PostgreSQL 17 jetable : 298 réussis.
+
+> Note du 9 octobre 2026 (remise à zéro du développement et étape 6 : données réelles en développement) :
+> - **Remise à zéro du développement**, sans exception pour les anciennes pages d'essai : base de développement
+>   supprimée et recréée, rôles `books_collector` et `books_transformer` supprimés et recréés par les migrations
+>   001 à 005 (mots de passe conservés : leur empreinte SCRAM, relue avant, réappliquée telle quelle après ; aucun
+>   mot de passe manipulé ni affiché) ; RAW de développement (`data/raw/amazon_fr/`, 68 fichiers) et quarantaine de
+>   l'essai du 7 octobre supprimés ; `ingestion.lock` conservé. `data/captures/` (copies des vraies captures) et
+>   `data/samples/` non touchés : empreinte globale de `data/captures/` identique avant et après. Tests SQL 002, 004
+>   et 005 conformes ; extraction à vide : code 0.
+> - **Ingestion** des copies des 14 captures réelles, un lot par séance (7 et 8 octobre) : 14 `ok`, code 0, aucune
+>   page 2 manquante ; listes courtes signalées en information (46 et 44 rangs).
+> - **Extraction** : 14 pages `ok`, **690 lignes, 554 avec carte, 136 sans carte**, code 0.
+> - **Requêtes de contrôle**, sous le rôle `books_transformer`, comptes seulement :
+
+>   | Contrôle | Résultat |
+>   |---|---|
+>   | Lignes par séance : 7 octobre (0.1.1) | 7 pages, 346 lignes, 210 avec carte, 191 notées |
+>   | Lignes par séance : 8 octobre (0.2.0) | 7 pages, 344 lignes, 344 avec carte, 314 notées |
+>   | Total | 14 pages, 690 lignes, 554 avec carte, 505 notées |
+>   | Tops gratuits : prix différents de 0,00 | 0 (234 cartes, toutes à 0,00) |
+>   | Tops payants : prix absents ou nuls parmi les cartes | 0 (320 cartes, tous positifs) |
+>   | Captures 0.2.0 : lignes sans carte | 0 sur 344 |
+>   | ASIN des deux séances, même liste : FE gratuit / FE payant / RS gratuit / RS payant | 40 / 87 / 86 / 84 (sur 46-44 / 100 / 100 / 100) |
+
+>   Par page, le 7 octobre : 30 cartes partout (16 ou 20 rangs sans carte) ; le 8 octobre : aucune ligne sans carte.
+>   Tous ces comptes sont ceux de l'inventaire du 8 octobre (`docs/exploration-amazon.md`).
+> - Limite de la dernière ligne : deux séances à un jour d'intervalle ; un ASIN commun aux deux séances ne dit rien de
+>   son évolution de rang, et ces comptes ne constituent pas une mesure de stabilité des classements.
