@@ -263,3 +263,30 @@ détaillée.
 >   un champ de détail donné à un livre sans carte fait échouer les tests `has_card`.
 >   Sur les 14 captures réelles, en lecture seule : aucune page en échec ; 344 cartes sur 344 rangs (dont 314 notées)
 >   pour les captures 0.2.0, 210 cartes (dont 191 notées) pour celles du 7 octobre, comme l'inventaire.
+
+> Note du 9 octobre 2026 (étape 4 du code : intégrité, base et orchestration) :
+> - **Préalable** : `tests/fixtures/bestsellers_exemple.html` (écrite à la main) reprend les formes observées
+>   (`&nbsp;` devant `€` et `étoiles`, note avec décimale) ; variantes, pages d'extraction et captures de test régénérées.
+>   Toute fausse page conforme à la validation passe désormais l'extracteur (testé).
+> - `integrity.py` : décompression gzip, puis taille et empreinte comparées à `content_bytes` et `content_sha256` ;
+>   emplacement absolu ou remontant (`..`) refusé ; fichier absent, illisible ou non décompressible : échec d'intégrité.
+> - `repository.py` (droits de `books_transformer`) : verrou consultatif (`pg_try_advisory_lock`) ; pages à extraire
+>   = jamais extraites, extraites par une autre version, **ou en échec** : une page en échec est reprise à chaque
+>   exécution, et son anomalie reste visible (code 1) tant qu'elle n'est pas résolue ; pages hors périmètre comptées
+>   par motif. Écriture d'une page dans une transaction, dans l'ordre suppression des lignes, mise à jour de
+>   `page_extraction` (`INSERT … ON CONFLICT DO UPDATE`), insertion des lignes ; page en échec : lignes supprimées,
+>   statut et motif enregistrés.
+> - `extraction.py` : une page en échec (intégrité ou analyse) n'arrête pas les suivantes ; seule une erreur
+>   d'exécution arrête l'extraction (`failed`) ; si la clôture échoue à son tour (connexion perdue), l'erreur
+>   d'origine est conservée et la clôture signalée. Statuts et codes comme l'ingestion : `success` 0, `partial` 1,
+>   `failed` 1 ; verrou occupé : aucune exécution enregistrée, code 1.
+> - **Tests contre un PostgreSQL 17 jetable**, sous le rôle `books_transformer` (`tests/lancer-tests-postgres.sh` :
+>   une base neuve par test, copiée d'une base modèle migrée). Couverts : périmètre et hors périmètre ; page à jour ;
+>   changement de version ; réextraction forcée ; réextraction dans l'ordre imposé par la base ; réextraction en échec
+>   (lignes supprimées, page en échec) ; écriture atomique d'une page ; anomalies d'intégrité (octet modifié, taille
+>   différente, fichier absent, fichier non compressé) ; page en échec suivie d'une page extraite ; verrou occupé
+>   (deux connexions réelles). Faux dépôt pour la seule connexion perdue.
+> - Vérifié le 9 octobre 2026 : suite complète **291 réussis**, aucun test sauté. Contre-épreuves : sans comparaison
+>   d'empreinte, le cas « octet modifié, même taille » échoue ; page_extraction mise à jour avant la suppression des
+>   lignes : 3 échecs, refus par la base (clé composée) ; anciennes lignes conservées lors d'un échec : 2 échecs,
+>   refus par la base.

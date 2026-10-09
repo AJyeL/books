@@ -86,6 +86,16 @@ Tests Python, dans un conteneur jetable (le dépôt est monté en lecture seule)
 docker run --rm -v "${PWD}:/src:ro" python:3.12-slim sh -c 'cp -r /src /tmp/w && cd /tmp/w && pip install -q --root-user-action=ignore ".[dev]" && pytest -v'
 ```
 
+Cette commande **saute** les tests qui demandent une base de données (dépôt et orchestration de l'extracteur,
+décision 011). Pour la suite **complète**, contre un PostgreSQL 17 jetable (migrations 001 à 005, rôle
+`books_transformer`, une base neuve par test, tout supprimé à la fin, aucune autre base touchée) :
+
+```bash
+bash tests/lancer-tests-postgres.sh
+```
+
+Des arguments éventuels sont transmis à pytest (par exemple `-k extraction`).
+
 Tests SQL de la migration 001 : voir l'en-tête de `tests/sql/test_001_couche_raw.sql`.
 
 Tests SQL de la migration 002 (droits de `books_collector`), qui se vérifient eux-mêmes
