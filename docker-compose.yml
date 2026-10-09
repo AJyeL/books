@@ -66,5 +66,36 @@ services:
         bind:
           create_host_path: false
 
+  # Extracteur RAW → STAGING (décision 011) : jamais lancé par « docker compose up » (profil dédié).
+  # Lancement : docker compose --profile transformer run --rm transformer   (réextraction complète : … transformer --force)
+  transformer:
+    # Même image que le collecteur (même build, même nom) ; seuls la commande, le rôle et les montages changent
+    build: .
+    image: books-collector
+    profiles: ["transformer"]
+    entrypoint: ["python", "-m", "books.transformer"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      BOOKS_ENV: ${BOOKS_ENV:-}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Rôle dédié (migration 005) : lecture de raw, écriture limitée dans staging. Le programme refuse tout autre rôle.
+      POSTGRES_USER: books_transformer
+      # Mot de passe de books_transformer, défini avec \password (voir README) ; absent : refus de démarrer (code 2)
+      POSTGRES_PASSWORD: ${BOOKS_TRANSFORMER_PASSWORD:-}
+      BOOKS_RAW_DIR: /data/raw
+    # RAW en LECTURE SEULE : l'extracteur ne peut ni modifier ni créer de fichier brut (décision 001).
+    # Mêmes garde-fous que pour le collecteur si BOOKS_RAW_DIR manque dans .env. Aucun accès au dossier des captures.
+    volumes:
+      - type: bind
+        source: ${BOOKS_RAW_DIR:-/BOOKS_RAW_DIR-non-defini}
+        target: /data/raw
+        read_only: true
+        bind:
+          create_host_path: false
+
 volumes:
   pgdata:

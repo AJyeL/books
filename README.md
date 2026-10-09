@@ -40,6 +40,29 @@ jamais avec le propriétaire de la base.
 Les commandes ci-dessous sont à lancer depuis le dossier du dépôt, dans bash
 (sur atlas, ou Git Bash sur le PC : PowerShell ne comprend pas la redirection `<`).
 
+## Extracteur (RAW → STAGING)
+
+Décision 011. Lit les captures de l'extension déposées dans RAW (`extension-dom`, statut `ok`) et en range le contenu
+dans `staging.ranking_entry` : une ligne par livre classé (rang, ASIN, titre, prix, note, nombre d'évaluations,
+couverture). Aucun auteur n'est extrait. Commande séparée de l'ingestion, lancée à la main :
+
+```bash
+docker compose --profile transformer run --rm transformer
+```
+
+- **Prérequis** : migration 005 appliquée, mot de passe de `books_transformer` défini et reporté dans `.env`
+  (`BOOKS_TRANSFORMER_PASSWORD`, section « Mot de passe »), image reconstruite après une mise à jour du code
+  (`docker compose build collector` : les deux services partagent l'image).
+- **Ce qui est extrait** : les pages jamais extraites, extraites par une autre version de l'extracteur, ou en échec.
+  Les autres sont « déjà à jour ». Réextraction complète : ajouter `--force` après `transformer`.
+- **Sécurité** : rôle `books_transformer` seulement (tout autre rôle est refusé) ; RAW monté en **lecture seule** ;
+  aucun accès au dossier des captures.
+- **Codes de sortie** : 0 aucune anomalie (ou rien à extraire) ; 1 au moins une page en échec (intégrité du fichier
+  RAW ou forme inconnue), extraction déjà en cours, ou erreur d'exécution ; 2 configuration invalide.
+  Une page en échec est reprise à chaque exécution : le code 1 se répète tant que son problème n'est pas traité.
+- **Bilan** affiché et enregistré dans `staging.extract_run.notes` : pages extraites, à jour, en échec (avec le
+  motif), hors périmètre par motif.
+
 ## Migrations
 
 Appliquées par le propriétaire de la base (`POSTGRES_USER`), une par une, dans l'ordre :

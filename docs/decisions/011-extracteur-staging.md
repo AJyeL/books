@@ -290,3 +290,39 @@ détaillée.
 >   d'empreinte, le cas « octet modifié, même taille » échoue ; page_extraction mise à jour avant la suppression des
 >   lignes : 3 échecs, refus par la base (clé composée) ; anciennes lignes conservées lors d'un échec : 2 échecs,
 >   refus par la base.
+
+> Note du 9 octobre 2026 (règle de reprise des pages en échec, approuvée) :
+> - Une page en échec (`parse_failed` ou `integrity_failed`) est **reprise à chaque exécution**, même sans changement
+>   de version de l'extracteur. Son anomalie reste ainsi visible, et un fichier RAW restauré depuis une sauvegarde est
+>   relu automatiquement.
+> - **Conséquence** : tant qu'une forme inconnue n'est pas traitée (examen, puis règle ajoutée et `EXTRACTOR_VERSION`
+>   incrémentée), **chaque exécution se termine par le code 1**. C'est voulu : une anomalie ne devient jamais
+>   silencieusement « à jour ». Comme RAW n'est jamais modifié, une page dont la forme ne sera jamais acceptée
+>   garde son anomalie indéfiniment.
+
+> Note du 9 octobre 2026 (étape 5 du code : commande et Docker) :
+> - `python -m books.transformer [--force]` (`__main__.py`) : code 2 pour toute erreur de configuration (variable
+>   absente, mot de passe vide, dossier RAW introuvable) et pour un rôle autre que `books_transformer`, avant toute
+>   connexion ; code 1 pour verrou occupé, erreur PostgreSQL ou d'accès aux fichiers.
+> - Service `transformer` de `docker-compose.yml` : même image que le collecteur, profil `transformer`, rôle
+>   `books_transformer`, RAW monté en **lecture seule**, aucun montage ni variable du dossier des captures.
+> - **Essai de bout en bout en développement**, le 9 octobre 2026, sur 4 captures **inventées** (fausses pages du
+>   dépôt, deux catégories du périmètre, pages 1 et 2) :
+>   - ingestion (lancée avec `BOOKS_ENV=prod` pour ce seul lancement, base de développement) : une première tentative
+>     a échoué sur une erreur de préparation de l'essai (lot créé par `root`, non modifiable par l'utilisateur 1000 du
+>     conteneur) ; la première capture était déjà déposée ; à la relance, elle a été reconnue « déjà ingérée » et les
+>     3 autres déposées, code 0 (reprise prévue par la décision 008, vérifiée en situation) ;
+>   - extraction : les 4 pages extraites, 110 lignes (86 avec carte, 24 sans) ; 55 pages hors périmètre comptées ;
+>   - relance : 4 pages « déjà à jour » ; réextraction forcée : 4 pages et 110 lignes rattachées à la nouvelle exécution ;
+>   - copie jetable de RAW avec un octet modifié (même taille) : « empreinte SHA-256 différente », page en échec
+>     d'intégrité, ses lignes supprimées, les autres extraites ; le vrai RAW inchangé (empreinte vérifiée) ; de retour
+>     sur le vrai RAW, la page en échec est reprise et extraite ;
+>   - écriture dans RAW depuis le conteneur (`touch`, `mkdir`) : refusée, « Read-only file system » ; `/data/raw` seul
+>     visible, aucun dossier des captures.
+> - **En développement, chaque extraction se termine par le code 1** : la base de développement contient 3 captures
+>   inventées de l'essai du 7 octobre (décision 008, pages RAW 136 à 138), fabriquées avec les anciennes fausses pages
+>   (« 4,99 € » à espace ordinaire). Elles sont en échec d'analyse, à bon droit, et reprises à chaque exécution
+>   (note précédente). RAW n'étant jamais modifié, ce sera toujours le cas en développement ; sur atlas, RAW ne contient
+>   que des captures réelles.
+> - Tests : `test_transformer_main.py` (configuration invalide → code 2, base injoignable → code 1) ; suite complète
+>   contre PostgreSQL 17 jetable : 298 réussis.
