@@ -370,3 +370,6 @@ détaillée.
 >
 > - Observation de pratique : une séance sans défilement dure environ 1 minute, une séance avec défilement jusqu'en bas
 >   (décision 010) environ 3 minutes.
+
+> Note du 9 octobre 2026 : l'extraction n'est plus seulement « lancée à la main » (section 10) : elle suit
+> automatiquement chaque ingestion d'un envoi de captures (décision 012), et reste lançable seule.

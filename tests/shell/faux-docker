@@ -5,9 +5,18 @@
 #   écrit sur la sortie standard le contenu de ~/faux-dump (à défaut, un petit faux dump binaire)
 #   et rend le code écrit dans ~/code-pg-dump (0 par défaut ; message sur la sortie d'erreur sinon).
 #
+# « docker compose --profile transformer run … » (extraction de scripts/recevoir-captures.sh, décision 012) :
+#   note « extraction » dans ~/appels, affiche un faux bilan et rend le code écrit dans ~/code-extraction (0 par défaut).
+#
 # Autres appels (« docker compose --profile collector run … », ingestion de scripts/recevoir-captures.sh) :
-#   déplace les lots de inbox/ dans ~/recues/ (pour vérifier les octets reçus), affiche un faux bilan
-#   et rend le code de sortie écrit dans ~/code-ingestion (0 par défaut).
+#   note « ingestion » dans ~/appels, déplace les lots de inbox/ dans ~/recues/ (pour vérifier les octets reçus),
+#   affiche un faux bilan et rend le code de sortie écrit dans ~/code-ingestion (0 par défaut).
+if [ "${1:-}" = compose ] && [ "${2:-}" = --profile ] && [ "${3:-}" = transformer ]; then
+    echo extraction >> "$HOME/appels"
+    code=$(cat "$HOME/code-extraction" 2>/dev/null || echo 0)
+    echo "Bilan factice de l'extraction — code de sortie $code"
+    exit "$code"
+fi
 if [ "${1:-}" = compose ] && [ "${2:-}" = exec ]; then
     code=$(cat "$HOME/code-pg-dump" 2>/dev/null || echo 0)
     if [ "$code" -ne 0 ]; then
@@ -23,6 +32,7 @@ if [ "${1:-}" = compose ] && [ "${2:-}" = exec ]; then
     exit 0
 fi
 
+echo ingestion >> "$HOME/appels"
 captures="$HOME/books-data/captures"
 mkdir -p "$HOME/recues"
 n=$(find "$captures/inbox" -type f | wc -l)

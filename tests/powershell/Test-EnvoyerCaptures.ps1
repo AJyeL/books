@@ -46,19 +46,23 @@ function Invoke-Atlas([string]$commande) {
     return ($sortie -join "`n")
 }
 
-function Reset-Scenario([int]$codeIngestion) {
-    # PC : dossier des captures avec les 5 paires de test ; atlas : dossiers vides, code d'ingestion choisi
+function Reset-Scenario([int]$codeIngestion, [int]$codeExtraction = 0) {
+    # PC : dossier des captures avec les 5 paires de test ; atlas : dossiers vides, codes d'ingestion et d'extraction
     Remove-Item -LiteralPath $captures -Recurse -Force -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Path $captures | Out-Null
     Copy-Item -Path (Join-Path $fixtures '*') -Destination $captures
-    Invoke-Atlas "rm -rf ~/recues ~/books-data/captures/inbox/* ~/books-data/captures/attente/*; echo $codeIngestion > ~/code-ingestion" | Out-Null
+    Invoke-Atlas ("rm -rf ~/recues ~/appels ~/books-data/captures/inbox/* ~/books-data/captures/attente/*; " +
+                  "echo $codeIngestion > ~/code-ingestion; echo $codeExtraction > ~/code-extraction") | Out-Null
 }
 
-function Invoke-Envoi([string]$fichierReglage = $reglage) {
+function Invoke-Envoi([string]$fichierReglage = $reglage, [string]$depotDistant = 'books') {
     $script:sortieEnvoi = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $envoi `
-        -Reglages $fichierReglage -HoteSsh 'atlas-factice' -ConfigSsh $configSsh -DossierTravail $travail | Out-String
+        -Reglages $fichierReglage -HoteSsh 'atlas-factice' -ConfigSsh $configSsh -DossierTravail $travail `
+        -DepotDistant $depotDistant | Out-String
     return $LASTEXITCODE
 }
+
+function Get-Appels { Invoke-Atlas 'cat ~/appels 2>/dev/null' }
 
 function Get-Restants { @(Get-ChildItem -LiteralPath $captures -File | ForEach-Object Name | Sort-Object) }
 function Get-Ranges {
@@ -118,6 +122,9 @@ try {
     Test-Condition 'sans anomalie : octets reçus sur atlas identiques aux originaux (10 fichiers)' $identiques
     Test-Condition 'sans anomalie : attente/ vide sur atlas' ((Invoke-Atlas 'ls -A ~/books-data/captures/attente') -eq '')
     Test-Condition 'sans anomalie : dossier de travail supprimé' (@(Get-ChildItem -LiteralPath $travail).Count -eq 0)
+    Test-Condition 'sans anomalie : ingestion puis extraction sur atlas (décision 012)' ((Get-Appels) -eq "ingestion`nextraction")
+    Test-Condition 'sans anomalie : bilan de l''extraction affiché, « Extraction sans anomalie »' (
+        $sortieEnvoi -match 'Bilan factice de l.extraction' -and $sortieEnvoi -match 'Extraction sans anomalie')
 
     # 2. Transfert réussi, ingestion avec anomalies
     Reset-Scenario 1
@@ -130,6 +137,30 @@ try {
     $code = Invoke-Envoi
     Test-Condition 'ingestion non effectuée : code 1' ($code -eq 1)
     Test-Condition 'ingestion non effectuée : captures rangées' (@(Get-Ranges).Count -eq 10)
+    Test-Condition 'ingestion non effectuée : extraction lancée quand même, sans anomalie' (
+        (Get-Appels) -eq "ingestion`nextraction" -and $sortieEnvoi -match 'Extraction sans anomalie')
+
+    # 3 bis. Ingestion sans anomalie, extraction en échec : le code final remonte (le plus grave l'emporte)
+    Reset-Scenario 0 1
+    $code = Invoke-Envoi
+    Test-Condition 'extraction en échec : code 1' ($code -eq 1)
+    Test-Condition 'extraction en échec : message' ($sortieEnvoi -match 'Ingestion sans anomalie' -and $sortieEnvoi -match 'Extraction avec anomalies')
+    Test-Condition 'extraction en échec : captures rangées quand même' (@(Get-Ranges).Count -eq 10)
+
+    # 3 ter. Configuration invalide de l'extracteur sur atlas (code 2) : code 1 sur le PC, le code 2 restant réservé au PC
+    Reset-Scenario 0 2
+    $code = Invoke-Envoi
+    Test-Condition 'extraction mal configurée sur atlas : code 1' ($code -eq 1)
+    Test-Condition 'extraction mal configurée sur atlas : message' ($sortieEnvoi -match 'configuration invalide sur atlas')
+
+    # 3 quater. Repère d'extraction absent (atlas pas à jour) : code 1, jamais lu comme un succès
+    Reset-Scenario 0 0
+    Invoke-Atlas ('mkdir -p ~/ancien/scripts && grep -v "BOOKS:EXTRACTION:CODE" ~/books/scripts/recevoir-captures.sh ' +
+                  '> ~/ancien/scripts/recevoir-captures.sh') | Out-Null
+    $code = Invoke-Envoi $reglage 'ancien'
+    Test-Condition 'repère d''extraction absent : repère bien absent de la réponse' ($sortieEnvoi -notmatch 'BOOKS:EXTRACTION')
+    Test-Condition 'repère d''extraction absent : code 1' ($code -eq 1)
+    Test-Condition 'repère d''extraction absent : message' ($sortieEnvoi -match 'Extraction non signalée par atlas')
 
     # 4. Transfert échoué : rien n'est déplacé sur le PC
     Reset-Scenario 0
@@ -138,6 +169,7 @@ try {
     Test-Condition 'transfert échoué : code 3' ($code -eq 3)
     Test-Condition 'transfert échoué : rien déplacé sur le PC' (((Get-Restants) -join ',') -eq ($nomsOriginaux -join ',') -and @(Get-Ranges).Count -eq 0)
     Test-Condition 'transfert échoué : message de atlas affiché' ($sortieEnvoi -match 'BOOKS:TRANSFERT:ECHEC')
+    Test-Condition 'transfert échoué : ni ingestion ni extraction lancées' ((Get-Appels) -eq '' -and $sortieEnvoi -notmatch 'BOOKS:EXTRACTION')
     Invoke-Atlas 'mkdir -m 700 ~/books-data/captures/inbox' | Out-Null
 
     # 5. Mauvais mot de passe : transfert échoué, rien déplacé

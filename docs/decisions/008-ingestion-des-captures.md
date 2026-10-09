@@ -219,3 +219,9 @@ en place, pages 2 manquantes, informations. Le bilan affiché sur le PC reprend 
 > Note du 8 octobre 2026 : la validation appliquée à la section 3 est durcie par la décision 011 (section 5 bis) :
 > un rang ou un ASIN en double dans la liste classée rend la capture `invalid` (déposée avec son statut, anomalie
 > au bilan) ; un trou dans les rangs reste une information.
+
+> Note du 9 octobre 2026 : la décision 012 (`012-enchainement-ingestion-extraction.md`) ajoute l'extraction vers STAGING
+> après l'ingestion, dans la même connexion SSH, quel que soit le résultat de l'ingestion (repère
+> `BOOKS:EXTRACTION:CODE {code}`). Les codes du script d'envoi deviennent : 0 transfert réussi, ingestion **et**
+> extraction sans anomalie ; 1 transfert réussi mais anomalie, étape non effectuée, configuration invalide sur atlas ou
+> repère absent ; 2 et 3 inchangés.

@@ -44,7 +44,8 @@ Les commandes ci-dessous sont à lancer depuis le dossier du dépôt, dans bash
 
 Décision 011. Lit les captures de l'extension déposées dans RAW (`extension-dom`, statut `ok`) et en range le contenu
 dans `staging.ranking_entry` : une ligne par livre classé (rang, ASIN, titre, prix, note, nombre d'évaluations,
-couverture). Aucun auteur n'est extrait. Commande séparée de l'ingestion, lancée à la main :
+couverture). Aucun auteur n'est extrait. Elle est lancée automatiquement après chaque ingestion d'un envoi de captures
+(décision 012), et reste lançable seule, à la main :
 
 ```bash
 docker compose --profile transformer run --rm transformer
@@ -178,15 +179,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\powershell\Test-Rapatr
 
 ## Envoi des captures vers atlas (PC)
 
-Décision 008. Après une séance de capture, double-cliquer sur `scripts\envoyer-captures.cmd`,
+Décisions 008 et 012. Après une séance de capture, double-cliquer sur `scripts\envoyer-captures.cmd`,
 puis saisir le mot de passe d'atlas quand `ssh` le demande. Le script envoie les paires complètes,
-atlas les vérifie, les place dans `inbox/` et lance l'ingestion ; le bilan s'affiche.
+atlas les vérifie, les place dans `inbox/`, lance l'ingestion, puis l'extraction vers STAGING (quel que soit le
+résultat de l'ingestion) ; les deux bilans s'affichent.
 
 - **Prérequis** : l'alias SSH `atlas` dans `C:\Users\<vous>\.ssh\config` (fichier sans extension),
   et le réglage local `scripts\envoyer-captures.local.psd1`, copié depuis `envoyer-captures.exemple.psd1`
   (ignoré par Git : il contient votre chemin personnel).
-- **Issues** : transfert échoué (code 3) : rien n'est déplacé sur le PC, relancer ; transfert réussi :
-  les captures passent dans `envoyees\AAAA-MM\`, que l'ingestion soit sans anomalie (code 0) ou non (code 1).
+- **Issues** : transfert échoué (code 3) : rien n'est déplacé sur le PC, ni ingéré, ni extrait, relancer ;
+  transfert réussi : les captures passent dans `envoyees\AAAA-MM\` dans tous les cas, et le code vaut 0 si
+  l'ingestion **et** l'extraction sont sans anomalie, 1 sinon (anomalie, étape non effectuée, configuration invalide
+  sur atlas, ou atlas pas à jour). Le code 2 signale un réglage invalide sur le PC (rien envoyé).
+  Une page en échec d'extraction donne le code 1 à chaque envoi, tant qu'elle n'est pas traitée.
 - `envoyees\` est une archive permanente : ne jamais la vider.
 
 ## Copie de la base sur le PC

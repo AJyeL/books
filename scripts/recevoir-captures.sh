@@ -9,7 +9,9 @@
 #    exactement ceux du manifeste, empreintes SHA-256 exactes. En cas d'échec, le lot reste dans attente/.
 # 2. Déplacement atomique (renommage) vers inbox/{lot}/, puis repère « BOOKS:TRANSFERT:OK {lot} {n} ».
 # 3. Ingestion dans la même connexion (collecteur), puis repère « BOOKS:INGESTION:CODE {code} ».
-# Le PC lit ces repères pour distinguer transfert échoué, ingestion sans anomalie, ingestion avec anomalies.
+# 4. Extraction vers STAGING (décision 012), quel que soit le résultat de l'ingestion,
+#    puis repère « BOOKS:EXTRACTION:CODE {code} ». Rien de tout cela si le lot n'a pas été reçu.
+# Le PC lit ces repères pour distinguer transfert échoué, et résultats de l'ingestion et de l'extraction.
 set -euo pipefail
 umask 077
 
@@ -58,10 +60,15 @@ cd "$CAPTURES_DIR"
 mv -T "attente/$LOT" "inbox/$LOT"
 echo "BOOKS:TRANSFERT:OK $LOT $count"
 
-# Ingestion : son code de sortie est rapporté au PC, sans changer le sort du transfert
+# Ingestion, puis extraction, quel que soit le résultat de l'ingestion (décision 012) : l'extracteur est idempotent,
+# verrouillé, ne lit que ce qui est enregistré dans raw.raw_page et signale lui-même ses erreurs.
+# Leurs codes sont rapportés au PC, sans changer le sort du transfert ; le plus élevé devient le code de sortie.
 set +e
 cd "$PROJECT_DIR" && docker compose --profile collector run --rm -T collector < /dev/null
 code=$?
-set -e
 echo "BOOKS:INGESTION:CODE $code"
-exit "$code"
+cd "$PROJECT_DIR" && docker compose --profile transformer run --rm -T transformer < /dev/null
+extraction=$?
+echo "BOOKS:EXTRACTION:CODE $extraction"
+set -e
+exit $(( code > extraction ? code : extraction ))

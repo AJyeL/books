@@ -9,14 +9,16 @@
        sur les originaux, archive tar. Aucun outil ne lit les captures comme du texte.
     3. Une seule connexion SSH (alias « atlas », mot de passe saisi à l'invite) : l'archive est transmise par une
        redirection de cmd.exe, qui copie les octets tels quels (jamais par un tuyau PowerShell).
-       Sur atlas, scripts/recevoir-captures.sh déballe, vérifie, place le lot dans inbox/ et lance l'ingestion.
+       Sur atlas, scripts/recevoir-captures.sh déballe, vérifie, place le lot dans inbox/, lance l'ingestion, puis
+       l'extraction vers STAGING quel que soit le résultat de l'ingestion (décision 012).
     4. Si le transfert a réussi, les captures sont déplacées dans envoyees\AAAA-MM\ (mois de la capture),
        quel que soit le résultat de l'ingestion : envoyees\ est une archive permanente, jamais vidée.
 
-    Codes de sortie :
-      0  transfert réussi, ingestion sans anomalie (ou aucune capture à envoyer)
-      1  transfert réussi, ingestion avec anomalies ou non effectuée (les captures attendent dans inbox/)
-      2  réglage local, dossier ou outil invalide : rien n'a été envoyé
+    Codes de sortie (le plus grave l'emporte, décision 012) :
+      0  transfert réussi, ingestion et extraction sans anomalie (ou aucune capture à envoyer)
+      1  transfert réussi, mais ingestion ou extraction avec anomalies, non effectuée ou en échec, configuration
+         invalide sur atlas, ou repère d'extraction absent (les captures non ingérées attendent dans inbox/)
+      2  réglage local, dossier ou outil invalide sur le PC : rien n'a été envoyé
       3  transfert échoué : rien n'a été déplacé sur le PC
 
 .PARAMETER Reglages
@@ -201,20 +203,33 @@ try {
         }
         $ingestion = [regex]::Match($texte, '(?m)^BOOKS:INGESTION:CODE ([0-9]+)\r?$')
         $codeIngestion = if ($ingestion.Success) { [int]$ingestion.Groups[1].Value } else { -1 }
+        $extraction = [regex]::Match($texte, '(?m)^BOOKS:EXTRACTION:CODE ([0-9]+)\r?$')
+        $codeExtraction = if ($extraction.Success) { [int]$extraction.Groups[1].Value } else { -1 }
 
         Write-Section 'Résultat'
         Write-Host "Transfert réussi : $($paires.Count) capture(s) déposée(s) sur atlas, $deplaces fichier(s) rangé(s) dans envoyees\."
         if ($codeIngestion -eq 0) {
             Write-Host 'Ingestion sans anomalie.'
-            $code = 0
         } elseif ($codeIngestion -eq 1) {
             Write-Host 'Ingestion avec anomalies : voir le bilan ci-dessus.'
-            $code = 1
         } else {
             Write-Host "Ingestion non effectuée (code $codeIngestion) : les captures attendent dans inbox/ sur atlas,"
             Write-Host 'et seront ingérées à la prochaine ingestion.'
-            $code = 1
         }
+        if ($codeExtraction -eq 0) {
+            Write-Host 'Extraction sans anomalie.'
+        } elseif ($codeExtraction -eq 1) {
+            Write-Host 'Extraction avec anomalies, déjà en cours ou interrompue : voir le bilan ci-dessus.'
+        } elseif ($codeExtraction -eq 2) {
+            Write-Host 'Extraction non lancée : configuration invalide sur atlas (voir le message ci-dessus).'
+        } elseif ($codeExtraction -lt 0) {
+            # Aucune information n'est jamais lue comme un succès (décision 012)
+            Write-Host 'Extraction non signalée par atlas : atlas est-il à jour (git pull, image reconstruite) ?'
+        } else {
+            Write-Host "Extraction en erreur (code $codeExtraction) : voir le message ci-dessus."
+        }
+        # Le plus grave l'emporte : 0 seulement si l'ingestion et l'extraction sont toutes deux sans anomalie
+        $code = if ($codeIngestion -eq 0 -and $codeExtraction -eq 0) { 0 } else { 1 }
     }
 }
 catch {

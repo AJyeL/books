@@ -52,21 +52,45 @@ check "lot valide : manifeste retiré" '[[ ! -e "$HOME/recues/$LOT/MANIFEST.sha2
 check "lot valide : attente/ vide" '[[ -z "$(ls -A "$HOME/books-data/captures/attente")" ]]'
 check "lot valide : droits 700 sur le lot, 600 sur les fichiers" \
     '[[ "$(stat -c %a "$HOME/recues/$LOT")" == 700 && "$(stat -c %a "$HOME/recues/$LOT/$STEM.html")" == 600 ]]'
+check "lot valide : ingestion puis extraction (décision 012)" '[[ "$(cat "$HOME/appels")" == $'"'"'ingestion\nextraction'"'"' ]]'
+check "lot valide : repère EXTRACTION:CODE 0, après celui de l'ingestion" \
+    '[[ "$(grep -o "^BOOKS:[A-Z]*:CODE [0-9]*$" <<<"$OUT" | tr "\n" ";")" == "BOOKS:INGESTION:CODE 0;BOOKS:EXTRACTION:CODE 0;" ]]'
+check "lot valide : bilan de l'extraction transmis" 'grep -q "Bilan factice de l.extraction" <<<"$OUT"'
 
-# 2. Transfert réussi, ingestion avec anomalies
+# 2. Transfert réussi, ingestion avec anomalies : extraction lancée quand même
 new_home; new_payload; echo 1 > "$HOME/code-ingestion"
 OUT="$(archive MANIFEST.sha256 "$STEM.html" "$STEM.json" | bash "$SCRIPT" "$LOT" 2>&1)"; RC=$?
 check "anomalies : code 1" '[[ $RC -eq 1 ]]'
 check "anomalies : transfert réussi quand même" 'grep -q "^BOOKS:TRANSFERT:OK $LOT 2$" <<<"$OUT"'
 check "anomalies : repère INGESTION:CODE 1" 'grep -q "^BOOKS:INGESTION:CODE 1$" <<<"$OUT"'
+check "anomalies : extraction lancée quand même" \
+    'grep -q "^BOOKS:EXTRACTION:CODE 0$" <<<"$OUT" && grep -qx extraction "$HOME/appels"'
+
+# 3. Ingestion en échec (configuration invalide, code 2) : extraction lancée quand même, le plus grave l'emporte
+new_home; new_payload; echo 2 > "$HOME/code-ingestion"
+OUT="$(archive MANIFEST.sha256 "$STEM.html" "$STEM.json" | bash "$SCRIPT" "$LOT" 2>&1)"; RC=$?
+check "ingestion en échec : extraction lancée quand même" \
+    'grep -q "^BOOKS:EXTRACTION:CODE 0$" <<<"$OUT" && [[ "$(cat "$HOME/appels")" == $'"'"'ingestion\nextraction'"'"' ]]'
+check "ingestion en échec : code 2 (le plus élevé)" '[[ $RC -eq 2 ]]'
+
+# 4. Extraction en échec après une ingestion sans anomalie : le code remonte
+new_home; new_payload; echo 1 > "$HOME/code-extraction"
+OUT="$(archive MANIFEST.sha256 "$STEM.html" "$STEM.json" | bash "$SCRIPT" "$LOT" 2>&1)"; RC=$?
+check "extraction en échec : repères INGESTION 0 et EXTRACTION 1" \
+    'grep -q "^BOOKS:INGESTION:CODE 0$" <<<"$OUT" && grep -q "^BOOKS:EXTRACTION:CODE 1$" <<<"$OUT"'
+check "extraction en échec : code 1" '[[ $RC -eq 1 ]]'
+
+new_home; new_payload; echo 2 > "$HOME/code-extraction"
+OUT="$(archive MANIFEST.sha256 "$STEM.html" "$STEM.json" | bash "$SCRIPT" "$LOT" 2>&1)"; RC=$?
+check "extraction mal configurée : repère EXTRACTION 2, code 2" 'grep -q "^BOOKS:EXTRACTION:CODE 2$" <<<"$OUT" && [[ $RC -eq 2 ]]'
 
 # Échecs de transfert : code 3, jamais de repère TRANSFERT:OK, rien dans inbox/, ingestion non lancée
 failure() {  # $1 = libellé, $2 = message attendu, $3 = lot laissé dans attente/ (oui/non)
     EXPECTED="$2"  # variable globale : l'expression est évaluée dans check, où $2 serait l'expression elle-même
     check "$1 : code 3" '[[ $RC -eq 3 ]]'
     check "$1 : message" 'grep -q "^BOOKS:TRANSFERT:ECHEC .*$EXPECTED" <<<"$OUT"'
-    check "$1 : aucun repère TRANSFERT:OK ni ingestion" \
-        '! grep -q "BOOKS:TRANSFERT:OK\|BOOKS:INGESTION" <<<"$OUT" && [[ ! -e "$HOME/recues" ]]'
+    check "$1 : aucun repère TRANSFERT:OK, ni ingestion, ni extraction" \
+        '! grep -q "BOOKS:TRANSFERT:OK\|BOOKS:INGESTION\|BOOKS:EXTRACTION" <<<"$OUT" && [[ ! -e "$HOME/recues" && ! -e "$HOME/appels" ]]'
     check "$1 : inbox/ vide" '[[ -z "$(ls -A "$HOME/books-data/captures/inbox")" ]]'
     if [[ "$3" == oui ]]; then
         check "$1 : lot laissé dans attente/" '[[ -d "$HOME/books-data/captures/attente/$LOT" ]]'
