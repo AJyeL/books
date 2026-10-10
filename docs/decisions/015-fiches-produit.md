@@ -240,3 +240,23 @@ contre-épreuve.
   d'après la présente décision.
 - **Documents** : l'inventaire de la section 1 est reporté dans `docs/exploration-amazon.md`, structure seulement.
 - **Avis d'un juriste** : toujours requis avant toute exploitation commerciale (décision 005).
+
+> Note du 10 octobre 2026 (étape A du code : adresse d'une fiche acceptée) :
+> - **Relevé préalable**, en lecture seule, des adresses présentes dans les 6 fiches de `data/fiches/` (formes seulement,
+>   ASIN, libellés et jetons masqués) : lien canonical `https://www.amazon.fr/{libellé}/dp/{ASIN}`, un par fiche, sans
+>   paramètre ; liens internes `/{libellé}/dp/{ASIN}/ref=…`, parfois suivis d'un jeton de session et de paramètres,
+>   `/{libellé}/dp/{ASIN}?ref_=…`, `/dp/{ASIN}?ref=…`, `/dp/{ASIN}?binding=…&ref=…` (autres formats). Des **ASIN
+>   entièrement numériques** (forme d'un ISBN-10) figurent dans les liens : la règle `[A-Z0-9]{10}` les admet.
+>   Un lien `/gp/product/…` existe dans 5 fiches, hors de l'adresse d'une fiche : la forme reste refusée.
+> - Module commun `src/books/amazon/product_page.py` : `asin_from_url(adresse)` rend `(ASIN, None)` ou
+>   `(None, motif)`, sur le modèle de `request_from_url` (décision 014). La forme du canonical d'une fiche n'y est pas
+>   écrite : elle relève de la validation (étape B).
+> - **Contrat commun** `tests/fixtures/adresses_fiches.json` : 10 adresses acceptées (dont 7 formes observées), 21
+>   refusées (autres domaines, `http`, `/gp/product/`, ASIN invalide, `/dp/` répété, libellé de deux segments, pages
+>   d'avis, d'auteur, d'offres d'occasion, de recherche, de classement). ASIN, libellés et jetons inventés.
+> - `tests/python/test_product_page.py` parcourt toute la table et vérifie que les deux règles ne se chevauchent pas :
+>   aucune fiche acceptée n'est une page de classement, aucune page de classement acceptée n'est une fiche.
+> - Vérifié le 10 octobre 2026 : suite complète contre PostgreSQL 17 jetable, **373 réussis**. Contre-épreuves :
+>   `/gp/product/` accepté → 2 échecs ; domaine accepté s'il finit par `amazon.fr` → 2 échecs ; ASIN en minuscules
+>   accepté → 1 échec ; `/dp/` répété non contrôlé → 2 échecs. Extracteur inchangé : `EXTRACTOR_VERSION` reste « 2 ».
+> - Prochaine étape côté extension : copier la table dans ses tests, avec en en-tête le commit d'origine de ce dépôt.
