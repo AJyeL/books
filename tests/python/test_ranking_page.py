@@ -32,6 +32,16 @@ def test_adresse_refusee(cas):
     assert cas["motif"] in why
 
 
+@pytest.mark.parametrize("adresse", [
+    "https://[www.amazon.fr/gp/bestsellers/digital-text/10000000001",
+    "https://www.amazon.fr]/gp/bestsellers/digital-text/10000000001",
+], ids=["crochet-ouvrant", "crochet-fermant"])
+def test_adresse_mal_formee_refusee_sans_exception(adresse):
+    # urlsplit lève ValueError sur un crochet non apparié dans l'hôte : la règle doit rendre un motif de refus.
+    # Cas hors du contrat commun (décision 014, section 4) : propre à l'analyse d'adresse de ce dépôt.
+    assert request_from_url(adresse) == (None, "adresse mal formée")
+
+
 def test_adresse_reconstruite_acceptee():
     # L'adresse construite pour une demande est elle-même acceptée, et rend la même demande
     for request in (PageRequest("10000000001", "paid", 1), PageRequest("10000000001", "free", 2)):

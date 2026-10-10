@@ -56,7 +56,10 @@ def request_from_url(url: str) -> tuple[PageRequest | None, str | None]:
 
     Renvoie (demande, None) si l'adresse est dans le périmètre, ou (None, motif) si elle est refusée ou ambiguë.
     """
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+    except ValueError:  # adresse mal formée (ex. : crochet non fermé dans l'hôte) : refus, jamais une exception
+        return None, "adresse mal formée"
     if parts.scheme != "https" or parts.netloc != "www.amazon.fr":
         return None, "adresse hors de https://www.amazon.fr"
     path = BESTSELLERS_PATH.fullmatch(parts.path)
