@@ -99,8 +99,8 @@ même protocole. Les trois formats d'un même livre se comparent ainsi un à un 
 | « Livraison à {code postal} {ville} » | **le porteur du projet** (localisation déduite de sa connexion) | jamais extraite ; absente du dépôt public |
 | Description, bloc A+ | auteurs (citation possible du nom) | stockage seulement, ni affichage ni citation (décision 013, section 3) |
 
-- La mention de livraison figure **aussi sur les pages de classement** : **15 captures sur 15 en local**
-  (`data/captures/`, compte du 10 octobre 2026) ; **probable, mais non vérifié, sur atlas** (RAW).
+- La mention de livraison figure **aussi sur les pages de classement**. Vérifié le 10 octobre 2026 : **15/15 captures
+  en local** (`data/captures/`), **60/60 pages RAW sur atlas** (comptes faits par le porteur du projet).
   Vérifié le 10 octobre 2026 : elle n'apparaît **nulle part** dans le dépôt public, historique compris.
 
 ### 3. Adresse acceptée
