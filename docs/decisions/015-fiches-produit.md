@@ -350,3 +350,15 @@ contre-épreuve.
 > - **Réserve « validation à rejouer sur de vraies captures » (note de l'étape B) : levée en développement.** Elle reste
 >   à **constater sur atlas au premier envoi de fiches** (statut de chaque fiche, bilan de l'ingestion).
 > - Limite : un livre, trois fiches, une séance, une version de l'extension et de Chrome.
+
+> Note du 10 octobre 2026 (déploiement de `01b53e0` et premier envoi réel de fiches sur atlas, rapportés par le porteur
+> du projet) :
+> - Sauvegarde de la base ; `git pull --ff-only` jusqu'à `01b53e0` ; image reconstruite, sans migration ; amendement de
+>   l'indice 3 présent dans l'image (contrôle sans aucune donnée) ; ingestion et extraction à vide, codes 0 ; relevé de
+>   comptes identique avant et après le déploiement.
+> - **Premier envoi réel** : **ingestion 18**, 3 fiches **`ok`** (1 ASIN `B0…`, 2 ASIN numériques), aucune quarantaine,
+>   code 0. **Extraction** : 3 pages « type product » hors périmètre, code 0.
+> - Contrôle après l'envoi : la seule différence avec le relevé d'après le déploiement est l'apparition de
+>   `raw_page product ok | 3` ; comptes de classement et de STAGING inchangés.
+> - **Réserve « validation à rejouer sur de vraies captures » (note de l'étape B) : levée en production.**
+> - Prochaine étape de la décision : **étape D** (migration 007, extracteur version 3, section 9, point 2).
