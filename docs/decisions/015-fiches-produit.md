@@ -294,3 +294,13 @@ contre-épreuve.
 >   l'extension** (étape C) avant toute fiche envoyée sur atlas.
 > - **Ordre de déploiement** : l'étape B est déployée sur atlas (reconstruction de l'image, sans migration) **avant toute
 >   capture de fiche** ; sinon, une fiche envoyée serait mise en quarantaine (nom hors format) par l'ingestion actuelle.
+
+> Note du 10 octobre 2026 (déploiement de l'étape B sur atlas, commit `2c0ac10`, rapporté par le porteur du projet) :
+> - Sauvegarde de la base avant le déploiement ; `git pull` jusqu'à `2c0ac10` ; image reconstruite, sans migration ;
+>   formats acceptés lus dans l'image : `('Format Kindle', 'Broché', 'Relié')`.
+> - **Ingestion 16, à vide** : « Dont fiches produit: 0 », code 0. **Extraction** : 60 pages déjà à jour, code 0.
+>   Quarantaine inchangée.
+> - **Classements inchangés** : relevé de comptes (pages RAW par type et statut, extractions par statut, lignes de
+>   classement avec et sans carte, observations de catégorie) identique avant et après le déploiement.
+> - Aucune fiche n'a encore été capturée : la validation reste à rejouer sur de vraies captures de l'extension
+>   (étape C) avant toute fiche envoyée sur atlas.
