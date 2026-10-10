@@ -7,7 +7,7 @@ import pytest
 
 from books.collector.inbox import (
     LoneHtml, Pair, QuarantineError, Rejected, Untouchable, Capture,
-    check_capture, quarantine, request_from_url, scan_inbox,
+    check_capture, quarantine, scan_inbox,
 )
 from books.collector.targets import PageRequest
 from conftest import FIXTURES
@@ -104,37 +104,7 @@ def test_elements_laisses_en_place(inbox, make):
     assert isinstance(item, Untouchable)
 
 
-# --- Adresse affichée (décision 007, section 2 et compléments) -----------------------------
-
-@pytest.mark.parametrize("url, expected", [
-    ("https://www.amazon.fr/gp/bestsellers/digital-text/10000000001", ("paid", 1)),
-    ("https://www.amazon.fr/gp/bestsellers/digital-text/10000000001/ref=zg_bs?ie=UTF8&tf=1", ("free", 1)),
-    ("https://www.amazon.fr/gp/bestsellers/digital-text/10000000001/ref=zg_bs_pg_2_digital-text?ie=UTF8&pg=2",
-     ("paid", 2)),
-    ("https://www.amazon.fr/gp/bestsellers/digital-text/10000000001/ref=x?ie=UTF8&pg=2&tf=1", ("free", 2)),
-    ("https://www.amazon.fr/gp/bestsellers/digital-text/10000000001?pg=1", ("paid", 1)),
-])
-def test_adresse_acceptee(url, expected):
-    request, why = request_from_url(url)
-    assert why is None and (request.list_type, request.page_number) == expected
-    assert request.node == "10000000001"
-
-
-@pytest.mark.parametrize("url, reason", [
-    ("http://www.amazon.fr/gp/bestsellers/digital-text/10000000001", "hors de https"),
-    ("https://www.amazon.com/gp/bestsellers/digital-text/10000000001", "hors de https"),
-    ("https://www.amazon.fr/gp/bestsellers/books/10000000001", "hors des pages de classement"),
-    ("https://www.amazon.fr/dp/B0FAUX0001", "hors des pages de classement"),
-    ("https://www.amazon.fr/gp/bestsellers/digital-text/10000000001?pg=1&pg=2", "pg répété"),
-    ("https://www.amazon.fr/gp/bestsellers/digital-text/10000000001?tf=1&tf=1", "tf répété"),
-    ("https://www.amazon.fr/gp/bestsellers/digital-text/10000000001?tf=0", "valeur de tf"),
-    ("https://www.amazon.fr/gp/bestsellers/digital-text/10000000001?pg=3", "valeur de pg"),
-    ("https://www.amazon.fr/gp/bestsellers/digital-text/10000000001?pg=", "valeur de pg"),
-])
-def test_adresse_refusee(url, reason):
-    request, why = request_from_url(url)
-    assert request is None and reason in why
-
+# Adresse affichée : testée sur le contrat commun tests/fixtures/adresses_classement.json (test_ranking_page.py)
 
 # --- Contrôles d'intégrité -----------------------------------------------------------------
 

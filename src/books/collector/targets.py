@@ -5,14 +5,13 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+# Définition de la page de classement, commune à tout le projet (décision 014) ; réexportée ici pour les imports existants
+from books.amazon.ranking_page import (  # noqa: F401
+    BESTSELLERS_URL, MAX_PAGES_PER_LIST, SUPPORTED_LISTS, PageRequest, canonical_url,
+)
+
 # Décision 002 : plafond dur de requêtes par tournée
 MAX_REQUESTS_PER_RUN = 200
-# Une liste de classement compte au plus 2 pages (docs/exploration-amazon.md)
-MAX_PAGES_PER_LIST = 2
-# Top 100 payant et Top 100 gratuit (décision 004)
-SUPPORTED_LISTS = ("paid", "free")
-
-BESTSELLERS_URL = "https://www.amazon.fr/gp/bestsellers/digital-text/"
 
 
 class TargetsError(Exception):
@@ -24,35 +23,6 @@ class Category:
     node: str
     name: str
     lists: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class PageRequest:
-    """Une page de classement à obtenir."""
-
-    node: str
-    list_type: str
-    page_number: int
-
-    @property
-    def url(self) -> str:
-        """Adresse Amazon de la page (docs/exploration-amazon.md) : adresse canonique, plus pg=2 pour la page 2
-        et tf=1 pour le Top gratuit. Page 1 du Top payant : adresse canonique seule."""
-        params = []
-        if self.page_number != 1:
-            params.append(f"pg={self.page_number}")
-        if self.list_type == "free":
-            params.append("tf=1")
-        return canonical_url(self.node) + ("?" + "&".join(params) if params else "")
-
-    @property
-    def label(self) -> str:
-        return f"{self.node} {self.list_type} p{self.page_number}"
-
-
-def canonical_url(node: str) -> str:
-    """Lien canonical attendu dans une page de classement de cette catégorie."""
-    return BESTSELLERS_URL + node
 
 
 def load_targets(path: Path) -> list[Category]:

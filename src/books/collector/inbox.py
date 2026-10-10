@@ -15,9 +15,10 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from urllib.parse import parse_qs, urlsplit
 
-from books.collector.targets import Category, PageRequest
+# Adresse d'une page de classement acceptable : définition commune (décision 014)
+from books.amazon.ranking_page import PageRequest, request_from_url
+from books.collector.targets import Category
 
 EXTENSION_DOM = "extension-dom"
 SCHEMA_VERSION = 1
@@ -39,7 +40,6 @@ CAPTURE_STEM = re.compile(
     r"([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})Z"
 )
 SHA256 = re.compile(r"[0-9a-f]{64}")
-BESTSELLERS_PATH = re.compile(r"/gp/bestsellers/digital-text/([0-9]+)(/.*)?")
 
 
 # --- Ce que contient inbox/ -------------------------------------------------------------
@@ -136,30 +136,7 @@ def _scan_lot(lot_dir: Path) -> list[Pair | LoneHtml | Rejected | Untouchable]:
 
 
 # --- Contrôles d'intégrité (décision 007, section 6) ---------------------------------------
-
-def request_from_url(url: str) -> tuple[PageRequest | None, str | None]:
-    """Catégorie, liste et page déduites de l'adresse affichée (décision 007, section 2 et compléments).
-
-    Renvoie (demande, None), ou (None, raison) si l'adresse est invalide ou ambiguë.
-    """
-    parts = urlsplit(url)
-    if parts.scheme != "https" or parts.netloc != "www.amazon.fr":
-        return None, "adresse hors de https://www.amazon.fr"
-    path = BESTSELLERS_PATH.fullmatch(parts.path)
-    if path is None:
-        return None, "adresse hors des pages de classement Kindle"
-    params = parse_qs(parts.query, keep_blank_values=True)
-    for key in ("tf", "pg"):
-        if len(params.get(key, [])) > 1:
-            return None, f"paramètre {key} répété : adresse ambiguë"
-    tf = params.get("tf", [None])[0]
-    pg = params.get("pg", [None])[0]
-    if tf not in (None, "1"):
-        return None, f"valeur de tf non acceptée : {tf!r}"
-    if pg not in (None, "1", "2"):
-        return None, f"valeur de pg non acceptée : {pg!r}"
-    return PageRequest(path.group(1), "free" if tf == "1" else "paid", int(pg or 1)), None
-
+# L'adresse affichée est lue par request_from_url (books.amazon.ranking_page, décision 014).
 
 def check_capture(pair: Pair, perimeter: set[tuple[str, str]]) -> Capture | Rejected:
     """Contrôles d'intégrité de la décision 007 (section 6), puis périmètre de targets.toml."""

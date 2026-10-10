@@ -109,3 +109,20 @@ personne, au moment de la navigation. La liste de `targets.toml` ne fait que le 
   toute façon. Aucun nouveau nom réel n'y est ajouté (section 2).
 - **Avis juridique** : la décision 005 réservait déjà l'appréciation de l'extraction substantielle à un juriste ; un
   périmètre ouvert en fait partie.
+
+> Note du 10 octobre 2026 (étape A du code : définition commune de l'adresse) :
+> - Module commun `src/books/amazon/ranking_page.py` : `request_from_url` (déplacée de `inbox.py`, comportement
+>   inchangé), `PageRequest`, `canonical_url` et les constantes d'adresse. `targets.py` les réexporte en attendant
+>   l'étape B ; `inbox.py` importe la fonction commune.
+> - **Contrat commun** `tests/fixtures/adresses_classement.json` : 9 adresses acceptées, 19 refusées, numéros de
+>   catégorie inventés. Il contient les **quatre formes réellement observées** dans les 14 captures (relevé du
+>   10 octobre 2026 sur leurs `displayed_url`) : adresse simple ; `/ref=zg_bs?ie=UTF8&tf=1` ;
+>   `/ref=zg_bs_pg_2_digital-text?ie=UTF8&pg=2` ; `/ref=zg_bs_pg_2_digital-text?ie=UTF8&tf=1&pg=2` (page 2 du Top
+>   gratuit, `tf` avant `pg`). Refus : autres domaines, pays et sous-domaines, `http`, autre boutique, nouveautés,
+>   meilleures progressions, envies, cadeaux, page générale sans numéro, numéro non numérique, fiche produit,
+>   paramètres répétés ou invalides.
+> - `tests/python/test_ranking_page.py` parcourt toute la table (les anciens tests d'adresses de `test_inbox.py`, tous
+>   repris dans la table, sont retirés). Suite complète contre PostgreSQL 17 jetable : 314 réussis.
+>   Contre-épreuves : règle acceptant les nouveautés → échec sur « nouveautés » ; domaine accepté s'il finit par
+>   `amazon.fr` → échecs sur « domaine sans www » et « autre sous-domaine ».
+> - Prochaine étape côté extension : copier la table dans ses tests, avec en en-tête le commit d'origine de ce dépôt.
