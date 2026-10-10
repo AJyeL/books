@@ -37,6 +37,9 @@ class ExtractionReport:
     extracted: int = 0
     rows: int = 0
     rows_with_card: int = 0
+    # Pages extraites dont un nom de catégorie n'a pas été lu (décision 014) : information, jamais une anomalie
+    without_display_name: int = 0
+    without_short_name: int = 0
     parse_failures: list[str] = field(default_factory=list)
     integrity_failures: list[str] = field(default_factory=list)
     out_of_scope: dict[str, int] = field(default_factory=dict)
@@ -63,6 +66,8 @@ class ExtractionReport:
                f"  Déjà à jour          : {self.up_to_date}",
                f"  Extraites            : {self.extracted} ({self.rows} lignes, dont {self.rows_with_card} avec carte"
                f" et {self.rows - self.rows_with_card} sans carte)",
+               f"  Sans nom d'affichage : {self.without_display_name}",
+               f"  Sans nom court       : {self.without_short_name}",
                f"  Échec d'analyse      : {len(self.parse_failures)}",
                f"  Échec d'intégrité    : {len(self.integrity_failures)}"]
         hors = sum(self.out_of_scope.values())
@@ -106,15 +111,17 @@ def extract(repo: TransformerRepository, raw_dir: Path, *, extractor_version: st
                 report.integrity_failures.append(f"{page.label} : {exc}")
                 continue
             try:
-                entries = parse_ranking_page(content)
+                parsed = parse_ranking_page(content)
             except ParseError as exc:
                 repo.save_failure(run_id, page.id, "parse_failed", str(exc))
                 report.parse_failures.append(f"{page.label} : {exc}")
                 continue
-            repo.save_extraction(run_id, page.id, entries)
+            repo.save_extraction(run_id, page.id, parsed)
             report.extracted += 1
-            report.rows += len(entries)
-            report.rows_with_card += sum(e.has_card for e in entries)
+            report.rows += len(parsed.entries)
+            report.rows_with_card += sum(e.has_card for e in parsed.entries)
+            report.without_display_name += parsed.display_name is None
+            report.without_short_name += parsed.short_name is None
     except BaseException as exc:
         report.error = f"{type(exc).__name__} : {exc}"
         raise

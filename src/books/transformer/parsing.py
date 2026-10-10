@@ -1,7 +1,12 @@
-"""Analyse d'une page de classement : fonction pure, du HTML aux lignes de staging.ranking_entry (décision 011).
+"""Analyse d'une page de classement : fonction pure, du HTML aux lignes de STAGING (décisions 011 et 014).
 
-parse_ranking_page() reçoit le contenu HTML d'une page (octets) et rend une ligne par livre classé, ou lève
-ParseError avec un motif. Elle n'accède ni à la base, ni aux fichiers.
+parse_ranking_page() reçoit le contenu HTML d'une page (octets) et rend une ParsedPage : une ligne par livre classé
+(staging.ranking_entry) et les noms de la catégorie (staging.category_observation) ; ou lève ParseError avec un motif.
+Elle n'accède ni à la base, ni aux fichiers.
+
+Noms de la catégorie (décision 014, section 3) : nom d'affichage (le <h1> qui commence par « Les meilleures ventes
+en ») et nom court (le span aria-current="page" hors de la rangée d'onglets, texte direct seulement, sans le texte
+caché « (Current) »). Un nom absent ou de forme inconnue vaut None : jamais un échec de page.
 
 Règles (décision 011, sections 3 à 5 et 9) :
 - liste classée : définition commune de books.amazon.ranked_list ; exactement une par page ;
@@ -24,7 +29,10 @@ from html.parser import HTMLParser
 
 from books.amazon.ranked_list import RANK_KEY, rank_value, ranked_items
 
-EXTRACTOR_VERSION = "1"
+# 1 : lignes de classement (décision 011) ; 2 : noms de la catégorie en plus (décision 014)
+EXTRACTOR_VERSION = "2"
+# Préfixe fixe du nom d'affichage, dans le second <h1> (texte d'interface observé le 10 octobre 2026)
+DISPLAY_NAME_PREFIX = "Les meilleures ventes en "
 
 NBSP = " "
 # Symboles de devise autorisés (liste d'autorisation) : tout autre symbole fait échouer la page
@@ -62,6 +70,15 @@ class RankingEntry:
     review_count: int | None = None
     cover_url: str | None = None
     ku_sticker_hint: bool | None = None
+
+
+@dataclass(frozen=True)
+class ParsedPage:
+    """Résultat de l'analyse d'une page : ses lignes de classement et les noms de sa catégorie (None : non lu)."""
+
+    entries: list[RankingEntry]
+    display_name: str | None
+    short_name: str | None
 
 
 @dataclass
@@ -115,8 +132,9 @@ class _TreeBuilder(HTMLParser):
         self._stack[-1].children.append(data)
 
 
-def parse_ranking_page(content: bytes) -> list[RankingEntry]:
-    """Lignes de la page, une par livre classé, dans l'ordre des rangs. Lève ParseError si la page est illisible."""
+def parse_ranking_page(content: bytes) -> ParsedPage:
+    """Lignes de la page (une par livre classé, dans l'ordre des rangs) et noms de sa catégorie.
+    Lève ParseError si les lignes sont illisibles ; un nom illisible vaut seulement None."""
     try:
         text = content.decode("utf-8")
     except UnicodeDecodeError as exc:
@@ -134,7 +152,41 @@ def parse_ranking_page(content: bytes) -> list[RankingEntry]:
             raise ParseError(f"carte en double pour le rang {entry.rank}")
         details[entry.asin] = entry
     rows = [details.get(asin) or RankingEntry(rank=rank, asin=asin, has_card=False) for asin, rank in items]
-    return sorted(rows, key=lambda r: r.rank)
+    return ParsedPage(entries=sorted(rows, key=lambda r: r.rank),
+                      display_name=_display_name(builder.root), short_name=_short_name(builder.root))
+
+
+def _clean(text: str) -> str:
+    """Nettoyage limité (décision 011) : entités déjà décodées par l'analyseur ; espaces réduits, insécables compris."""
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _display_name(root: _Node) -> str | None:
+    """Nom d'affichage : reste du seul <h1> qui commence par le préfixe fixe ; None si zéro ou plusieurs, ou vide."""
+    names = [text[len(DISPLAY_NAME_PREFIX):] for h1 in root.iter() if h1.tag == "h1"
+             if (text := _clean(h1.text())).startswith(DISPLAY_NAME_PREFIX)]
+    if len(names) != 1:
+        return None
+    return names[0].strip() or None
+
+
+def _short_name(root: _Node) -> str | None:
+    """Nom court : texte direct du seul span aria-current="page" situé hors de la rangée d'onglets (ul role=tablist).
+    Le texte de ses enfants (span caché « (Current) ») n'est pas lu. None si zéro ou plusieurs, ou vide."""
+    found: list[_Node] = []
+
+    def walk(node: _Node, in_tablist: bool) -> None:
+        for child in node.children:
+            if isinstance(child, _Node):
+                inside = in_tablist or (child.tag == "ul" and child.attrs.get("role") == "tablist")
+                if child.tag == "span" and child.attrs.get("aria-current") == "page" and not inside:
+                    found.append(child)
+                walk(child, inside)
+
+    walk(root, False)
+    if len(found) != 1:
+        return None
+    return _clean("".join(c for c in found[0].children if isinstance(c, str))) or None
 
 
 def _ranked_list(root: _Node) -> tuple[_Node, list[tuple[str, int]]]:
@@ -207,7 +259,7 @@ def _title(card: _Node, rank: int) -> str | None:
     if node is None:
         return None
     # Nettoyage limité (décision 011) : entités déjà décodées par l'analyseur ; espaces réduits, insécables compris
-    title = re.sub(r"\s+", " ", node.text()).strip()
+    title = _clean(node.text())
     if not title:
         raise ParseError(f"rang {rank} : titre vide")
     return title

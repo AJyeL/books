@@ -373,3 +373,7 @@ détaillée.
 
 > Note du 9 octobre 2026 : l'extraction n'est plus seulement « lancée à la main » (section 10) : elle suit
 > automatiquement chaque ingestion d'un envoi de captures (décision 012), et reste lançable seule.
+
+> Note du 10 octobre 2026 : `EXTRACTOR_VERSION` passe à « 2 » (décision 014) : l'extracteur lit aussi les noms de la
+> catégorie (`staging.category_observation`, migration 006). Toutes les pages sont réextraites à la première exécution
+> de la version 2. Les règles de lecture des lignes de classement sont inchangées.

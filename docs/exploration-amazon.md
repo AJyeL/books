@@ -414,3 +414,20 @@ Comptage d'octets sur les 14 captures de `data/captures/`, en lecture seule, san
   (`images-eu.ssl-images-amazon.com`, `m.media-amazon.com`, `images-na.ssl-images-amazon.com`).
 L'inventaire du 8 octobre notait `⍽` sans distinguer ces caractères : son outil décodait les entités.
 Un analyseur HTML décode `&nbsp;` en U+00A0 : c'est ce caractère que l'extracteur attend (décision 011).
+
+## Nom de la catégorie dans la page (10 octobre 2026)
+
+Relevé de structure sur les 14 captures de `data/captures/`, en lecture seule ; aucun nom ni numéro réel ci-dessous
+(décision 014), exemples inventés.
+- **Deux `<h1>`** dans chaque page : le premier contient un `span id="zg_banner_text"` au texte générique
+  (« Les meilleures ventes ») ; le second porte « Les meilleures ventes en {nom d'affichage} », précédé d'une espace.
+  Le **suffixe « - ebooks »** du nom d'affichage n'est pas systématique : présent pour certaines catégories, absent pour
+  d'autres. Le `<title>` reprend le même nom après « … dans la boutique ».
+- **Arborescence des catégories** : la catégorie courante est un `span aria-current="page"` (classe à suffixe aléatoire
+  `…zg-selected__…`), hors de la rangée d'onglets (`ul role="tablist"`). Son **texte direct** est le **nom court** ;
+  il **contient** un second `span` caché (classe `…zg-visually-hidden__…`) au texte « (Current) », destiné aux lecteurs
+  d'écran : le texte complet de l'élément vaut donc « {nom court}(Current) ».
+- Les catégories parentes figurent dans l'arborescence, chacune avec son numéro et son nom, repérables aujourd'hui par
+  un paramètre de navigation (`ref=zg_bs_unv_…`) ; les vraies captures n'ont pas d'attribut `role="treeitem"`.
+- Lecture retenue par l'extracteur (version 2, décision 014) : le `<h1>` qui commence par le préfixe fixe, et le texte
+  direct du `span aria-current="page"` hors de la rangée d'onglets ; jamais la classe à suffixe aléatoire.

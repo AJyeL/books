@@ -3,14 +3,13 @@ lecture de raw ; dans staging, INSERT et DELETE sur ranking_entry, INSERT et UPD
 INSERT et UPDATE des colonnes de clôture sur extract_run.
 """
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
 
 import psycopg
 
-from books.transformer.parsing import RankingEntry
+from books.transformer.parsing import ParsedPage
 
 # Numéro du verrou consultatif de l'extracteur (pg_try_advisory_lock) : une seule extraction à la fois.
 # Valeur arbitraire, propre à B.O.O.K.S. ; libéré par le serveur à la fin de la connexion.
@@ -52,7 +51,7 @@ class TransformerRepository(Protocol):
 
     def out_of_scope(self) -> dict[str, int]: ...
 
-    def save_extraction(self, run_id: int, raw_page_id: int, entries: Sequence[RankingEntry]) -> None: ...
+    def save_extraction(self, run_id: int, raw_page_id: int, page: ParsedPage) -> None: ...
 
     def save_failure(self, run_id: int, raw_page_id: int, status: str, message: str) -> None: ...
 
@@ -128,11 +127,13 @@ class PgTransformerRepository:
         ).fetchall()
         return dict(rows)
 
-    def save_extraction(self, run_id: int, raw_page_id: int, entries: Sequence[RankingEntry]) -> None:
-        """Remplace les lignes de la page, dans une transaction, dans l'ordre imposé par la clé composée de la
-        migration 005 : suppression des anciennes lignes, mise à jour de page_extraction, insertion des nouvelles."""
+    def save_extraction(self, run_id: int, raw_page_id: int, page: ParsedPage) -> None:
+        """Remplace les lignes et l'observation de catégorie de la page, dans une transaction, dans l'ordre imposé par
+        les clés composées (migrations 005 et 006) : suppression des anciennes, mise à jour de page_extraction,
+        insertion des nouvelles."""
+        entries = page.entries
         with self.conn.transaction():
-            self._delete_entries(raw_page_id)
+            self._delete_page_rows(raw_page_id)
             self._set_page(run_id, raw_page_id, "ok", None, len(entries))
             with self.conn.cursor() as cur:
                 cur.executemany(
@@ -145,11 +146,18 @@ class PgTransformerRepository:
                     [(raw_page_id, run_id, e.rank, e.asin, e.has_card, e.title, e.price_amount, e.currency,
                       e.rating, e.review_count, e.cover_url, e.ku_sticker_hint) for e in entries],
                 )
+            # Noms de la catégorie observés sur la page (décision 014) ; None : nom non lu
+            self.conn.execute(
+                "INSERT INTO staging.category_observation (raw_page_id, extract_run_id, display_name, short_name) "
+                "VALUES (%s, %s, %s, %s)",
+                (raw_page_id, run_id, page.display_name, page.short_name),
+            )
 
     def save_failure(self, run_id: int, raw_page_id: int, status: str, message: str) -> None:
-        """Page en échec : ses anciennes lignes sont supprimées (jamais deux versions mélangées), aucune n'est écrite."""
+        """Page en échec : ses anciennes lignes et son observation sont supprimées (jamais deux versions mélangées) ;
+        rien n'est écrit."""
         with self.conn.transaction():
-            self._delete_entries(raw_page_id)
+            self._delete_page_rows(raw_page_id)
             self._set_page(run_id, raw_page_id, status, message, 0)
 
     def close_run(self, run_id: int, status: str, pages_extracted: int, pages_failed: int, notes: str) -> None:
@@ -162,8 +170,10 @@ class PgTransformerRepository:
             (status, pages_extracted, pages_failed, notes, run_id),
         )
 
-    def _delete_entries(self, raw_page_id: int) -> None:
+    def _delete_page_rows(self, raw_page_id: int) -> None:
+        """Supprime les lignes de classement et l'observation de catégorie d'une page."""
         self.conn.execute("DELETE FROM staging.ranking_entry WHERE raw_page_id = %s", (raw_page_id,))
+        self.conn.execute("DELETE FROM staging.category_observation WHERE raw_page_id = %s", (raw_page_id,))
 
     def _set_page(self, run_id: int, raw_page_id: int, status: str, message: str | None, count: int) -> None:
         self.conn.execute(

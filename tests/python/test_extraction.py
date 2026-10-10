@@ -73,12 +73,12 @@ def test_seconde_execution_pages_deja_a_jour(pg):
 def test_changement_de_version_reextrait(pg):
     ids = [pg.add_page(COMPLETE), pg.add_page(THIRTY)]
     run(pg)
-    result, _ = run(pg, extractor_version="2")
+    result, _ = run(pg, extractor_version="version-suivante")
     assert (result.report.to_extract, result.report.up_to_date, result.report.extracted) == (2, 0, 2)
     for page_id in ids:
         assert rows_of(pg, page_id) == [(result.run_id, 50)]  # nouvelles lignes seulement
     assert pg.query("SELECT DISTINCT er.extractor_version FROM staging.page_extraction pe "
-                    "JOIN staging.extract_run er ON er.id = pe.extract_run_id") == [("2",)]
+                    "JOIN staging.extract_run er ON er.id = pe.extract_run_id") == [("version-suivante",)]
 
 
 def test_reextraction_forcee(pg):
@@ -113,7 +113,7 @@ def test_reextraction_en_echec_supprime_les_anciennes_lignes(pg, monkeypatch):
     def failing(content):  # nouvelle version de l'extracteur, qui échoue sur cette page
         raise ParseError("rang 7 : forme nouvelle")
     monkeypatch.setattr(extraction, "parse_ranking_page", failing)
-    result, _ = run(pg, extractor_version="2")
+    result, _ = run(pg, extractor_version="version-suivante")
     assert result.status == "partial"
     assert rows_of(pg, page_id) == []  # aucune ligne de l'ancienne version ne subsiste
     assert pg.query("SELECT extract_run_id, status, error_message, entry_count FROM staging.page_extraction "
@@ -217,7 +217,7 @@ class LostConnectionRepo:
     def pages_to_extract(self, version, force):
         return [self.page]
 
-    def save_extraction(self, run_id, raw_page_id, entries):
+    def save_extraction(self, run_id, raw_page_id, page):
         raise psycopg.OperationalError("connexion perdue")
 
     def save_failure(self, *args):
@@ -237,3 +237,38 @@ def test_connexion_perdue_erreur_conservee_et_signalee(pg):
     assert "Erreur d'exécution : OperationalError : connexion perdue" in logs
     assert "Résultat : failed, 0 anomalie(s)" in logs
     assert logs[-1].startswith("Clôture de l'exécution 7 impossible")
+
+
+# --- Noms de la catégorie (décision 014) ----------------------------------------------------------
+
+H1 = b'<h1 class="a-size-large a-spacing-medium a-text-bold"> Les meilleures ventes en '
+
+
+def test_noms_de_categorie_enregistres(pg):
+    page_id = pg.add_page(COMPLETE)
+    result, _ = run(pg)
+    assert pg.query("SELECT display_name, short_name FROM staging.category_observation WHERE raw_page_id = %s",
+                    (page_id,)) == [("Catégorie d'exemple - ebooks", "Catégorie d'exemple")]
+    assert (result.report.without_display_name, result.report.without_short_name) == (0, 0)
+
+
+def test_page_sans_nom_lu_comptee_sans_anomalie(pg):
+    assert COMPLETE.count(H1) == 1
+    without = pg.add_page(COMPLETE.replace(H1, b"<h1> Autre libell\xc3\xa9 : "))  # <h1> de la catégorie méconnaissable
+    pg.add_page(THIRTY)
+    result, _ = run(pg)
+    assert result.status == "success" and EXIT_CODES[result.status] == 0  # information, jamais une anomalie
+    assert (result.report.without_display_name, result.report.without_short_name) == (1, 0)
+    assert "Sans nom d'affichage : 1" in result.notes and "Sans nom court       : 0" in result.notes
+    assert pg.query("SELECT display_name FROM staging.category_observation WHERE raw_page_id = %s",
+                    (without,)) == [(None,)]
+    assert rows_of(pg, without)[0][1] == 50  # les lignes de la page sont extraites
+
+
+def test_passage_de_la_version_1_a_la_version_2(pg):
+    page_id = pg.add_page(COMPLETE)
+    run(pg, extractor_version="1")  # pages extraites par la version 1
+    result, _ = run(pg)  # version courante
+    assert EXTRACTOR_VERSION == "2" and result.report.extracted == 1
+    assert pg.query("SELECT extract_run_id FROM staging.category_observation WHERE raw_page_id = %s",
+                    (page_id,)) == [(result.run_id,)]

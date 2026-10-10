@@ -161,3 +161,16 @@ personne, au moment de la navigation. La liste de `targets.toml` ne fait que le 
 >   `page_extraction` refusée), réextraction dans l'ordre, droits des deux rôles. Vérifié le 10 octobre 2026 dans un
 >   PostgreSQL 17 jetable puis en développement (tests 002, 004, 005 et 006 conformes). Contre-épreuves : sans la clé
 >   composée, échec au test 2 ; lecture accordée à `books_collector`, échec au test 30. Rien sur atlas à cette étape.
+
+> Note du 10 octobre 2026 (étape C du code, partie 2 : extracteur version 2) :
+> - `parse_ranking_page()` rend une `ParsedPage` : les lignes et les deux noms. Nom d'affichage : reste du seul `<h1>`
+>   qui commence par « Les meilleures ventes en » ; nom court : texte **direct** du seul `span aria-current="page"` hors
+>   de la rangée d'onglets (sans le texte caché « (Current) », `docs/exploration-amazon.md`). Nettoyage identique à celui
+>   du titre. Nom absent, multiple ou vide : `NULL`, jamais un échec de page. **`EXTRACTOR_VERSION = "2"`**.
+> - Dépôt : l'observation est supprimée, puis réinsérée avec les lignes, dans la transaction de la page ; une page en
+>   échec la perd. Bilan : « Sans nom d'affichage » et « Sans nom court », comptés, sans effet sur le statut.
+> - Page d'exemple alignée sur la structure réelle (premier `<h1>` générique, `span` caché « (Current) ») ; dérivées
+>   régénérées.
+> - Vérifié le 10 octobre 2026 : suite complète contre PostgreSQL 17 jetable, 322 réussis. Contre-épreuves : texte
+>   complet lu (« (Current) » compris) → 9 échecs ; rangée d'onglets non exclue → 13 échecs ; nom absent mis en échec
+>   de page → 6 échecs.

@@ -5,6 +5,6 @@
   "capture_method": "extension-dom",
   "extension_version": "0.1.1",
   "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
-  "html_sha256": "df01859b42f147ade9b1d8f1ff4dc78a5963c94030ad951b6cc84955c7c2f2e7",
-  "html_bytes": 12936
+  "html_sha256": "8b93105167a828a8f9a74bf064b950bf51f6515b0a318ec95dcfa24e5ec7c6ee",
+  "html_bytes": 13117
 }

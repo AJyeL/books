@@ -34,7 +34,7 @@ def mutate(name: str, old: str, new: str, count: int = 1) -> bytes:
 
 
 def entries(name: str) -> list[RankingEntry]:
-    return parse_ranking_page((FIXTURES / name).read_bytes())
+    return parse_ranking_page((FIXTURES / name).read_bytes()).entries
 
 
 def by_rank(name: str) -> dict[int, RankingEntry]:
@@ -42,7 +42,7 @@ def by_rank(name: str) -> dict[int, RankingEntry]:
 
 
 def test_version_initiale():
-    assert EXTRACTOR_VERSION == "1"
+    assert EXTRACTOR_VERSION == "2"  # 2 : noms de la catégorie (décision 014)
 
 
 @pytest.mark.parametrize("name", [COMPLETE, THIRTY, FREE])
@@ -267,8 +267,63 @@ def test_toutes_les_fausses_pages_conformes_passent_l_extracteur():
              if validate_bestseller_page((FIXTURES / name).read_bytes(), _request_for(name)).status == "ok"}
     assert valid == VALID_PAGES  # une dérive des fausses pages se voit ici
     for name in sorted(valid):
-        rows = parse_ranking_page((FIXTURES / name).read_bytes())  # aucune ParseError
+        rows = parse_ranking_page((FIXTURES / name).read_bytes()).entries  # aucune ParseError
         assert rows, name
         for row in rows:
             if not row.has_card:
                 assert all(getattr(row, f) is None for f in DETAIL_FIELDS), (name, row)
+
+
+# --- Noms de la catégorie (décision 014, section 3) : jamais un échec de page ---------------------
+
+H1 = '<h1 class="a-size-large a-spacing-medium a-text-bold"> Les meilleures ventes en Catégorie d\'exemple - ebooks</h1>'
+SELECTED = ('<span class="_p13n-zg-nav-tree-all_style_zg-selected__1SfhQ" aria-current="page">Catégorie d\'exemple'
+            '<span class="_p13n-zg-nav-tree-all_style_zg-visually-hidden__2zReM">(Current)</span></span>')
+
+
+def names(content: bytes) -> tuple[str | None, str | None]:
+    page = parse_ranking_page(content)
+    assert len(page.entries) == 50  # les lignes sont toujours extraites, quels que soient les noms
+    return page.display_name, page.short_name
+
+
+def test_noms_de_la_categorie_lus():
+    # Nom d'affichage tel qu'affiché, suffixe compris ; nom court sans le texte caché « (Current) »
+    assert names((FIXTURES / COMPLETE).read_bytes()) == ("Catégorie d'exemple - ebooks", "Catégorie d'exemple")
+
+
+@pytest.mark.parametrize("name", [COMPLETE, THIRTY, FREE])
+def test_noms_lus_sur_toutes_les_pages_generees(name):
+    page = parse_ranking_page((FIXTURES / name).read_bytes())
+    assert page.display_name and page.short_name and "Current" not in page.short_name
+
+
+def test_noms_nettoyes_comme_le_titre():
+    content = mutate(COMPLETE, H1, H1.replace("en Catégorie d'exemple - ebooks",
+                                              "en  Catégorie&nbsp;d&#39;exemple   - ebooks "))
+    assert names(content)[0] == "Catégorie d'exemple - ebooks"
+
+
+@pytest.mark.parametrize("old, new, expected", [
+    (H1, "", (None, "Catégorie d'exemple")),                                          # <h1> de la catégorie absent
+    (H1, H1.replace("Les meilleures ventes en", "Meilleures ventes :"), (None, "Catégorie d'exemple")),  # préfixe
+    (H1, H1 + H1, (None, "Catégorie d'exemple")),                                     # deux <h1> candidats
+    (H1, H1.replace("en Catégorie d'exemple - ebooks", "en "), (None, "Catégorie d'exemple")),  # nom vide
+    (SELECTED, SELECTED.replace(' aria-current="page"', ""), ("Catégorie d'exemple - ebooks", None)),  # absent
+    (SELECTED, SELECTED + SELECTED, ("Catégorie d'exemple - ebooks", None)),         # deux éléments sélectionnés
+], ids=["h1-absent", "prefixe-change", "deux-h1", "nom-vide", "selection-absente", "deux-selections"])
+def test_nom_illisible_vaut_none_jamais_un_echec(old, new, expected):
+    assert names(mutate(COMPLETE, old, new)) == expected
+
+
+def test_onglet_actif_jamais_pris_pour_la_categorie():
+    # Sans élément sélectionné dans l'arborescence, le seul span aria-current="page" restant est l'onglet actif,
+    # dans la rangée d'onglets : il n'est jamais lu comme nom de catégorie
+    short = names(mutate(COMPLETE, SELECTED, SELECTED.replace(' aria-current="page"', "")))[1]
+    assert short is None
+
+
+def test_noms_absents_lignes_extraites():
+    page = parse_ranking_page(mutate(COMPLETE, H1, "").replace(
+        SELECTED.encode(), SELECTED.replace(' aria-current="page"', "").encode()))
+    assert (page.display_name, page.short_name) == (None, None) and len(page.entries) == 50
