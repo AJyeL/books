@@ -151,3 +151,12 @@ refusée par ces contrôles (question du comportement de l'ingestion).
   pourra être déposé dans RAW à côté du HTML.
 - L'extension et le collecteur évoluent dans deux dépôts différents : ce document est leur seule référence commune.
   Les tests du collecteur reposeront sur des captures inventées conformes à ce format (`tests/fixtures/`).
+
+> Note du 10 octobre 2026 (décision 015, fiches produit) : le format s'étend aux **fiches produit**, sans nouvelle
+> version du schéma JSON (les 8 champs de la version 1 conviennent) :
+> - nom d'une fiche : `amazon_fr_product_{ASIN}_{AAAA-MM-JJTHHMMSSZ}`, expression régulière complète du HTML
+>   `amazon_fr_product_[A-Z0-9]{10}_[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z\.html` (ASIN en majuscules et chiffres) ;
+> - contrôle de lecture (section 6) : pour une fiche, l'**ASIN déduit de `displayed_url`** (règle de la décision 015,
+>   section 3 : `src/books/amazon/product_page.py`) doit être celui du nom, à la place de « catégorie, liste et page » ;
+>   un nom de fiche avec une adresse de classement, ou l'inverse, est refusé.
+> - Le script d'envoi du PC reconnaît les deux formes de nom (étape B de la décision 015).

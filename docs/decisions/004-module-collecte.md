@@ -194,3 +194,11 @@ Une configuration invalide (variables, cibles, source refusée) donne le code 2,
 > Note du 10 octobre 2026 : `config/targets.toml` est supprimé par la décision 014 (périmètre dynamique des
 > catégories). Toute page de classement Kindle d'amazon.fr est dans le périmètre ; la tournée de développement tire
 > ses pages 1 des pages enregistrées présentes dans `data/samples/`.
+
+> Note du 10 octobre 2026 (décision 015, fiches produit) : emplacement RAW d'une **fiche produit** capturée,
+> sur le modèle de celui des captures de classement (décision 008) :
+> `amazon_fr/AAAA/MM/JJ/run-{id}/product_{ASIN}_{AAAA-MM-JJTHHMMSSZ}.html.gz` (et `.json.gz`). La ligne de
+> `raw.raw_page` porte `page_type = 'product'` et l'ASIN, sans catégorie, liste ni page (contrainte de la migration
+> 001) : aucune migration. La validation d'une fiche suit le même principe que celle d'une page de classement
+> (indices concordants, la structure décide, `ok` / `blocked` / `invalid`), avec ses propres indices (décision 015,
+> section 5).

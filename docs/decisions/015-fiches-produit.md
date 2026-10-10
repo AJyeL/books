@@ -260,3 +260,37 @@ contre-épreuve.
 >   `/gp/product/` accepté → 2 échecs ; domaine accepté s'il finit par `amazon.fr` → 2 échecs ; ASIN en minuscules
 >   accepté → 1 échec ; `/dp/` répété non contrôlé → 2 échecs. Extracteur inchangé : `EXTRACTOR_VERSION` reste « 2 ».
 > - Prochaine étape côté extension : copier la table dans ses tests, avec en en-tête le commit d'origine de ce dépôt.
+
+> Note du 10 octobre 2026 (étape B du code : ingestion et validation des fiches) :
+> - **Relevé de structure préalable** (`docs/exploration-amazon.md`, « Repères de validation d'une fiche ») : seul
+>   `div#detailBullets_feature_div` est doublé (deux `div` imbriquées) ; libellés « ASIN : » encadrés de marques de
+>   direction invisibles ; « Format : » lu dans `#bylineInfo` seulement (le texte apparaît jusqu'à 17 fois dans la page).
+> - **Validation** (`src/books/collector/product_validation.py`) : canonical unique dont l'ASIN est celui de l'adresse
+>   affichée ; un seul `#productTitle` non vide ; une seule ligne « ASIN : » dans la liste des détails, de même ASIN ;
+>   un seul « Format : » dans la ligne d'auteur, de valeur « Format Kindle », « Broché » ou « Relié ». La structure
+>   décide, le mot « captcha » qualifie : `ok`, `blocked`, `invalid`.
+> - **« Poche » refusé tant qu'il n'a pas été observé** (amende la section 4) : une fiche poche est `invalid`, donc
+>   visible ; le libellé sera ajouté après observation.
+> - **Motifs sans contenu de la page** : ils nomment l'indice et un compte, jamais un titre, une ligne d'auteur, un
+>   format refusé ni l'adresse canonique.
+> - **`Verdict.rank_count` facultatif** : `None` pour une fiche (aucune liste classée), jamais 0 ; `short_list` et
+>   `next_page` n'en déduisent rien.
+> - Nom, emplacement RAW et ligne `raw.raw_page` : décisions 007, 004 et 008 annotées. Script d'envoi du PC : nom de
+>   fiche reconnu, rangement dans `envoyees\` inchangé.
+> - **Tests** : fiche d'exemple inventée (piège de la recommandation, quatre sentinelles RGPD : auteur, commentatrice,
+>   livraison, éditeur) et 21 variantes (`generer_fiches.py`) ; trois captures de fiche (`ok`, `invalid`, `blocked`) ;
+>   dépôt réel d'une fiche sous le rôle `books_collector` dans PostgreSQL 17 jetable (fixture étendue à ce rôle) ;
+>   aucune sentinelle dans les motifs, le bilan ni le journal.
+> - Vérifié le 10 octobre 2026 : suite complète contre PostgreSQL 17 jetable, **449 réussis** ; test du script d'envoi
+>   contre le faux atlas : tous conformes (16 fichiers, fiches comprises). **Contre-épreuves**, chacune en échec :
+>   canonical non comparé (2) ; format cherché dans toute la page (26) ; livre audio accepté (2) ; poche accepté (2) ;
+>   ASIN des détails non comparé (2) ; marques invisibles non retirées (22) ; mot « captcha » prioritaire sur la
+>   structure (1) ; motif recopiant le format refusé (5) ; `rank_count` à 0 pour une fiche (2) ; `next_page` sans garde
+>   `None` (1) ; ASIN du nom et de l'adresse non comparés (2) ; emplacement RAW d'une fiche sur le modèle des
+>   classements (2) ; script d'envoi sans la forme `product` (10). Extracteur inchangé : `EXTRACTOR_VERSION` reste « 2 »
+>   (les fiches sont comptées hors périmètre, motif « type product », comportement déjà testé).
+> - **Limite, à lever avant qu'une fiche n'atteigne atlas** : la validation n'a été mise au point que sur des
+>   enregistrements Ctrl+S et des pages inventées. Elle sera **rejouée en développement sur de vraies captures de
+>   l'extension** (étape C) avant toute fiche envoyée sur atlas.
+> - **Ordre de déploiement** : l'étape B est déployée sur atlas (reconstruction de l'image, sans migration) **avant toute
+>   capture de fiche** ; sinon, une fiche envoyée serait mise en quarantaine (nom hors format) par l'ingestion actuelle.

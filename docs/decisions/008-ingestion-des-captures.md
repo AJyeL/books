@@ -230,3 +230,9 @@ en place, pages 2 manquantes, informations. Le bilan affiché sur le PC reprend 
 > `config/targets.toml`. Une capture n'est plus mise en quarantaine pour sa catégorie ; une catégorie jamais vue dans
 > RAW est signalée en **information** au bilan (numéro seulement, jamais une anomalie). Les captures déjà mises en
 > quarantaine pour ce seul motif se replacent dans `inbox/` selon la procédure de la section 3.
+
+> Note du 10 octobre 2026 (décision 015, étape B) : l'ingestion accepte les **fiches produit**. Même parcours qu'une
+> page de classement : intégrité, « déjà ingérée », validation (décision 015, section 5), dépôt avec son statut, retrait
+> de `inbox/`. Une fiche n'a ni information « nouvelle catégorie » ni page 2. Le plafond de 200 captures couvre les deux
+> types. Le bilan reçoit une ligne « Dont fiches produit : n » (fiches déposées, quel que soit leur statut). Le script
+> d'envoi du PC reconnaît le nom `amazon_fr_product_…`.
