@@ -48,7 +48,7 @@
     {"adresse": "https://www.amazon.fr/gp/bestsellers/digital-text/exemple",
      "motif": "hors des pages de classement", "note": "numéro de catégorie non numérique"},
     {"adresse": "https://www.amazon.fr/dp/B0FAUX0001",
-     "motif": "hors des pages de classement", "note": "fiche produit (décisions 005 et 013)"},
+     "motif": "hors des pages de classement", "note": "fiche produit : contrat séparé, adresses_fiches.json (015)"},
     {"adresse": "https://www.amazon.fr/gp/bestsellers/digital-text/10000000001?pg=1&pg=2",
      "motif": "pg répété", "note": "adresse ambiguë"},
     {"adresse": "https://www.amazon.fr/gp/bestsellers/digital-text/10000000001?tf=1&tf=1",
