@@ -182,3 +182,15 @@ personne, au moment de la navigation. La liste de `targets.toml` ne fait que le 
 >   texte caché « (Current) » ; toutes les pages rattachées à la version 2 ; pour chacune des 2 catégories, un seul nom
 >   d'affichage et un seul nom court sur toutes ses pages ; suffixe « - ebooks » présent pour l'une, absent pour
 >   l'autre (conforme au relevé de structure).
+
+> Note du 10 octobre 2026 (déploiement de l'étape C sur atlas, commit `511f5e1`, rapporté par le porteur du projet) :
+> - Sauvegarde de la base avant la migration ; **migration 006 appliquée** (`COMMIT`).
+> - **Extraction en version 2** : 60 pages réextraites, **2 874 lignes, dont 2 424 avec carte et 450 sans** ;
+>   0 page sans nom d'affichage, 0 sans nom court ; 0 échec d'analyse ou d'intégrité ; code 0.
+> - **Réconciliation exacte** avec la version 1 : 37 pages et 1 832 lignes (dont 1 382 avec carte) de la première
+>   extraction (décision 011), plus l'ingestion 14 (7 pages, 348 lignes, toutes avec carte, décision 012) et
+>   l'ingestion 15 (16 pages, 694 lignes, toutes avec carte, note de recette ci-dessus) : 60 pages, 2 874 lignes,
+>   2 424 avec carte. Les 450 lignes sans carte sont celles des captures antérieures à la décision 010.
+> - **5 catégories** observées ; aucune n'a plusieurs noms (un seul nom d'affichage et un seul nom court par catégorie
+>   sur toutes ses pages).
+> - Sauvegarde rapatriée sur le PC (décision 009).
