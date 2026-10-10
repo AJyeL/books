@@ -174,3 +174,11 @@ personne, au moment de la navigation. La liste de `targets.toml` ne fait que le 
 > - Vérifié le 10 octobre 2026 : suite complète contre PostgreSQL 17 jetable, 322 réussis. Contre-épreuves : texte
 >   complet lu (« (Current) » compris) → 9 échecs ; rangée d'onglets non exclue → 13 échecs ; nom absent mis en échec
 >   de page → 6 échecs.
+
+> Note du 10 octobre 2026 (étape C, partie 3 : contrôle en développement, copies des 14 captures réelles) :
+> - Image reconstruite ; extraction en version 2 : 14 pages réextraites, 690 lignes dont 554 avec carte (inchangées),
+>   0 page sans nom d'affichage, 0 sans nom court ; 7 pages manuelles comptées hors périmètre ; code 0.
+> - Contrôles sous `books_transformer`, comptes seulement : 14 observations, les deux noms lus partout, aucune avec le
+>   texte caché « (Current) » ; toutes les pages rattachées à la version 2 ; pour chacune des 2 catégories, un seul nom
+>   d'affichage et un seul nom court sur toutes ses pages ; suffixe « - ebooks » présent pour l'une, absent pour
+>   l'autre (conforme au relevé de structure).
