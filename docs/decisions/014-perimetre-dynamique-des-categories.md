@@ -150,3 +150,14 @@ personne, au moment de la navigation. La liste de `targets.toml` ne fait que le 
 > - Déploiement de l'étape B réussi. **Ingestion 15** : 16 captures `ok` ; **3 nouvelles catégories** signalées en
 >   information, une fois chacune (numéros seulement, aucun nom) ; extraction enchaînée : 694 lignes, toutes avec carte ;
 >   codes 0 et 0.
+
+> Note du 10 octobre 2026 (étape C du code, partie 1 : migration 006) :
+> - `sql/migrations/006_observation_des_categories.sql` : table `staging.category_observation` (une ligne par page
+>   extraite : `display_name` et `short_name`, chacun facultatif mais jamais vide), même clé composée que
+>   `ranking_entry` vers `page_extraction` ; numéro de catégorie obtenu par jointure avec `raw.raw_page` ;
+>   `books_transformer` : `SELECT`, `INSERT`, `DELETE` ; `books_collector` : rien.
+> - `tests/sql/test_006_observation_des_categories.sql` (16 vérifications) : contraintes, clé composée (mise à jour de
+>   `page_extraction` refusée tant que l'observation existe ; observation d'une autre exécution ou d'une page sans
+>   `page_extraction` refusée), réextraction dans l'ordre, droits des deux rôles. Vérifié le 10 octobre 2026 dans un
+>   PostgreSQL 17 jetable puis en développement (tests 002, 004, 005 et 006 conformes). Contre-épreuves : sans la clé
+>   composée, échec au test 2 ; lecture accordée à `books_collector`, échec au test 30. Rien sur atlas à cette étape.

@@ -151,6 +151,12 @@ et `books_collector` (`SET LOCAL ROLE`), pour vérifier les droits réels de cha
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_005_couche_staging.sql
 ```
 
+Tests SQL de la migration 006 (observation du nom des catégories, décision 014), même principe :
+
+```bash
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_006_observation_des_categories.sql
+```
+
 Les tests SQL supposent **toutes** les migrations appliquées : depuis la 004, leurs lignes de test portent
 une méthode de capture.
 
