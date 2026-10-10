@@ -46,6 +46,16 @@ def test_page_de_classement_jamais_fiche(cas):
     assert asin is None and why is not None
 
 
+@pytest.mark.parametrize("adresse", [
+    "https://[www.amazon.fr/dp/B0FAUX0001",
+    "https://www.amazon.fr]/dp/B0FAUX0001",
+], ids=["crochet-ouvrant", "crochet-fermant"])
+def test_adresse_mal_formee_refusee_sans_exception(adresse):
+    # urlsplit lève ValueError sur un crochet non apparié dans l'hôte : la règle doit rendre un motif de refus.
+    # Cas hors du contrat commun (décision 015, section 3) : propre à l'analyse d'adresse de ce dépôt.
+    assert asin_from_url(adresse) == (None, "adresse mal formée")
+
+
 def test_adresse_construite_acceptee():
     # L'adresse construite pour une fiche est elle-même acceptée, et rend le même ASIN
     request = ProductRequest("B0FAUX0001")

@@ -46,7 +46,10 @@ def asin_from_url(url: str) -> tuple[str | None, str | None]:
 
     Renvoie (ASIN, None) si l'adresse est celle d'une fiche acceptée, ou (None, motif) si elle est refusée ou ambiguë.
     """
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+    except ValueError:  # adresse mal formée (ex. : crochet non fermé dans l'hôte) : refus, jamais une exception
+        return None, "adresse mal formée"
     if (parts.scheme, parts.netloc) != PRODUCT_ORIGIN:
         return None, "adresse hors de https://www.amazon.fr"
     if parts.path.startswith("/gp/product/"):
