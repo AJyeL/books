@@ -514,3 +514,21 @@ de catégorie réel ; les exemples sont inventés ou sont des textes d'interface
 
 Limites : six fiches, un jour, enregistrées par Ctrl+S et non par l'extension ; la présence du bloc A+ et des avis dans
 une capture DOM sans défilement reste à vérifier (décision 015, section 9).
+
+### Repères de validation d'une fiche (relevé du 10 octobre 2026)
+
+Relevé de structure sur les 6 fiches de `data/fiches/` (4 Kindle, 2 papier), en lecture seule, formes seulement ;
+préalable à la validation des fiches (décision 015, étape B).
+- **Identifiants en double** : `id="bylineInfo"` et `id="detailBullets_feature_div"` portent chacun sur **deux `div`
+  imbriquées** dans chaque fiche (comme `gridItemRoot` sur les pages de classement). Un identifiant ne se suppose
+  jamais unique ; on retient l'élément le plus externe.
+- **Libellé de l'ASIN dans la liste des détails** : `<span class="a-text-bold">ASIN &rlm; : &lrm; </span>` suivi de la
+  valeur dans un `span`. Le libellé est encadré de **marques de direction invisibles** (U+200F, U+200E) : une
+  comparaison directe avec « ASIN : » échoue. Une seule ligne en gras « ASIN » par fiche.
+- **Format affiché** : le libellé « Format : », fermé par `</span>`, n'apparaît **qu'une fois**, dans la ligne d'auteur
+  (`#bylineInfo`) ; mais le texte « Format : » apparaît **jusqu'à 17 fois** dans la page (cartes de recommandations).
+  Le format se lit donc **dans `#bylineInfo` seulement**. Valeurs observées : « Format Kindle » (4), « Broché » (1),
+  « Relié » (1).
+- **Canonical** : un seul `<link rel="canonical">` par fiche, de la forme `https://www.amazon.fr/{libellé}/dp/{ASIN}`.
+- `#productTitle` : un seul élément par fiche. Aucune occurrence du mot « captcha ».
+- Limite : enregistrements Ctrl+S, pas des captures du DOM ; à revérifier sur les captures de l'extension (étape C).
