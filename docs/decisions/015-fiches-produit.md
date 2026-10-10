@@ -304,3 +304,14 @@ contre-épreuve.
 >   classement avec et sans carte, observations de catégorie) identique avant et après le déploiement.
 > - Aucune fiche n'a encore été capturée : la validation reste à rejouer sur de vraies captures de l'extension
 >   (étape C) avant toute fiche envoyée sur atlas.
+
+> Note du 10 octobre 2026 (étape C, recette de la section 9, point 1, rapportée par le porteur du projet) :
+> - Extension **0.3.0** (dépôt de l'extension) : séance de 3 captures de fiches ; d'après le bilan de l'extension,
+>   0 adresse `/dp/` non reconnue, 0 fiche sans repères (`#productTitle` et liste des détails).
+> - Sur une fiche avec A+, capturée par l'extension **au chargement, sans défilement** : une phrase du bloc A+ lue à
+>   l'écran est **présente** dans le fichier capturé (recherche dans ce seul fichier ; texte non cité).
+> - **Question de la section 4 tranchée** : le bloc A+ est dans le DOM dès le chargement ; il n'attend pas le
+>   défilement. Un bloc A+ absent d'une capture faite au chargement est donc **absent de la fiche** : l'extracteur
+>   (étape D) enregistrera la présence d'A+ comme vrai ou faux, et non plus comme inconnue. Limite : une fiche, un jour,
+>   une version de l'extension et de Chrome ; à réexaminer si une fiche avec A+ visible à l'écran donnait une capture
+>   sans bloc A+.

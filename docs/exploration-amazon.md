@@ -536,3 +536,10 @@ préalable à la validation des fiches (décision 015, étape B).
 - **Canonical** : un seul `<link rel="canonical">` par fiche, de la forme `https://www.amazon.fr/{libellé}/dp/{ASIN}`.
 - `#productTitle` : un seul élément par fiche. Aucune occurrence du mot « captcha ».
 - Limite : enregistrements Ctrl+S, pas des captures du DOM ; à revérifier sur les captures de l'extension (étape C).
+
+## Fiches produit : bloc A+ dans une capture de l'extension (10 octobre 2026)
+
+Recette de la décision 015 (section 9, point 1), rapportée par le porteur du projet : extension 0.3.0, une fiche avec
+A+, capturée au chargement, **sans défilement**. Une phrase du bloc A+ lue à l'écran est présente dans le fichier capturé
+(texte non cité). Le bloc A+ est donc dans le DOM dès le chargement : un A+ absent d'une telle capture est absent de la
+fiche. Limite : une fiche, un jour, une version de l'extension et de Chrome.
