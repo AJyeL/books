@@ -315,3 +315,23 @@ contre-épreuve.
 >   (étape D) enregistrera la présence d'A+ comme vrai ou faux, et non plus comme inconnue. Limite : une fiche, un jour,
 >   une version de l'extension et de Chrome ; à réexaminer si une fiche avec A+ visible à l'écran donnait une capture
 >   sans bloc A+.
+
+> Note du 10 octobre 2026 (**amendement de la section 5, indice 3**, adopté par le porteur du projet) :
+> - Constat (`docs/exploration-amazon.md`, premières captures de fiches par l'extension) : la fiche papier d'un livre
+>   dont l'ISBN-10 sert d'ASIN n'a **pas de ligne « ASIN : »** dans la liste des détails, mais une ligne « ISBN-10 : »
+>   égale à l'ASIN, tirets retirés. Les deux fiches papier capturées ont été refusées (`invalid`) par la règle de
+>   l'étape B ; la fiche Kindle du même livre était `ok`.
+> - **Règle amendée** : la liste des détails porte l'ASIN demandé par sa ligne « ASIN : » si elle existe ; sinon par sa
+>   ligne « ISBN-10 : », tirets retirés. Exactement une ligne est lue ; aucune des deux, plusieurs lignes du type lu, ou
+>   une valeur différente : `invalid`. Quand la ligne « ASIN : » existe, une ligne « ISBN-10 : » est ignorée, même de
+>   valeur différente.
+> - Code (`product_validation.py`) et tests : fiche papier d'exemple inventée, sans ligne ASIN (`fiche_papier_exemple.html`,
+>   ASIN `2000000001`) et ses variantes (ISBN-10 terminé par X, avec tirets, différent, en double) ; fiche avec ligne
+>   ASIN et ISBN-10 différent → `ok` ; capture de test d'une fiche papier à ASIN numérique, ingérée `ok`. Motif renommé :
+>   « ni ligne ASIN ni ligne ISBN-10 dans la liste des détails ».
+> - Vérifié le 10 octobre 2026 : suite complète contre PostgreSQL 17 jetable, **466 réussis** ; test du script d'envoi :
+>   tous conformes (18 fichiers ; le cas « fiche hors format » ne dépend plus de l'ASIN de la première fiche).
+>   **Contre-épreuves**, chacune en échec : ISBN-10 lu en priorité sur la ligne ASIN (1) ; tirets non retirés (1) ;
+>   règle d'avant l'amendement, sans repli sur l'ISBN-10 (7).
+> - Les deux fiches papier déjà déposées `invalid` dans RAW de développement le restent (RAW n'est jamais revalidé) ;
+>   aucune fiche n'a été envoyée sur atlas.
