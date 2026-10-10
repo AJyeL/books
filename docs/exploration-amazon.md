@@ -543,3 +543,24 @@ Recette de la décision 015 (section 9, point 1), rapportée par le porteur du p
 A+, capturée au chargement, **sans défilement**. Une phrase du bloc A+ lue à l'écran est présente dans le fichier capturé
 (texte non cité). Le bloc A+ est donc dans le DOM dès le chargement : un A+ absent d'une telle capture est absent de la
 fiche. Limite : une fiche, un jour, une version de l'extension et de Chrome.
+
+## Fiches produit : premières captures de l'extension (10 octobre 2026)
+
+Trois captures de l'extension 0.3.0 (un ebook Kindle, un broché et un relié **du même livre**), ingérées en
+développement, puis relevées en lecture seule dans RAW : formes et comptes seulement, aucune valeur.
+- **Mêmes repères que les enregistrements Ctrl+S** : un canonical (ASIN égal à celui de l'adresse), un `#productTitle`
+  non vide, une ligne d'auteur avec « Format : » (« Format Kindle », « Broché », « Relié »), une liste des détails.
+- **ASIN des éditions papier entièrement numériques** (10 chiffres) sur ce livre, ASIN `B0…` pour l'ebook.
+- **Pas de ligne « ASIN : » dans les détails des deux fiches papier** : la liste porte à la place « ISBN-10 : », dont la
+  valeur, tirets retirés, est **égale à l'ASIN** de l'adresse ; puis « ISBN-13 : ». La fiche Kindle a sa ligne
+  « ASIN : ». Différence avec les fiches papier inventoriées le 10 octobre (ASIN `B0…` et ligne « ASIN : ») : le cas
+  dépend du livre (ASIN attribué par Amazon, ou ISBN-10 servant d'ASIN).
+- Conséquence : la validation de l'étape B (décision 015, section 5, indice 3) refuse ces deux fiches papier
+  (`invalid`, « ligne ASIN introuvable dans la liste des détails ») ; la fiche Kindle est `ok`.
+- Libellés des détails, fiche papier : Éditeur, Date de publication, Langue, Nombre de pages de l'édition imprimée,
+  ISBN-10, ISBN-13, Poids de l'article, Dimensions, « Livre n sur N » (série), Classement des meilleures ventes,
+  Commentaires client. Fiche Kindle : ASIN, Accessibilité, Date de publication, Langue, Taille du fichier, Lecteur
+  d'écran, Confort de lecture, Word Wise, Nombre de pages de l'édition imprimée, Page Flip, « Livre n sur N »,
+  Classement des meilleures ventes, Commentaires client. Le libellé de série est rédigé comme une ligne de détail
+  (« Livre n sur N : »), en gras.
+- Limite : un livre, une séance, une version de l'extension et de Chrome.
