@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "displayed_url": "https://www.amazon.fr/Le-Royaume-des-cendres/dp/2000000001/ref=tmm_pap_swatch_0",
+  "captured_at": "2026-10-06T20:01:30Z",
+  "capture_method": "extension-dom",
+  "extension_version": "0.1.1",
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+  "html_sha256": "b2e6de103a27e2d408c19be4fb589223814d0799518da2715c7a98357a34cebf",
+  "html_bytes": 8364
+}

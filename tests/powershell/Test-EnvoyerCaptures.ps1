@@ -195,7 +195,7 @@ try {
     # Paire de fiche au nom hors format (ASIN de 9 caractères, décision 015) : signalée et laissée sur place.
     # (Pas d'ASIN en minuscules ici : Windows ne distingue pas la casse, la copie écraserait la vraie capture.)
     $ficheHtml = $nomsFiches | Where-Object { $_ -like '*.html' } | Select-Object -First 1
-    $horsFormat = $ficheHtml -creplace 'B0FAUX0001', 'B0FAUX001'
+    $horsFormat = $ficheHtml -creplace '^amazon_fr_product_([A-Z0-9]{9})[A-Z0-9]_', 'amazon_fr_product_$1_'
     $horsFormatPaire = @($horsFormat, ($horsFormat -replace '\.html$', '.json'))
     foreach ($nom in $horsFormatPaire) { Copy-Item -LiteralPath (Join-Path $captures $ficheHtml) -Destination (Join-Path $captures $nom) }
     $code = Invoke-Envoi

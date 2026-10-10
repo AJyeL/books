@@ -6,8 +6,9 @@ concordent avec la demande (l'ASIN tiré de l'adresse affichée) :
    demandé ;
 2. titre : exactement un élément id="productTitle", au texte non vide ;
 3. ASIN des détails : dans la liste « Détails sur le produit » (div#detailBullets_feature_div la plus externe : il y en a
-   deux, imbriquées), exactement une ligne dont le libellé en gras vaut « ASIN : », et dont la valeur est l'ASIN
-   demandé ;
+   deux, imbriquées), la ligne « ASIN : » si elle existe, sinon la ligne « ISBN-10 : » (livre papier dont l'ISBN-10 sert
+   d'ASIN), tirets retirés : exactement une ligne lue, de valeur égale à l'ASIN demandé (amendement du 10 octobre
+   2026). Quand la ligne « ASIN : » existe, une ligne « ISBN-10 : » est ignorée ;
 4. format : dans la ligne d'auteur (div#bylineInfo), exactement un libellé « Format : », suivi d'un format accepté :
    ebook Kindle, broché ou relié (décision 015, section 4). Tout autre format (livre audio, poche tant qu'il n'est pas
    observé…) rend la fiche non conforme.
@@ -31,10 +32,11 @@ from books.collector.validation import Verdict
 ACCEPTED_FORMATS = ("Format Kindle", "Broché", "Relié")
 FORMAT_LABEL = "Format :"
 ASIN_LABEL = "ASIN :"
+ISBN10_LABEL = "ISBN-10 :"
 # Éléments sans balise de fin : jamais empilés
 VOID_ELEMENTS = frozenset({"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source",
                            "track", "wbr"})
-INVISIBLE_MARKS = dict.fromkeys(map(ord, "‎‏"), None)
+INVISIBLE_MARKS = dict.fromkeys(map(ord, "\u200e\u200f"), None)
 
 
 def normalize(text: str) -> str:
@@ -65,7 +67,9 @@ class _ProductScanner(HTMLParser):
         self.formats: list[str] = []
         self.asin_labels = 0
         self.asins: list[str] = []
-        self._next_span: str | None = None  # "format" ou "asin" : le prochain span porte la valeur
+        self.isbn10_labels = 0
+        self.isbn10s: list[str] = []
+        self._next_span: str | None = None  # "format", "asin" ou "isbn10" : le prochain span porte la valeur
 
     def _inside(self, role: str) -> bool:
         return any(e.role == role for e in self.stack)
@@ -118,12 +122,17 @@ class _ProductScanner(HTMLParser):
             self.formats.append(text)
         elif element.role == "asin":
             self.asins.append(text)
+        elif element.role == "isbn10":
+            self.isbn10s.append(text)
         elif element.role == "format_label" and text == FORMAT_LABEL:
             self.format_labels += 1
             self._next_span = "format"
         elif element.role == "asin_label" and text == ASIN_LABEL:
             self.asin_labels += 1
             self._next_span = "asin"
+        elif element.role == "asin_label" and text == ISBN10_LABEL:
+            self.isbn10_labels += 1
+            self._next_span = "isbn10"
 
     def handle_data(self, data: str) -> None:
         for element in self.stack:
@@ -161,13 +170,27 @@ def _check_details_asin(scanner: _ProductScanner, request: ProductRequest) -> li
     if scanner.details > 1:
         return [f"{scanner.details} listes des détails distinctes (une seule attendue)"]
     if not scanner.asin_labels:
-        return ["ligne ASIN introuvable dans la liste des détails"]
+        return _check_details_isbn10(scanner, request)
     if scanner.asin_labels > 1:
         return [f"{scanner.asin_labels} lignes ASIN dans la liste des détails (une seule attendue)"]
     if len(scanner.asins) != 1:
         return ["ligne ASIN de la liste des détails sans valeur"]
     if scanner.asins[0] != request.asin:
         return ["ASIN de la liste des détails différent de celui de l'adresse affichée"]
+    return []
+
+
+def _check_details_isbn10(scanner: _ProductScanner, request: ProductRequest) -> list[str]:
+    """Sans ligne « ASIN : » : la ligne « ISBN-10 : », tirets retirés, porte l'ASIN (livre papier, amendement du
+    10 octobre 2026)."""
+    if not scanner.isbn10_labels:
+        return ["ni ligne ASIN ni ligne ISBN-10 dans la liste des détails"]
+    if scanner.isbn10_labels > 1:
+        return [f"{scanner.isbn10_labels} lignes ISBN-10 dans la liste des détails, sans ligne ASIN (une seule attendue)"]
+    if len(scanner.isbn10s) != 1:
+        return ["ligne ISBN-10 de la liste des détails sans valeur"]
+    if scanner.isbn10s[0].replace("-", "") != request.asin:
+        return ["ISBN-10 de la liste des détails différent de l'ASIN de l'adresse affichée"]
     return []
 
 

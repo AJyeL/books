@@ -24,6 +24,7 @@ OUTSIDE = "amazon_fr_bestsellers_10000000009_paid_p1_2026-10-06T200040Z"
 FICHE = "amazon_fr_product_B0FAUX0001_2026-10-06T200050Z"
 FICHE_AUDIO = "amazon_fr_product_B0FAUX0001_2026-10-06T200100Z"
 FICHE_CAPTCHA = "amazon_fr_product_B0FAUX0001_2026-10-06T200110Z"
+FICHE_PAPIER = "amazon_fr_product_2000000001_2026-10-06T200130Z"
 LOT = "2026-10-06T201500Z"
 
 
@@ -694,6 +695,18 @@ def test_fiche_invalid_et_blocked_deposees(dirs):
         "introuvable",
     ]
     assert inbox_files(captures) == []
+
+
+def test_fiche_papier_asin_numerique_deposee_ok(dirs):
+    # ASIN numérique (ISBN-10) : nom, adresse, emplacement RAW et validation par la ligne « ISBN-10 : »
+    captures, _ = dirs
+    add(captures, FICHE_PAPIER)
+    repo = FakeRepo()
+    result = run(dirs, repo)
+    assert result.status == "success"
+    (run_id, record), = repo.pages
+    assert record.request == ProductRequest("2000000001") and record.fetch_status == "ok"
+    assert record.stored.relative_path.endswith("/product_2000000001_2026-10-06T200130Z.html.gz")
 
 
 def test_fiche_deja_ingeree(dirs):

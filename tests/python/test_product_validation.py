@@ -68,7 +68,7 @@ NON_CONFORMES = [
     ("fiche_titre_vide.html", "titre (productTitle) vide"),
     ("fiche_deux_titres.html", "2 titres (productTitle), un seul attendu"),
     ("fiche_sans_details.html", "liste des détails (detailBullets_feature_div) introuvable"),
-    ("fiche_sans_asin_details.html", "ligne ASIN introuvable dans la liste des détails"),
+    ("fiche_sans_asin_details.html", "ni ligne ASIN ni ligne ISBN-10 dans la liste des détails"),
     ("fiche_asin_details_different.html", "ASIN de la liste des détails différent de celui de l'adresse affichée"),
     ("fiche_deux_lignes_asin.html", "2 lignes ASIN dans la liste des détails (une seule attendue)"),
     ("fiche_sans_ligne_auteur.html", "ligne d'auteur (bylineInfo) introuvable"),
@@ -90,6 +90,43 @@ def test_format_lu_dans_la_ligne_d_auteur_seulement():
     assert "Format&nbsp;: </span><span>Broché</span>" in (FIXTURES / "fiche_exemple.html").read_text(encoding="utf-8")
     assert valider("fiche_exemple.html").status == "ok"
     assert valider("fiche_format_hors_ligne_auteur.html").status == "invalid"
+
+
+# --- Fiche papier dont l'ISBN-10 sert d'ASIN (amendement du 10 octobre 2026, indice 3) -------------------------
+
+PAPIER = ProductRequest("2000000001")
+
+
+def test_fiche_papier_sans_ligne_asin_conforme_par_l_isbn10():
+    # Pas de ligne « ASIN : » : la ligne « ISBN-10 : » porte l'ASIN demandé
+    page = (FIXTURES / "fiche_papier_exemple.html").read_text(encoding="utf-8")
+    assert '<span class="a-text-bold">ASIN' not in page and '<span class="a-text-bold">ISBN-10' in page
+    assert valider("fiche_papier_exemple.html", PAPIER) == Verdict(status="ok", reason=None)
+
+
+def test_isbn10_termine_par_x():
+    assert valider("fiche_papier_isbn_x.html", ProductRequest("200000000X")).status == "ok"
+
+
+def test_isbn10_tirets_retires():
+    assert valider("fiche_papier_isbn_tirets.html", PAPIER).status == "ok"
+
+
+def test_ligne_asin_prioritaire_sur_l_isbn10():
+    # Ligne « ASIN : » (B0…) et ligne « ISBN-10 : » de valeur différente : l'ASIN décide, l'ISBN-10 est ignoré
+    page = (FIXTURES / "fiche_asin_et_isbn10.html").read_text(encoding="utf-8")
+    assert "<span>2000000009</span>" in page
+    assert valider("fiche_asin_et_isbn10.html") == Verdict(status="ok", reason=None)
+
+
+@pytest.mark.parametrize("nom, motif", [
+    ("fiche_papier_isbn_different.html", "ISBN-10 de la liste des détails différent de l'ASIN de l'adresse affichée"),
+    ("fiche_papier_deux_isbn10.html", "2 lignes ISBN-10 dans la liste des détails, sans ligne ASIN (une seule attendue)"),
+], ids=["isbn10-different", "deux-isbn10"])
+def test_fiche_papier_non_conforme(nom, motif):
+    verdict = valider(nom, PAPIER)
+    assert verdict.status == "invalid"
+    assert verdict.reason == f"Fiche non conforme : {motif}"
 
 
 def test_asin_demande_different():

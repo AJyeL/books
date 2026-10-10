@@ -64,6 +64,7 @@ version 1, avec empreinte et taille exactes. Après toute modification des fauss
 | `B0FAUX0001` `2026-10-06T200050Z` (fiche) | `fiche_exemple.html` | intègre, `ok` (ebook Kindle) |
 | `B0FAUX0001` `2026-10-06T200100Z` (fiche) | `fiche_audio.html` | intègre, `invalid` (format non accepté) |
 | `B0FAUX0001` `2026-10-06T200110Z` (fiche) | `bestsellers_captcha.html` | intègre, `blocked` |
+| `2000000001` `2026-10-06T200130Z` (fiche) | `fiche_papier_exemple.html` | intègre, `ok` (broché, ISBN-10 servant d'ASIN) |
 
 Les captures non intègres (JSON altéré, empreinte fausse, orphelins, noms hors format) sont fabriquées dans les tests,
 sur une copie, à partir de ces paires.
@@ -98,9 +99,13 @@ Quatre **sentinelles RGPD**, inventées et reconnaissables, vérifiées absentes
 l'auteur `Camille Sentinelle-Rgpd` (identifiant `B0SENTAUT1`), la commentatrice `Renée Sentinelle-Commentatrice`,
 la mention de livraison `00000 Exempleville-Sentinelle` et l'éditeur `Maison Sentinelle-Editrice`.
 
-Toutes les autres sont des **variantes générées** à partir de l'exemple par `generer_fiches.py`, et n'en diffèrent que par
-le point testé. Après toute modification de l'exemple, les régénérer depuis la racine du dépôt :
-`python tests/fixtures/generer_fiches.py`. Demande : la fiche `B0FAUX0001`.
+`fiche_papier_exemple.html` est **générée** par `generer_fiches.py` à partir de l'exemple : broché dont l'ISBN-10 sert
+d'ASIN (`2000000001`), **sans ligne « ASIN : »** dans les détails, mais avec « ISBN-10 : » (égal à l'ASIN) et
+« ISBN-13 : », comme les fiches papier capturées par l'extension le 10 octobre 2026 (amendement de l'indice 3).
+
+Toutes les autres sont des **variantes générées** à partir de l'une des deux par `generer_fiches.py`, et n'en diffèrent
+que par le point testé. Après toute modification de l'exemple, les régénérer depuis la racine du dépôt :
+`python tests/fixtures/generer_fiches.py`. Demande : la fiche `B0FAUX0001`, sauf pour les variantes papier ci-dessous.
 
 | Fichier | Point testé | Résultat attendu |
 |---|---|---|
@@ -115,7 +120,8 @@ le point testé. Après toute modification de l'exemple, les régénérer depuis
 | `fiche_sans_titre.html`, `fiche_titre_vide.html`, `fiche_deux_titres.html` | titre absent, vide, double | `invalid` |
 | `fiche_titre_captcha.html` | « Captcha » dans le titre | ok |
 | `fiche_sans_details.html` | aucune liste des détails | `invalid` |
-| `fiche_sans_asin_details.html` | aucune ligne ASIN dans les détails | `invalid` |
+| `fiche_sans_asin_details.html` | ni ligne ASIN ni ligne ISBN-10 dans les détails (libellé « EAN ») | `invalid` |
+| `fiche_asin_et_isbn10.html` | ligne ASIN et ligne ISBN-10 de valeur différente : l'ASIN décide | ok |
 | `fiche_asin_details_different.html` | ASIN des détails différent | `invalid` |
 | `fiche_deux_lignes_asin.html` | deux lignes ASIN | `invalid` |
 | `fiche_asin_sans_marques.html` | libellés sans `&rlm;` ni `&lrm;` | ok |
@@ -125,3 +131,11 @@ le point testé. Après toute modification de l'exemple, les régénérer depuis
 | `fiche_deux_formats.html` | deux formats dans la ligne d'auteur | `invalid` |
 
 La page de vérification `bestsellers_captcha.html`, demandée comme fiche, est classée `blocked`.
+
+| Fichier (base : fiche papier) | Point testé | Demande | Résultat attendu |
+|---|---|---|---|
+| `fiche_papier_exemple.html` | référence papier : ISBN-10 sans ligne ASIN | `2000000001` | ok |
+| `fiche_papier_isbn_x.html` | ISBN-10 terminé par X | `200000000X` | ok |
+| `fiche_papier_isbn_tirets.html` | ISBN-10 écrit avec tirets | `2000000001` | ok |
+| `fiche_papier_isbn_different.html` | ISBN-10 différent de l'ASIN | `2000000001` | `invalid` |
+| `fiche_papier_deux_isbn10.html` | deux lignes ISBN-10, sans ligne ASIN | `2000000001` | `invalid` |

@@ -36,6 +36,9 @@ PRODUCT_CAPTURES = [
     ("fiche_audio.html", "B0FAUX0001", "2026-10-06T200100Z", "https://www.amazon.fr/dp/B0FAUX0001"),
     # Page de vérification affichée à l'adresse d'une fiche : capture intègre, classée blocked
     ("bestsellers_captcha.html", "B0FAUX0001", "2026-10-06T200110Z", "https://www.amazon.fr/dp/B0FAUX0001"),
+    # Fiche papier dont l'ISBN-10 sert d'ASIN (ASIN numérique, sans ligne « ASIN : ») : intègre, ok
+    ("fiche_papier_exemple.html", "2000000001", "2026-10-06T200130Z",
+     "https://www.amazon.fr/Le-Royaume-des-cendres/dp/2000000001/ref=tmm_pap_swatch_0"),
 ]
 
 
