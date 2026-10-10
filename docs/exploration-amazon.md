@@ -431,3 +431,86 @@ Relevé de structure sur les 14 captures de `data/captures/`, en lecture seule ;
   un paramètre de navigation (`ref=zg_bs_unv_…`) ; les vraies captures n'ont pas d'attribut `role="treeitem"`.
 - Lecture retenue par l'extracteur (version 2, décision 014) : le `<h1>` qui commence par le préfixe fixe, et le texte
   direct du `span aria-current="page"` hors de la rangée d'onglets ; jamais la classe à suffixe aléatoire.
+
+## Fiches produit : inventaire de structure (10 octobre 2026)
+
+Inventaire de la décision 015 (sections 1 et 2), reporté ici : **structure seulement**. Aucun titre, nom, ASIN ni numéro
+de catégorie réel ; les exemples sont inventés ou sont des textes d'interface.
+
+### Échantillon et méthode
+- Quatre fiches Kindle et deux fiches papier (un broché et un relié **du même livre** qu'une des fiches Kindle),
+  enregistrées à la main (Ctrl+S, « HTML uniquement »), jamais envoyées à atlas, conservées dans `data/fiches/`
+  (hors du dépôt). Étude hors ligne, en lecture seule, par un script jetable.
+- Fiches Kindle contrastées : deux autoéditées en Kindle Unlimited (une avec éditeur déclaré), une d'une maison
+  d'édition hors KU (œuvre traduite), une gratuite parue cinq jours plus tôt, sans avis.
+- Contre-épreuve : une phrase du bloc A+ lue à l'écran est présente dans le fichier (le bloc est dans le HTML initial).
+
+### Repères d'une fiche Kindle (4 fiches)
+
+| Donnée | Repère | Présence |
+|---|---|---|
+| Titre | `#productTitle` | 4/4 |
+| Série, rang dans la série | `#rpi-attribute-book_details-series`, liste des détails | 3/4 ; deux formes : « Livre n sur N », « Fait partie de la série » |
+| Contributeurs | `#bylineInfo .author`, rôle dans `.contribution` | 4/4, toujours « (Auteur) » seul, traduction comprise |
+| Éditeur | liste des détails, « Éditeur » | 2/4 |
+| ISBN-13 | liste des détails, `#rpi-attribute-book_details-isbn13` | 2/4 |
+| Date de publication, langue, pages imprimées, taille du fichier | liste des détails | 4/4 |
+| Formats et prix | `#tmmSwatches` (Kindle, broché, relié, audio) | 4/4 ; prix audio « avec votre abonnement » |
+| Offre Kindle Unlimited | mention « Emprunt ou … pour acheter » dans l'onglet Kindle | 3/4 (absente sur la fiche hors KU) |
+| Note | `#acrPopover` | 3/4 |
+| Nombre d'avis | `#acrCustomerReviewText` | 3/4 ; fiche sans avis : compteur absent, répartition à 0 % |
+| Répartition par étoiles | `#histogramTable` (pourcentages) | 4/4 |
+| Rangs de vente | liste des détails, « Classement des meilleures ventes d'Amazon » | 4/4 : un rang général et trois rangs de catégorie |
+| Fil de catégories | `#wayfinding-breadcrumbs_feature_div` | 4/4 |
+| Couverture | `#landingImage` (`data-old-hires`) | 4/4 |
+| Description | `#bookDescription_feature_div` | 4/4 (1 100 à 1 700 caractères) |
+| Bloc A+ | `#aplus_feature_div` | 2/4 |
+
+- **Deux sources pour les détails** : la liste « Détails sur le produit » (`#detailBullets_feature_div`) et le carrousel
+  (`#rich_product_information`, identifiants `rpi-attribute-…`). La liste est plus complète (éditeur présent dans la
+  liste mais absent du carrousel sur une fiche) ; le carrousel porte des identifiants techniques stables.
+- **Rangs de vente** : chaque rang de catégorie est un lien `/gp/bestsellers/{boutique}/{numéro}` ; sur une fiche
+  ebook, la boutique peut être `digital-text` **ou `books`** (livres papier). Le rang général d'une fiche gratuite est
+  rédigé « n°N des titres gratuits » et ses liens portent `tf=1`.
+- **Fil de catégories** : il commence par « Boutique Kindle » sur trois fiches, par « Livres » sur la quatrième
+  (explication : voir « Fiches papier » ci-dessous).
+- **Absence affichée n'est pas absence réelle** : une œuvre traduite n'affiche aucun traducteur. Un rôle non affiché
+  est inconnu, jamais « aucun ».
+- **Format de la fiche** : la ligne d'auteur se termine par « Format : Format Kindle » sur les quatre fiches. Les
+  onglets de formats ne suffisent pas : celui de la fiche sans autre format a l'identifiant `tmm-grid-swatch-OTHER`,
+  et non `…-KINDLE`.
+- **Liens entre formats** : chaque onglet d'un **autre** format (`HARDCOVER`, `PAPERBACK`, `AUDIO_DOWNLOAD`) porte un
+  lien `/dp/{ASIN}` vers sa propre fiche ; l'onglet du format affiché n'en porte pas. Les éditions d'un même livre se
+  relient par leurs ASIN.
+
+### Fiches papier (2 fiches, un seul livre : constats, pas règles)
+- **Mêmes repères** que la fiche Kindle : `#productTitle`, `#bylineInfo`, `#tmmSwatches`, liste des détails,
+  `#landingImage`, `#acrPopover`, `#histogramTable`, `#aplus_feature_div`.
+- **Format** : « Format : Broché », « Format : Relié » en fin de ligne d'auteur.
+- **ASIN** de la forme `B0…` pour les trois formats : la forme de l'ASIN ne dit pas le format.
+- **Détails propres au papier** : ISBN-10, poids, dimensions ; pas de taille de fichier. Le nombre de pages diffère d'un
+  format à l'autre (trois valeurs) ; dans le carrousel, son identifiant aussi (`book_details-fiona_pages` pour le papier,
+  `book_details-ebook_pages` pour l'ebook).
+- **Différent entre les trois formats** : le titre (nom de série dans le titre sur la seule fiche Kindle), le fichier
+  image de la couverture (trois images distinctes ; un fichier différent ne prouve pas une couverture différente, aucune
+  image n'a été téléchargée), le nombre de pages, les rangs de vente (boutique `books` pour le papier).
+- **Identique** : description et bloc A+ (texte et liste d'images), note, **nombre d'avis**, fil de catégories.
+- **Piège : les avis sont communs aux formats.** Le même nombre d'avis s'affiche sur les trois fiches ; additionner les
+  avis de plusieurs formats d'un livre compterait les mêmes avis plusieurs fois.
+- **Le fil de catégories de la fiche Kindle est celui du livre papier** pour ce livre (il commence par « Livres ») :
+  c'est l'écart relevé sur les fiches Kindle.
+- **Offres d'occasion** : à côté du prix neuf, une offre d'un vendeur tiers, avec son prix et ses frais de livraison.
+  Ce n'est pas un prix du livre.
+
+### Données personnelles présentes sur une fiche
+- Nom et lien de l'auteur, biographie (décision 013).
+- Éditeur : en général une personne morale ; une personne physique quand l'éditeur porte un nom de plume (cas observé).
+- Noms des commentateurs, textes et images des avis (internautes, tiers).
+- Offres d'occasion : vendeurs tiers, parfois des personnes physiques.
+- Mention « Livraison à {code postal} {ville} » : localisation du porteur du projet, déduite de sa connexion. Elle
+  figure **aussi sur les pages de classement** capturées. Ne jamais la recopier dans un document ou un test.
+- Description et bloc A+ : peuvent citer le nom de l'auteur.
+- Règles de traitement de chacune : décision 015, sections 2 et 6.
+
+Limites : six fiches, un jour, enregistrées par Ctrl+S et non par l'extension ; la présence du bloc A+ et des avis dans
+une capture DOM sans défilement reste à vérifier (décision 015, section 9).
