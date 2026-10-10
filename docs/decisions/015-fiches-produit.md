@@ -335,3 +335,18 @@ contre-épreuve.
 >   règle d'avant l'amendement, sans repli sur l'ISBN-10 (7).
 > - Les deux fiches papier déjà déposées `invalid` dans RAW de développement le restent (RAW n'est jamais revalidé) ;
 >   aucune fiche n'a été envoyée sur atlas.
+
+> Note du 10 octobre 2026 (recette en développement sur de vraies captures, après l'amendement de l'indice 3) :
+> - Développement remis à zéro selon la procédure du 9 octobre (décision 011) : sauvegarde préalable de la base et de
+>   RAW de développement, base et rôles recréés par les migrations 001 à 006, empreintes des mots de passe réappliquées
+>   (fichier temporaire supprimé), tests SQL 002 à 006 conformes, image reconstruite avec l'amendement.
+> - **Ingestion** : 14 captures de classement (un lot par séance, 7 et 8 octobre) et 3 vraies captures de fiches de
+>   l'extension 0.3.0 (un ebook Kindle, un broché et un relié du même livre) : **17 `ok`**, aucune quarantaine, code 0.
+>   **3 fiches `ok`**, dont **2 par la ligne « ISBN-10 : »** (fiches papier à ASIN de 10 chiffres, sans ligne « ASIN : »)
+>   et 1 par la ligne « ASIN : » (ebook, ASIN `B0…`). **14 classements `ok`**.
+> - **Extraction** : 14 pages, **690 lignes, 554 avec carte, 505 notées** (comptes identiques à ceux du 9 octobre) ;
+>   3 pages hors périmètre, motif « type product » ; code 0.
+> - **Empreinte de `data\captures\` identique** avant et après la remise à zéro et la réingestion.
+> - **Réserve « validation à rejouer sur de vraies captures » (note de l'étape B) : levée en développement.** Elle reste
+>   à **constater sur atlas au premier envoi de fiches** (statut de chaque fiche, bilan de l'ingestion).
+> - Limite : un livre, trois fiches, une séance, une version de l'extension et de Chrome.
