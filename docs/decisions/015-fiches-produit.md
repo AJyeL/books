@@ -2,8 +2,8 @@
 
 Date : 10 octobre 2026
 
-> Statut : **proposée**, à relire par le porteur du projet avant tout code. Rédigée à partir de l'inventaire du
-> 10 octobre 2026 (section 1). Les exemples sont inventés : aucun titre, nom ni numéro de catégorie réel.
+> Statut : **adoptée** le 10 octobre 2026, après relecture (amendements du même jour intégrés au texte). Rédigée à
+> partir de l'inventaire du 10 octobre 2026 (section 1). Les exemples sont inventés : aucun titre, nom ni numéro de catégorie réel.
 
 ## Contexte
 
@@ -93,13 +93,14 @@ même protocole. Les trois formats d'un même livre se comparent ainsi un à un 
 | Donnée | Personnes | Règle |
 |---|---|---|
 | Nom et lien de l'auteur, biographie | auteurs | décision 013 |
-| Éditeur | en général une personne morale ; une personne physique quand l'éditeur porte un nom de plume (cas observé) | lu et stocké tel qu'affiché (section 6) ; aucune sortie nominative d'un éditeur avant la règle d'affichage de la mise en œuvre de la décision 013 |
+| Éditeur | en général une personne morale ; une personne physique quand l'éditeur porte un nom de plume (cas observé), souvent celui de l'auteur chez un autoédité | entité distincte de l'auteur, traitée par le **même mécanisme que la décision 013** : code dans STAGING, nom dans le schéma séparé ; **non extrait** avant la mise en œuvre de la décision 013 (section 6) |
 | Noms des commentateurs, textes et images des avis | **internautes, tiers** | **jamais extraits** (section 6) |
 | Offres d'occasion et vendeurs tiers | vendeurs, parfois des personnes physiques | jamais extraits |
 | « Livraison à {code postal} {ville} » | **le porteur du projet** (localisation déduite de sa connexion) | jamais extraite ; absente du dépôt public |
 | Description, bloc A+ | auteurs (citation possible du nom) | stockage seulement, ni affichage ni citation (décision 013, section 3) |
 
-- La mention de livraison figure **aussi sur les 14 captures de classement** déjà ingérées, donc dans RAW sur atlas.
+- La mention de livraison figure **aussi sur les pages de classement** : **15 captures sur 15 en local**
+  (`data/captures/`, compte du 10 octobre 2026) ; **probable, mais non vérifié, sur atlas** (RAW).
   Vérifié le 10 octobre 2026 : elle n'apparaît **nulle part** dans le dépôt public, historique compris.
 
 ### 3. Adresse acceptée
@@ -124,18 +125,23 @@ même protocole. Les trois formats d'un même livre se comparent ainsi un à un 
 - **Liste blanche de l'extension** élargie aux adresses de la section 3 (dans son dépôt, d'après la présente décision).
   Décision 005 inchangée : navigation manuelle, aucune requête par un programme, capture des seules pages affichées.
 - **Nom** : `amazon_fr_product_{ASIN}_{AAAA-MM-JJTHHMMSSZ}` ; mêmes fichiers jumeaux et même JSON (schéma 1) que la
-  décision 007.
+  décision 007, **amendée** en conséquence : expression régulière du nom d'une fiche
+  (`amazon_fr_product_[A-Z0-9]{10}_[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z\.html`), et contrôle de lecture « ASIN déduit
+  de `displayed_url` (section 3) égal à l'ASIN du nom », à la place de « catégorie, liste et page ».
 - **Moment** : une capture unique, quand le document est chargé (`document.readyState` à `complete`) et que
   `#productTitle` et la liste des détails sont présents. Une page sans ces repères (vérification, erreur) est capturée
   telle quelle ; l'ingestion la classe.
-- **Question ouverte, tranchée par la recette (section 9)** : un bloc A+ ou d'avis absent de la capture est-il absent
-  de la fiche, ou seulement pas encore chargé ? Tant qu'elle n'est pas tranchée, l'absence d'A+ est enregistrée comme
+- **Question ouverte, tranchée par la recette (section 9)** : un bloc A+ absent de la capture est-il absent
+  de la fiche, ou seulement pas encore chargé ? (Le bloc des avis individuels n'est pas en cause : il n'est jamais lu.) Tant qu'elle n'est pas tranchée, l'absence d'A+ est enregistrée comme
   **inconnue** (`NULL`), jamais comme « pas d'A+ ».
 
 ### 5. Ingestion et validation
 
 - `raw.raw_page` : `page_type = 'product'`, `asin` renseigné ; rien d'autre ne change dans RAW. **Aucune migration
   RAW.**
+- **Emplacement dans RAW** (décision 004, `storage.py`) : celui des pages de classement repose sur la catégorie, la liste
+  et la page ; une fiche a le sien, sur le même modèle :
+  `amazon_fr/AAAA/MM/JJ/run-{id}/product_{ASIN}_{AAAA-MM-JJTHHMMSSZ}.html.gz` (et `.json.gz`).
 - Indices de validation, sur le modèle de la décision 004 : un seul canonical, dont l'ASIN est celui de l'adresse ;
   un seul `#productTitle` non vide ; la liste des détails porte le même ASIN ; le format affiché (« Format : … » de la
   ligne d'auteur, section 1) est un format accepté (section 4) ; tout autre format (livre audio compris) est
@@ -151,8 +157,7 @@ comme hors périmètre (motif « format papier ») jusqu'à leur propre inventai
 la réextraction les rendra alors analysables, historique compris.
 
 Lues :
-- `staging.product_observation`, une ligne par fiche extraite : ASIN, format affiché, titre, éditeur (tel qu'affiché),
-  nom de série, rang dans la série, nombre
+- `staging.product_observation`, une ligne par fiche extraite : ASIN, format affiché, titre, nom de série, rang dans la série, nombre
   de livres de la série, date de publication, langue, pages imprimées, taille du fichier, ISBN-13, note, nombre d'avis,
   adresse de la couverture, description (texte), indice d'offre KU, présence d'A+, fil de catégories (texte).
 - `staging.product_format`, une ligne par format affiché : libellé, ASIN de sa fiche (`NULL` pour le format de la
@@ -164,8 +169,12 @@ Lues :
 - `staging.product_rating_share`, une ligne par niveau d'étoiles : pourcentage affiché.
 
 Règles :
-- **Éditeur** : la valeur affichée dans la liste des détails, sans retouche ; absente → `NULL`. **Jamais
-  « autoédition » par défaut** : une absence d'éditeur ne prouve pas l'autoédition, et un éditeur affiché ne prouve
+- **Éditeur** : **entité distincte de l'auteur**, traitée par le **même mécanisme que la décision 013** : STAGING ne
+  porte qu'un **code d'éditeur**, le nom affiché (lu dans la liste des détails, sans retouche) vit dans le schéma séparé.
+  Raison : un éditeur peut être une personne physique, et chez un autoédité son nom est souvent celui de l'auteur ;
+  stocké en clair dans STAGING, il y réintroduirait le nom que la décision 013 en retire. **Non extrait avant la mise en
+  œuvre de la décision 013** ; RAW conserve tout, la réextraction le rendra disponible. Éditeur absent → code `NULL`.
+  **Jamais « autoédition » par défaut** : une absence d'éditeur ne prouve pas l'autoédition, et un éditeur affiché ne prouve
   pas une maison d'édition (une marque d'autoéditeur porte un nom d'éditeur, cas observé). Le statut éditorial (maison,
   autoédition, inconnu) est une **interprétation**, calculée dans une couche ultérieure, par une règle documentée qui
   dit son incertitude.
@@ -180,8 +189,14 @@ Règles :
 - Même clé composée vers `staging.page_extraction` que `ranking_entry` (jamais deux versions mélangées) ; nouvelle
   version de l'extracteur, réextraction de tout l'historique ; une valeur absente est `NULL` et comptée au bilan, sans
   échec de page ; seuls l'ASIN et le titre sont obligatoires.
+- **Valeur présente mais illisible** (forme inconnue, par exemple un prix sans `€` ou une date d'une autre forme) :
+  **échec de la page entière**, avec un motif qui nomme le champ, comme pour les pages de classement (décision 011,
+  section 5). Absent n'est pas illisible : seule l'absence donne `NULL`.
+- **`page_extraction.entry_count`** : vaut **1** pour une fiche extraite (une observation de fiche) ; la contrainte
+  `page_extraction_result_ck` (page `ok` : `entry_count >= 1`) reste donc satisfaite. La migration 007 le précise
+  (commentaire de colonne, test).
 
-**Jamais lus par l'extracteur** : auteur et contributeurs (jusqu'à la mise en œuvre de la décision 013), biographie, avis individuels, noms des commentateurs, mention de livraison, recommandations (« les clients ont aussi
+**Jamais lus par l'extracteur** : auteur, contributeurs et éditeur (jusqu'à la mise en œuvre de la décision 013), biographie, avis individuels, noms des commentateurs, mention de livraison, recommandations (« les clients ont aussi
 acheté »), offres d'occasion et vendeurs tiers. Le test RGPD de l'extracteur est étendu : un auteur sentinelle, un commentateur sentinelle et une mention de
 livraison sentinelle n'apparaissent dans **aucun** champ de STAGING, ni dans les motifs ni dans les bilans ; avec
 contre-épreuve.
@@ -201,9 +216,10 @@ contre-épreuve.
 
 ### 9. Recette, avant toute fiche en production
 
-1. Sur une fiche avec A+ : capture par l'extension **sans défilement**, puis Ctrl+S après défilement complet ; comparer
-   la présence du bloc A+ et du bloc d'avis. Résultat consigné dans `docs/exploration-amazon.md` ; il tranche la
-   question de la section 4.
+1. Sur une fiche avec A+ : capture par l'extension **au chargement, sans défilement** ; puis recherche, dans ce seul
+   fichier, d'une phrase du bloc A+ lue à l'écran. **Pas de Ctrl+S** (décision 005, section 5 : une nouvelle requête
+   n'est pas exclue). Résultat consigné dans `docs/exploration-amazon.md` ; il tranche la question de la section 4
+   pour le bloc A+.
 2. Première séance : 3 à 5 fiches capturées, ingérées en développement, extraites ; bilan relevé par comptes seulement.
 
 ## Conséquences et ordre des travaux
@@ -212,8 +228,14 @@ contre-épreuve.
 - **Étape B** : ingestion et validation des fiches (`page_type = 'product'`), décision 008 annotée.
 - **Étape C** (dépôt de l'extension) : liste blanche, nom des fichiers, moment de la capture ; recette (section 9, point 1).
 - **Étape D** : migration 007 (tables de la section 6), extracteur version 3, recette (section 9, point 2).
-- **Décisions annotées** : 005 (section 4, fiches produit admises selon la présente décision), 011 (périmètre étendu au
-  type `product`), 013 (règle d'affichage des éditeurs à prévoir avec sa mise en œuvre ; question 6 sur la minimisation).
+- **Décisions annotées** :
+  - 004 (emplacement RAW des fiches, section 5 ; `storage.py`) ;
+  - 005 (section 4, fiches produit admises selon la présente décision) ;
+  - 007 (nom `amazon_fr_product_{ASIN}_{horodatage}`, expression régulière, ASIN tiré de l'adresse affichée ;
+    section 4) ;
+  - 011 (périmètre étendu au type `product`) ;
+  - 013 (l'éditeur, entité distincte de l'auteur, suit le même mécanisme : code dans STAGING, nom dans le schéma
+    séparé ; question 6 sur la minimisation).
 - **`CLAUDE.md`** (privé, jamais commité) : la règle « liste blanche limitée aux pages de classement » est mise à jour
   d'après la présente décision.
 - **Documents** : l'inventaire de la section 1 est reporté dans `docs/exploration-amazon.md`, structure seulement.
