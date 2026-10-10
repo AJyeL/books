@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 
-from books.collector.targets import PageRequest
+from books.amazon.ranking_page import PageRequest
 
 SOURCE = "amazon_fr"
 

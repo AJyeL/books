@@ -25,7 +25,6 @@ class Config:
     db_user: str
     db_password: str = field(repr=False)  # jamais affiché, ni dans les logs
     raw_dir: Path
-    targets_file: Path
 
 
 def _require(environ: Mapping[str, str], name: str) -> str:
@@ -62,5 +61,4 @@ def load_config(environ: Mapping[str, str] | None = None) -> Config:
         db_user=_require(environ, "POSTGRES_USER"),
         db_password=_require(environ, "POSTGRES_PASSWORD"),
         raw_dir=Path(_require(environ, "BOOKS_RAW_DIR")),
-        targets_file=Path(_require(environ, "BOOKS_TARGETS_FILE")),
     )

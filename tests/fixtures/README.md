@@ -58,7 +58,7 @@ version 1, avec empreinte et taille exactes. Après toute modification des fauss
 | `10000000001` paid p2 `2026-10-06T200010Z` | `bestsellers_page2.html` | intègre, `ok` |
 | `10000000001` free p1 `2026-10-06T200020Z` | `bestsellers_gratuit.html` | intègre, `ok` |
 | `10000000001` paid p1 `2026-10-06T200030Z` | `bestsellers_captcha.html` | intègre, `blocked` |
-| `10000000009` paid p1 `2026-10-06T200040Z` | `bestsellers_exemple.html` | hors périmètre des tests : quarantaine |
+| `10000000009` paid p1 `2026-10-06T200040Z` | `bestsellers_exemple.html` | autre catégorie : acceptée depuis la décision 014 (autrefois « hors périmètre ») |
 
 Les captures non intègres (JSON altéré, empreinte fausse, orphelins, noms hors format) sont fabriquées dans les tests,
 sur une copie, à partir de ces paires.

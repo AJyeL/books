@@ -24,7 +24,7 @@ CAPTURES = [
     ("bestsellers_gratuit.html", "10000000001", "free", 1, "2026-10-06T200020Z", "/ref=zg_bs?ie=UTF8&tf=1"),
     # Page de vérification affichée à l'adresse du Top payant : capture intègre, classée blocked à la validation
     ("bestsellers_captcha.html", "10000000001", "paid", 1, "2026-10-06T200030Z", ""),
-    # Catégorie inventée absente du périmètre des tests : capture intègre, hors périmètre
+    # Seconde catégorie inventée : capture intègre, acceptée (décision 014 : toute catégorie est dans le périmètre)
     ("bestsellers_exemple.html", "10000000009", "paid", 1, "2026-10-06T200040Z", ""),
 ]
 

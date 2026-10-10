@@ -21,16 +21,16 @@ FREE_P1 = "amazon_fr_bestsellers_10000000001_free_p1_2026-10-06T200020Z"
 CAPTCHA = "amazon_fr_bestsellers_10000000001_paid_p1_2026-10-06T200030Z"
 OUTSIDE = "amazon_fr_bestsellers_10000000009_paid_p1_2026-10-06T200040Z"
 LOT = "2026-10-06T201500Z"
-PERIMETER = {("10000000001", "paid"), ("10000000001", "free")}
 
 
 class FakeRepo:
     """Remplace PostgreSQL : garde en mémoire les lignes et les tournées ; numérote les ingestions."""
 
-    def __init__(self):
+    def __init__(self, known_categories=()):
         self.pages = []  # (run_id, PageRecord)
         self.runs = {}
         self.next_id = 41
+        self.known = set(known_categories)  # catégories déjà présentes dans RAW avant l'ingestion
 
     def open_run(self, collector_version):
         self.next_id += 1
@@ -49,6 +49,9 @@ class FakeRepo:
             if record.capture_method == "extension-dom" and record.stored.sha256 == content_sha256:
                 return index
         return None
+
+    def known_category(self, node):
+        return node in self.known or any(record.request.node == node for _, record in self.pages)
 
     @property
     def last(self):
@@ -75,7 +78,17 @@ def add(captures, *stems, lot=LOT, suffixes=(".html", ".json")):
 
 def run(dirs, repo, **kwargs):
     captures, raw = dirs
-    return ingest(captures, PERIMETER, repo, raw, "0.1.0", log=lambda m: None, **kwargs)
+    return ingest(captures, repo, raw, "0.1.0", log=lambda m: None, **kwargs)
+
+
+def add_damaged(captures, stem, lot=LOT):
+    """Capture non intègre : champ user_agent retiré du JSON ; motif de quarantaine fixe."""
+    import json
+    lot_dir = add(captures, stem, lot=lot)
+    meta = json.loads((lot_dir / f"{stem}.json").read_text(encoding="utf-8"))
+    del meta["user_agent"]
+    (lot_dir / f"{stem}.json").write_text(json.dumps(meta), encoding="utf-8")
+    return lot_dir
 
 
 def inbox_files(captures):
@@ -161,15 +174,16 @@ def test_inbox_vide(dirs):
 
 def test_quarantaine_rien_dans_raw(dirs):
     captures, raw = dirs
-    add(captures, OUTSIDE, PAID_P1)
+    add(captures, PAID_P1)
+    add_damaged(captures, OUTSIDE)
     repo = FakeRepo()
     result = run(dirs, repo)
     assert result.status == "partial"  # une anomalie
-    assert [r.request.node for _, r in repo.pages] == ["10000000001"]  # seule la capture conforme est déposée
+    assert [r.request.node for _, r in repo.pages] == ["10000000001"]  # seule la capture intègre est déposée
     quarantined = captures / "quarantaine" / LOT
     assert sorted(p.name for p in quarantined.iterdir()) == [
         f"{OUTSIDE}.html", f"{OUTSIDE}.json", f"{OUTSIDE}.raison.txt"]
-    assert "hors périmètre" in repo.last["notes"]
+    assert "champs manquants ['user_agent']" in repo.last["notes"]
     assert inbox_files(captures) == []
 
 
@@ -303,7 +317,7 @@ def test_interruption_entre_le_json_et_le_html(dirs, monkeypatch):
 
 def test_dossier_inbox_absent(tmp_path):
     with pytest.raises(FileNotFoundError, match="inbox"):
-        ingest(tmp_path, PERIMETER, FakeRepo(), tmp_path, "0.1.0", log=lambda m: None)
+        ingest(tmp_path, FakeRepo(), tmp_path, "0.1.0", log=lambda m: None)
 
 
 # --- Page 2 manquante au sein du lot, bilan, statuts ---------------------------------------
@@ -403,7 +417,8 @@ def test_page_1_deja_ingeree_pas_revérifiee(dirs):
 
 def test_bilan_complet(dirs):
     captures, _ = dirs
-    add(captures, CAPTCHA, PAID_P2, OUTSIDE)
+    add(captures, CAPTCHA, PAID_P2)
+    add_damaged(captures, OUTSIDE)
     (captures / "inbox" / "perdu.txt").write_text("x")
     repo = FakeRepo()
     result = run(dirs, repo)
@@ -441,19 +456,21 @@ Bilan de l'ingestion 42 — lot(s) : 2026-10-06T201500Z
   Pages anormales    : 1
     - 2026-10-06T201500Z/amazon_fr_bestsellers_10000000001_paid_p1_2026-10-06T200030Z : blocked : CAPTCHA détecté : lien canonical absent ; onglet actif introuvable ; aucune liste contenant render.zg.rank
   Quarantaine        : 1
-    - 2026-10-06T201500Z/amazon_fr_bestsellers_10000000009_paid_p1_2026-10-06T200040Z : hors périmètre : catégorie 10000000009, liste paid absente de config/targets.toml
+    - 2026-10-06T201500Z/amazon_fr_bestsellers_10000000009_paid_p1_2026-10-06T200040Z : JSON : champs manquants ['user_agent'], champs inconnus []
   Laissés en place   : 1
     - perdu.txt : fichier hors de tout lot
   Pages 2 manquantes : 1
     - 10000000001 paid : page 2 annoncée, absente du lot 2026-10-06T201500Z
-  Informations       : 1
+  Informations       : 2
+    - nouvelle catégorie (jamais vue dans RAW) : 10000000001
     - lots vidés et supprimés : 2026-10-06T201500Z
 Résultat : partial, 4 anomalie(s) — code de sortie 1"""
 
 
 def test_bilan_de_reference(dirs):
     captures, _ = dirs
-    add(captures, PAID_P1, CAPTCHA, OUTSIDE)  # page 2 absente du lot, page de vérification, hors périmètre
+    add(captures, PAID_P1, CAPTCHA)  # page 2 absente du lot, page de vérification
+    add_damaged(captures, OUTSIDE)  # capture non intègre : quarantaine
     (captures / "inbox" / "perdu.txt").write_text("x")
     repo = FakeRepo()
     result = run(dirs, repo)
@@ -560,3 +577,54 @@ def test_trou_dans_la_liste_classee_reste_une_information(dirs):
     assert record.fetch_status == "ok"
     assert result.status == "success" and result.report.anomalies == 0
     assert any("suite de rangs non continue (trou)" in i for i in result.report.information)
+
+
+# --- Périmètre dynamique : toute catégorie acceptée, nouvelle catégorie signalée (décision 014) --
+
+NOUVELLE = "nouvelle catégorie (jamais vue dans RAW) : "
+
+
+def test_toute_categorie_deposee(dirs):
+    captures, _ = dirs
+    add(captures, OUTSIDE)  # catégorie 10000000009 : autrefois « hors périmètre »
+    repo = FakeRepo()
+    result = run(dirs, repo)
+    assert [r.request.node for _, r in repo.pages] == ["10000000009"]
+    assert result.report.quarantined == [] and not (captures / "quarantaine").exists()
+
+
+def test_nouvelle_categorie_information_numero_seulement(dirs):
+    captures, _ = dirs
+    add(captures, PAID_P1, PAID_P2, OUTSIDE)  # deux pages de 10000000001, une de 10000000009
+    repo = FakeRepo()
+    result = run(dirs, repo)
+    news = [i for i in result.report.information if i.startswith(NOUVELLE)]
+    # Une seule fois par catégorie, numéro seulement : aucun autre texte après le numéro
+    assert news == [NOUVELLE + "10000000001", NOUVELLE + "10000000009"]
+    assert result.status == "success" and result.report.anomalies == 0  # jamais une anomalie
+    assert NOUVELLE + "10000000009" in repo.last["notes"]
+
+
+def test_categorie_deja_connue_non_signalee(dirs):
+    captures, _ = dirs
+    add(captures, PAID_P1, PAID_P2)
+    repo = FakeRepo(known_categories={"10000000001"})
+    result = run(dirs, repo)
+    assert not any(i.startswith(NOUVELLE) for i in result.report.information)
+
+
+def test_categorie_vue_lors_d_une_ingestion_precedente(dirs):
+    captures, _ = dirs
+    add(captures, PAID_P1, PAID_P2)
+    repo = FakeRepo()
+    run(dirs, repo)
+    add(captures, FREE_P1, lot="2026-10-06T220000Z")  # même catégorie, ingestion suivante
+    result = run(dirs, repo)
+    assert not any(i.startswith(NOUVELLE) for i in result.report.information)
+
+
+def test_capture_en_quarantaine_ne_signale_pas_sa_categorie(dirs):
+    captures, _ = dirs
+    add_damaged(captures, OUTSIDE)
+    result = run(dirs, FakeRepo())
+    assert not any(i.startswith(NOUVELLE) for i in result.report.information)

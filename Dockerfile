@@ -18,9 +18,8 @@ COPY pyproject.toml ./
 COPY src ./src
 RUN pip install . && rm -rf build
 
-# Catégories à collecter : versionnées, intégrées à l'image (les modifier impose de reconstruire)
-COPY config ./config
-ENV BOOKS_TARGETS_FILE=/app/config/targets.toml
+# Aucune liste de catégories dans l'image : toute page de classement Kindle d'amazon.fr est dans le périmètre
+# (décision 014) ; ajouter une catégorie ne demande plus de reconstruire l'image.
 
 USER books
 CMD ["python", "-m", "books.collector"]

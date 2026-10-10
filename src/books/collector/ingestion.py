@@ -1,7 +1,9 @@
 """Ingestion des captures de inbox/ dans RAW (décision 008).
 
 Pour chaque élément de inbox/, dans l'ordre des lots puis des noms :
-1. intégrité (décision 007, section 6) et périmètre ; en cas d'échec, quarantaine, rien dans RAW ;
+1. intégrité (décision 007, section 6) ; en cas d'échec, quarantaine, rien dans RAW. Toute page de classement
+   Kindle d'amazon.fr est dans le périmètre (décision 014) ; une catégorie jamais vue dans RAW est signalée
+   en information (numéro seulement, jamais une anomalie) ;
 2. « déjà ingérée » : une capture dont l'empreinte est déjà dans RAW est retirée, sans nouvelle ligne ;
 3. validation (décision 004) ; HTML et JSON déposés dans RAW, compressés, jamais écrasés ;
    une capture « blocked » ou « invalid » est déposée avec son statut, et l'ingestion continue ;
@@ -22,10 +24,10 @@ from books.collector.inbox import (
     CAPTURE_STEM, EXTENSION_DOM, Capture, LoneHtml, Pair, QuarantineError, Rejected, Untouchable,
     check_capture, quarantine, remove_capture, remove_empty_lots, scan_inbox,
 )
+from books.amazon.ranking_page import PageRequest
 from books.collector.repository import PageRecord, Repository
-from books.collector.run import EXIT_CODES, RunResult
+from books.collector.run import EXIT_CODES, MAX_REQUESTS_PER_RUN, RunResult
 from books.collector.storage import capture_relative_paths, store_raw
-from books.collector.targets import MAX_REQUESTS_PER_RUN, PageRequest
 from books.collector.validation import FULL_LIST_SIZE, next_page, validate_bestseller_page
 
 INBOX = "inbox"
@@ -97,7 +99,6 @@ def _page_of(stem: str) -> tuple[str, str, int] | None:
 
 def ingest(
     captures_dir: Path,
-    perimeter: set[tuple[str, str]],
     repo: Repository,
     raw_dir: Path,
     collector_version: str,
@@ -127,6 +128,7 @@ def ingest(
             if page:
                 in_lot.setdefault(item.lot, set()).add(page)
     first_pages: list[tuple[str, PageRequest]] = []  # (lot, page 2 attendue)
+    categories_checked: set[str] = set()  # catégories déjà cherchées dans RAW pendant cette ingestion
 
     def to_quarantine(rejected: Rejected) -> None:
         try:
@@ -164,7 +166,7 @@ def ingest(
                                            "HTML orphelin : JSON jumeau absent"))
                 continue
 
-            checked = check_capture(item, perimeter)
+            checked = check_capture(item)
             if isinstance(checked, Rejected):
                 to_quarantine(checked)
                 continue
@@ -175,6 +177,14 @@ def ingest(
                 report.already += 1
                 report.information.append(f"{capture.label} : déjà ingérée")
                 continue
+
+            # Catégorie jamais vue dans RAW : information, numéro seulement (décision 014). Cherchée une fois par
+            # ingestion, avant le dépôt de sa première page (après, elle figurerait déjà dans RAW).
+            node = capture.request.node
+            if node not in categories_checked:
+                categories_checked.add(node)
+                if not repo.known_category(node):
+                    report.information.append(f"nouvelle catégorie (jamais vue dans RAW) : {node}")
 
             verdict = validate_bestseller_page(capture.html, capture.request)
             html_rel, json_rel = capture_relative_paths(run.id, run.started_at, capture.request, capture.captured_at)

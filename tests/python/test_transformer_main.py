@@ -6,7 +6,7 @@ import pytest
 from books.transformer.__main__ import main
 
 VARIABLES = ("BOOKS_ENV", "POSTGRES_HOST", "POSTGRES_PORT", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD",
-             "BOOKS_RAW_DIR", "BOOKS_TARGETS_FILE")
+             "BOOKS_RAW_DIR")
 
 
 @pytest.fixture
@@ -16,7 +16,7 @@ def environ(monkeypatch, tmp_path):
         monkeypatch.delenv(name, raising=False)
     values = {"BOOKS_ENV": "dev", "POSTGRES_HOST": "hote-inexistant.invalid", "POSTGRES_PORT": "5432",
               "POSTGRES_DB": "books", "POSTGRES_USER": "books_transformer", "POSTGRES_PASSWORD": "x",
-              "BOOKS_RAW_DIR": str(tmp_path), "BOOKS_TARGETS_FILE": str(tmp_path / "targets.toml")}
+              "BOOKS_RAW_DIR": str(tmp_path)}
     for name, value in values.items():
         monkeypatch.setenv(name, value)
     return monkeypatch

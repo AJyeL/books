@@ -225,3 +225,8 @@ en place, pages 2 manquantes, informations. Le bilan affiché sur le PC reprend 
 > `BOOKS:EXTRACTION:CODE {code}`). Les codes du script d'envoi deviennent : 0 transfert réussi, ingestion **et**
 > extraction sans anomalie ; 1 transfert réussi mais anomalie, étape non effectuée, configuration invalide sur atlas ou
 > repère absent ; 2 et 3 inchangés.
+
+> Note du 10 octobre 2026 : la décision 014 supprime le contrôle « hors périmètre » (section 3, point 1) et
+> `config/targets.toml`. Une capture n'est plus mise en quarantaine pour sa catégorie ; une catégorie jamais vue dans
+> RAW est signalée en **information** au bilan (numéro seulement, jamais une anomalie). Les captures déjà mises en
+> quarantaine pour ce seul motif se replacent dans `inbox/` selon la procédure de la section 3.

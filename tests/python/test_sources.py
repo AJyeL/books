@@ -3,7 +3,7 @@
 import pytest
 
 from books.collector.sources import LocalSource, SourceError, make_source
-from books.collector.targets import PageRequest
+from books.amazon.ranking_page import PageRequest
 
 REQUEST = PageRequest("10000000001", "paid", 1)
 
@@ -114,3 +114,24 @@ def test_source_locale_methode_manual_html(samples):
     source = LocalSource("dev", samples)
     assert source.fetch(REQUEST).capture_method == "manual-html"
     assert source.fetch(PageRequest("10000000003", "paid", 1)).capture_method == "manual-html"
+
+
+def test_pages_1_tirees_des_pages_enregistrees(tmp_path):
+    # Décision 014 : plus de liste de catégories ; les pages 1 présentes font le périmètre de la tournée de dev
+    for name in ("amazon_fr_bestsellers_20000000002_free_p1_2026-10-05.html",
+                 "amazon_fr_bestsellers_10000000001_free_p1_2026-10-05.html",
+                 "amazon_fr_bestsellers_10000000001_paid_p1_2026-10-05.html",
+                 "amazon_fr_bestsellers_10000000001_paid_p1_2026-10-06.html",   # deux dates : une seule demande
+                 "amazon_fr_bestsellers_10000000001_paid_p2_2026-10-05.html",   # page 2 : jamais planifiée
+                 "amazon_fr_bestsellers_30000000003_paid_p1_2026-10-05.html.gz",  # nom hors convention : ignoré
+                 "notes.txt"):
+        (tmp_path / name).write_bytes(b"x")
+    assert LocalSource("dev", tmp_path).first_pages() == [
+        PageRequest("10000000001", "paid", 1),
+        PageRequest("10000000001", "free", 1),
+        PageRequest("20000000002", "free", 1),
+    ]
+
+
+def test_aucune_page_1_enregistree(tmp_path):
+    assert LocalSource("dev", tmp_path).first_pages() == []

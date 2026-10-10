@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 import pytest
 
 from books.collector.storage import store_raw
-from books.collector.targets import PageRequest
+from books.amazon.ranking_page import PageRequest
 
 # Fausses pages de test, aux valeurs inventées (voir tests/fixtures/README.md)
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"

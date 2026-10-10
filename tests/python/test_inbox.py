@@ -9,7 +9,7 @@ from books.collector.inbox import (
     LoneHtml, Pair, QuarantineError, Rejected, Untouchable, Capture,
     check_capture, quarantine, scan_inbox,
 )
-from books.collector.targets import PageRequest
+from books.amazon.ranking_page import PageRequest
 from conftest import FIXTURES
 
 CAPTURES = FIXTURES / "captures"
@@ -17,7 +17,6 @@ PAID_P1 = "amazon_fr_bestsellers_10000000001_paid_p1_2026-10-06T200000Z"
 FREE_P1 = "amazon_fr_bestsellers_10000000001_free_p1_2026-10-06T200020Z"
 OUTSIDE = "amazon_fr_bestsellers_10000000009_paid_p1_2026-10-06T200040Z"
 LOT = "2026-10-06T201500Z"
-PERIMETER = {("10000000001", "paid"), ("10000000001", "free")}
 
 
 @pytest.fixture
@@ -110,7 +109,7 @@ def test_elements_laisses_en_place(inbox, make):
 
 def test_capture_integre(inbox):
     add(inbox, PAID_P1)
-    capture = check_capture(only_pair(inbox), PERIMETER)
+    capture = check_capture(only_pair(inbox))
     assert isinstance(capture, Capture)
     assert capture.request == PageRequest("10000000001", "paid", 1)
     assert capture.captured_at.isoformat() == "2026-10-06T20:00:00+00:00"
@@ -135,7 +134,7 @@ def test_capture_integre(inbox):
 def test_capture_non_integre(inbox, changes, reason):
     lot_dir = add(inbox, PAID_P1)
     edit_json(lot_dir, PAID_P1, **changes)
-    result = check_capture(only_pair(inbox), PERIMETER)
+    result = check_capture(only_pair(inbox))
     assert isinstance(result, Rejected) and reason in result.reason
     assert len(result.paths) == 2  # les deux fichiers partent ensemble en quarantaine
 
@@ -144,7 +143,7 @@ def test_html_modifie_apres_capture(inbox):
     lot_dir = add(inbox, PAID_P1)
     html = lot_dir / f"{PAID_P1}.html"
     html.write_bytes(html.read_bytes().replace(b"Top 100 payants", b"Top 100 payantz"))  # même taille
-    result = check_capture(only_pair(inbox), PERIMETER)
+    result = check_capture(only_pair(inbox))
     assert isinstance(result, Rejected) and "empreinte du HTML" in result.reason
 
 
@@ -156,7 +155,7 @@ def test_html_modifie_apres_capture(inbox):
 def test_json_illisible(inbox, raw, reason):
     lot_dir = add(inbox, PAID_P1)
     (lot_dir / f"{PAID_P1}.json").write_bytes(raw)
-    result = check_capture(only_pair(inbox), PERIMETER)
+    result = check_capture(only_pair(inbox))
     assert isinstance(result, Rejected) and reason in result.reason
 
 
@@ -165,39 +164,41 @@ def test_horodatage_impossible(inbox):
     stem = "amazon_fr_bestsellers_10000000001_paid_p1_2026-13-06T200000Z"
     shutil.copy(CAPTURES / f"{PAID_P1}.html", lot_dir / f"{stem}.html")
     shutil.copy(CAPTURES / f"{PAID_P1}.json", lot_dir / f"{stem}.json")
-    result = check_capture(only_pair(inbox), PERIMETER)
+    result = check_capture(only_pair(inbox))
     assert isinstance(result, Rejected) and "horodatage du nom impossible" in result.reason
 
 
-def test_hors_perimetre_categorie(inbox):
-    add(inbox, OUTSIDE)
-    result = check_capture(only_pair(inbox), PERIMETER)
-    assert isinstance(result, Rejected) and "hors périmètre" in result.reason
+@pytest.mark.parametrize("stem", [OUTSIDE, FREE_P1], ids=["autre-categorie", "top-gratuit"])
+def test_toute_categorie_et_toute_liste_acceptees(inbox, stem):
+    # Décision 014 : plus de liste de catégories ; l'adresse affichée suffit
+    add(inbox, stem)
+    assert isinstance(check_capture(only_pair(inbox)), Capture)
 
 
-def test_hors_perimetre_liste(inbox):
-    add(inbox, FREE_P1)
-    result = check_capture(only_pair(inbox), {("10000000001", "paid")})  # catégorie suivie en payant seulement
-    assert isinstance(result, Rejected) and "liste free absente" in result.reason
+def rejected_capture(inbox):
+    """Capture non intègre (taille annoncée fausse) : refusée, à mettre en quarantaine."""
+    lot_dir = add(inbox, OUTSIDE)
+    edit_json(lot_dir, OUTSIDE, html_bytes=1)
+    rejected = check_capture(only_pair(inbox))
+    assert isinstance(rejected, Rejected)
+    return lot_dir, rejected
 
 
 # --- Quarantaine ---------------------------------------------------------------------------
 
 def test_quarantaine(inbox, tmp_path):
-    lot_dir = add(inbox, OUTSIDE)
-    rejected = check_capture(only_pair(inbox), PERIMETER)
+    lot_dir, rejected = rejected_capture(inbox)
     target = quarantine(rejected, tmp_path / "quarantaine")
     assert sorted(p.name for p in target.iterdir()) == [
         f"{OUTSIDE}.html", f"{OUTSIDE}.json", f"{OUTSIDE}.raison.txt"]
     assert not any(lot_dir.iterdir())  # plus rien dans inbox/
-    assert "hors périmètre" in (target / f"{OUTSIDE}.raison.txt").read_text(encoding="utf-8")
-    # Contenu intact : la capture pourra être replacée dans inbox/ après ajout de sa catégorie
+    assert "taille du HTML" in (target / f"{OUTSIDE}.raison.txt").read_text(encoding="utf-8")
+    # Contenu intact : le HTML mis en quarantaine est celui reçu, octet pour octet
     assert (target / f"{OUTSIDE}.html").read_bytes() == (CAPTURES / f"{OUTSIDE}.html").read_bytes()
 
 
 def test_quarantaine_jamais_d_ecrasement(inbox, tmp_path):
-    lot_dir = add(inbox, OUTSIDE)
-    rejected = check_capture(only_pair(inbox), PERIMETER)
+    lot_dir, rejected = rejected_capture(inbox)
     existing = tmp_path / "quarantaine" / LOT
     existing.mkdir(parents=True)
     (existing / f"{OUTSIDE}.html").write_bytes(b"deja la")

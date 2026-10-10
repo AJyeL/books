@@ -9,7 +9,7 @@ import pytest
 from books.collector.repository import PageRecord, RunInfo
 from books.collector.run import EXIT_CODES, collect
 from books.collector.sources import Fetched
-from books.collector.targets import PageRequest
+from books.amazon.ranking_page import PageRequest
 
 # R1 : catégorie des fixtures. R2 et R3 : catégories inventées qu'aucune fixture ne désigne
 # (10000000002 est le canonical de bestsellers_autre_categorie.html : ne pas l'utiliser ici).

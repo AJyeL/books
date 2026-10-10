@@ -143,3 +143,12 @@ def test_connexion_sans_autocommit_refusee(pg):
         conn.autocommit = False
         with pytest.raises(ValueError, match="autocommit"):
             PgTransformerRepository(conn)
+
+
+def test_categorie_connue_du_collecteur(pg):
+    # Information « nouvelle catégorie » de l'ingestion (décision 014) : lecture de raw.raw_page
+    from books.collector.repository import PgRepository
+    pg.add_page(COMPLETE, node="10000000001", status="invalid")  # quel que soit le statut
+    repo = PgRepository(pg.owner)
+    assert repo.known_category("10000000001") is True
+    assert repo.known_category("10000000002") is False

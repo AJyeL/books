@@ -9,8 +9,9 @@ Observatoire historisé du marché du livre numérique, centré dans un premier 
 ## Collecteur
 
 Le collecteur est un service Docker Compose rangé dans le profil `collector` :
-`docker compose up` ne le lance jamais. Pour chaque catégorie de `config/targets.toml`, une tournée obtient
-la page 1 du Top 100 payant et du Top 100 gratuit, et leur page 2 seulement si la page 1 compte 50 rangs et annonce
+`docker compose up` ne le lance jamais. Toute page de classement Kindle d'amazon.fr est dans le périmètre,
+quelle que soit la catégorie (décision 014) : aucune liste de catégories n'est tenue dans le dépôt. En dev, une tournée
+obtient chaque page 1 enregistrée dans `data/samples/`, et sa page 2 seulement si la page 1 compte 50 rangs et annonce
 une page 2. Chaque page est validée, puis déposée dans RAW (fichier dans `BOOKS_RAW_DIR` + ligne `raw.raw_page`) ;
 la tournée est ensuite close. Voir les décisions 003 et 004.
 
@@ -28,7 +29,8 @@ docker compose --profile collector run --rm collector
   (décision 008) : contrôles d'intégrité, quarantaine dans `BOOKS_CAPTURES_DIR/quarantaine/`, dépôt dans RAW.
   Tant que le montage de ce dossier n'existe pas (étape 4), il s'arrête (code 2) sans rien ingérer.
   Ne **jamais** définir `COMPOSE_FILE` sur atlas.
-- Modifier `config/targets.toml` impose de reconstruire l'image (`docker compose build collector`).
+- Ajouter une catégorie ne demande ni modification du dépôt ni reconstruction de l'image : il suffit de la consulter.
+  Le bilan d'ingestion signale, en information (numéro seulement), toute catégorie jamais vue dans RAW.
 
 Codes de sortie (décision 008) : 0 aucune anomalie (`success`) ; 1 au moins une anomalie (`partial`)
 ou erreur d'exécution (`failed`) ; 2 configuration invalide. Une page bloquée ou non conforme est déposée

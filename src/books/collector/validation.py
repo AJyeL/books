@@ -25,7 +25,7 @@ from html.parser import HTMLParser
 
 # Définition de la liste classée commune à la validation et à l'extracteur (décision 011)
 from books.amazon.ranked_list import RANK_KEY, rank_value, ranked_items
-from books.collector.targets import MAX_PAGES_PER_LIST, PageRequest, canonical_url
+from books.amazon.ranking_page import MAX_PAGES_PER_LIST, PageRequest, canonical_url
 # Une page de classement compte au plus 50 rangs ; en dessous, c'est une liste courte (information)
 FULL_LIST_SIZE = 50
 # Libellé de l'onglet actif pour chaque type de liste (textes d'interface observés le 5 octobre 2026)

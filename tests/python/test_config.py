@@ -13,7 +13,6 @@ BASE_ENV = {
     "POSTGRES_USER": "books",
     "POSTGRES_PASSWORD": "secret-de-test",
     "BOOKS_RAW_DIR": "/data/raw",
-    "BOOKS_TARGETS_FILE": "/app/config/targets.toml",
 }
 
 
@@ -51,7 +50,6 @@ def test_books_env_dev(base_env):
     assert config.db_host == "postgres"
     assert config.db_port == 5432
     assert config.raw_dir == Path("/data/raw")
-    assert config.targets_file == Path("/app/config/targets.toml")
 
 
 def test_books_env_prod(base_env):
@@ -78,8 +76,9 @@ def test_port_non_numerique(base_env):
         load_config()
 
 
-def test_fichier_des_cibles_absent(base_env):
+def test_plus_de_fichier_des_cibles(base_env):
+    # Décision 014 : aucune liste de catégories ; BOOKS_TARGETS_FILE n'est plus demandée
     base_env.setenv("BOOKS_ENV", "dev")
-    base_env.delenv("BOOKS_TARGETS_FILE")
-    with pytest.raises(ConfigError, match="BOOKS_TARGETS_FILE"):
-        load_config()
+    base_env.delenv("BOOKS_TARGETS_FILE", raising=False)
+    config = load_config()
+    assert not hasattr(config, "targets_file")

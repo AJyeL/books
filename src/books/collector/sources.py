@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from books.collector.targets import PageRequest
+from books.amazon.ranking_page import PageRequest
 
 
 # Pages enregistrées à la main (Ctrl+S, « HTML uniquement ») : développement uniquement (décision 007)
@@ -45,6 +45,8 @@ class PageSource(Protocol):
 
     def fetch(self, request: PageRequest) -> Fetched: ...
 
+    def first_pages(self) -> list[PageRequest]: ...
+
 
 class LocalSource:
     """Lit le plus récent fichier amazon_fr_bestsellers_{node}_{paid|free}_p{n}_{AAAA-MM-JJ}.html du dossier.
@@ -72,6 +74,15 @@ class LocalSource:
                            error=f"aucune page enregistrée ({pattern}) dans {self.samples_dir}")
         path = candidates[-1]
         return Fetched(content=path.read_bytes(), origin=path.name, capture_method=MANUAL_HTML)
+
+    def first_pages(self) -> list[PageRequest]:
+        """Pages 1 à demander : une par couple (catégorie, liste) ayant une page 1 enregistrée, Top payant d'abord.
+        Remplace config/targets.toml (décision 014) : les pages présentes dans le dossier font le périmètre de dev.
+        La page 2 n'est pas planifiée ici : elle dépend de la page 1 reçue (books.collector.run)."""
+        page1 = re.compile(r"amazon_fr_bestsellers_([0-9]+)_(paid|free)_p1_\d{4}-\d{2}-\d{2}\.html")
+        found = {(m.group(1), m.group(2)) for p in self.samples_dir.iterdir() if (m := page1.fullmatch(p.name))}
+        return [PageRequest(node, list_type, 1)
+                for node, list_type in sorted(found, key=lambda c: (c[0], c[1] != "paid"))]
 
 
 def make_source(env: str, environ: Mapping[str, str]) -> PageSource:

@@ -73,6 +73,6 @@ def test_fichier_de_verrou_hors_de_inbox(tmp_path):
     (tmp_path / "inbox").mkdir()
     (tmp_path / "raw").mkdir()
     with ingestion_lock(tmp_path):
-        result = ingest(tmp_path, set(), FakeRepo(), tmp_path / "raw", "0.1.0", log=lambda m: None)
+        result = ingest(tmp_path, FakeRepo(), tmp_path / "raw", "0.1.0", log=lambda m: None)
     assert result.status == "success"
     assert result.report.left_in_place == [] and result.report.quarantined == []

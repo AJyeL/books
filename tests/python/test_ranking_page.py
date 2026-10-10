@@ -37,3 +37,20 @@ def test_adresse_reconstruite_acceptee():
     for request in (PageRequest("10000000001", "paid", 1), PageRequest("10000000001", "free", 2)):
         assert request_from_url(request.url) == (request, None)
     assert canonical_url("10000000001") == "https://www.amazon.fr/gp/bestsellers/digital-text/10000000001"
+
+
+def test_adresse_de_la_page_1():
+    request = PageRequest("10000000001", "paid", 1)
+    assert request.url == canonical_url("10000000001") == \
+        "https://www.amazon.fr/gp/bestsellers/digital-text/10000000001"
+    assert request.label == "10000000001 paid p1"
+
+
+@pytest.mark.parametrize("list_type, page, suffix", [
+    ("paid", 2, "?pg=2"),
+    ("free", 1, "?tf=1"),
+    ("free", 2, "?pg=2&tf=1"),
+])
+def test_adresses_page_2_et_top_gratuit(list_type, page, suffix):
+    assert PageRequest("10000000001", list_type, page).url == \
+        "https://www.amazon.fr/gp/bestsellers/digital-text/10000000001" + suffix

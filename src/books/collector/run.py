@@ -19,12 +19,14 @@ from pathlib import Path
 from books.collector.repository import PageRecord, Repository
 from books.collector.sources import PageSource
 from books.collector.storage import raw_relative_path, store_raw
-from books.collector.targets import MAX_REQUESTS_PER_RUN, PageRequest
+from books.amazon.ranking_page import PageRequest
 from books.collector.validation import FULL_LIST_SIZE, next_page, validate_bestseller_page
 
 # Codes de sortie du collecteur (décision 008) : 0 sans anomalie, 1 au moins une anomalie ou erreur
 # d'exécution ; 2 = configuration, dans __main__. Le code 3 et le statut « aborted » ne sont plus utilisés.
 EXIT_CODES = {"success": 0, "partial": 1, "failed": 1}
+# Plafond de pages lues par tournée ou par ingestion (décision 002, compté en pages depuis la décision 005)
+MAX_REQUESTS_PER_RUN = 200
 
 
 @dataclass(frozen=True)

@@ -8,7 +8,7 @@ from pathlib import PurePosixPath
 import pytest
 
 from books.collector.storage import raw_relative_path, store_raw
-from books.collector.targets import PageRequest
+from books.amazon.ranking_page import PageRequest
 
 REQUEST = PageRequest("10000000001", "paid", 1)
 STARTED = datetime(2026, 10, 5, 23, 30, tzinfo=UTC)

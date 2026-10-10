@@ -18,7 +18,6 @@ from pathlib import Path
 
 # Adresse d'une page de classement acceptable : définition commune (décision 014)
 from books.amazon.ranking_page import PageRequest, request_from_url
-from books.collector.targets import Category
 
 EXTENSION_DOM = "extension-dom"
 SCHEMA_VERSION = 1
@@ -138,8 +137,9 @@ def _scan_lot(lot_dir: Path) -> list[Pair | LoneHtml | Rejected | Untouchable]:
 # --- Contrôles d'intégrité (décision 007, section 6) ---------------------------------------
 # L'adresse affichée est lue par request_from_url (books.amazon.ranking_page, décision 014).
 
-def check_capture(pair: Pair, perimeter: set[tuple[str, str]]) -> Capture | Rejected:
-    """Contrôles d'intégrité de la décision 007 (section 6), puis périmètre de targets.toml."""
+def check_capture(pair: Pair) -> Capture | Rejected:
+    """Contrôles d'intégrité de la décision 007 (section 6). Toute page de classement Kindle d'amazon.fr est dans le
+    périmètre (décision 014) : l'adresse affichée suffit, aucune liste de catégories n'est consultée."""
     def reject(reason: str) -> Rejected:
         return Rejected(pair.lot, pair.stem, (pair.html_path, pair.json_path), reason)
 
@@ -189,20 +189,12 @@ def check_capture(pair: Pair, perimeter: set[tuple[str, str]]) -> Capture | Reje
     if html_sha256 != meta["html_sha256"]:
         return reject("empreinte du HTML différente de html_sha256")
 
-    if (node, list_type) not in perimeter:
-        return reject(f"hors périmètre : catégorie {node}, liste {list_type} absente de config/targets.toml")
-
     return Capture(
         lot=pair.lot, stem=pair.stem, html_path=pair.html_path, json_path=pair.json_path,
         request=request, captured_at=captured_at, displayed_url=meta["displayed_url"],
         html=html, json_bytes=json_bytes, html_sha256=html_sha256,
         json_sha256=hashlib.sha256(json_bytes).hexdigest(),
     )
-
-
-def perimeter_of(categories: list[Category]) -> set[tuple[str, str]]:
-    """Couples (catégorie, liste) acceptés : le périmètre défini par config/targets.toml."""
-    return {(c.node, list_type) for c in categories for list_type in c.lists}
 
 
 # --- Quarantaine et retrait ---------------------------------------------------------------

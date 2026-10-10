@@ -16,20 +16,17 @@ from pathlib import Path
 import psycopg
 
 from books import __version__
-from books.collector.inbox import perimeter_of
 from books.collector.ingestion import ingest
 from books.collector.lock import LockBusy, ingestion_lock
 from books.collector.repository import PgRepository
 from books.collector.run import EXIT_CODES, RunResult, collect
 from books.collector.sources import SourceError, make_source
-from books.collector.targets import TargetsError, load_targets, plan_requests
 from books.config import ConfigError, load_config
 
 
 def main() -> int:
     try:
         config = load_config()
-        categories = load_targets(config.targets_file)
         if not config.raw_dir.is_dir():
             raise ConfigError(f"Dossier des pages brutes introuvable : {config.raw_dir}")
         task: Callable[[PgRepository], RunResult]
@@ -41,14 +38,16 @@ def main() -> int:
             captures_dir = Path(captures)
             if not (captures_dir / "inbox").is_dir():
                 raise ConfigError(f"Dossier des captures à ingérer introuvable : {captures_dir / 'inbox'}")
-            perimeter = perimeter_of(categories)
             lock = ingestion_lock(captures_dir)  # pris avant toute connexion à la base
-            task = lambda repo: ingest(captures_dir, perimeter, repo, config.raw_dir, __version__)  # noqa: E731
+            task = lambda repo: ingest(captures_dir, repo, config.raw_dir, __version__)  # noqa: E731
         else:
-            requests = plan_requests(categories)
             source = make_source(config.env, os.environ)
+            # Pages 1 tirées des pages enregistrées présentes (décision 014 : plus de liste de catégories)
+            requests = source.first_pages()
+            if not requests:
+                raise ConfigError(f"Aucune page 1 enregistrée à demander ({source.description}).")
             task = lambda repo: collect(requests, source, repo, config.raw_dir, __version__)  # noqa: E731
-    except (ConfigError, TargetsError, SourceError) as exc:
+    except (ConfigError, SourceError) as exc:
         print(f"Erreur de configuration : {exc}", file=sys.stderr)
         return 2
 

@@ -9,7 +9,7 @@ from typing import Protocol
 import psycopg
 
 from books.collector.storage import StoredFile
-from books.collector.targets import PageRequest
+from books.amazon.ranking_page import PageRequest
 
 
 @dataclass(frozen=True)
@@ -44,6 +44,8 @@ class Repository(Protocol):
     def close_run(self, run_id: int, status: str, pages_ok: int, pages_failed: int, notes: str) -> None: ...
 
     def find_capture(self, content_sha256: str) -> int | None: ...
+
+    def known_category(self, node: str) -> bool: ...
 
 
 class PgRepository:
@@ -105,3 +107,11 @@ class PgRepository:
             (content_sha256,),
         ).fetchone()
         return row[0] if row else None
+
+    def known_category(self, node: str) -> bool:
+        """La catégorie a-t-elle déjà au moins une page dans RAW, quel que soit son statut (décision 014) ?
+        Lecture seule (droit SELECT de books_collector, migration 002)."""
+        (known,) = self.conn.execute(
+            "SELECT EXISTS (SELECT 1 FROM raw.raw_page WHERE category_node = %s)", (node,)
+        ).fetchone()
+        return known

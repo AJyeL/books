@@ -190,3 +190,7 @@ Une configuration invalide (variables, cibles, source refusée) donne le code 2,
   de la source réseau, qui fera l'objet d'une décision : robots.txt, modération, disjoncteur complet, identité.
 - Un fichier sans ligne `raw_page` est possible après une interruption ; un futur contrôle d'intégrité
   pourra les repérer.
+
+> Note du 10 octobre 2026 : `config/targets.toml` est supprimé par la décision 014 (périmètre dynamique des
+> catégories). Toute page de classement Kindle d'amazon.fr est dans le périmètre ; la tournée de développement tire
+> ses pages 1 des pages enregistrées présentes dans `data/samples/`.

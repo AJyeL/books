@@ -126,3 +126,19 @@ personne, au moment de la navigation. La liste de `targets.toml` ne fait que le 
 >   Contre-épreuves : règle acceptant les nouveautés → échec sur « nouveautés » ; domaine accepté s'il finit par
 >   `amazon.fr` → échecs sur « domaine sans www » et « autre sous-domaine ».
 > - Prochaine étape côté extension : copier la table dans ses tests, avec en en-tête le commit d'origine de ce dépôt.
+
+> Note du 10 octobre 2026 (étape B du code : fin du périmètre fixe) :
+> - Supprimés : `config/targets.toml`, `src/books/collector/targets.py` (fichier des cibles), le contrôle « hors
+>   périmètre » d'`inbox.py`, la variable `BOOKS_TARGETS_FILE` (`config.py`, `Dockerfile`) et `tests/python/test_targets.py`
+>   (ses tests d'adresse sont repris dans `test_ranking_page.py`). `PageRequest` et les constantes sont importés du
+>   module commun ; le plafond de 200 pages passe dans `run.py`.
+> - Tournée de développement : `LocalSource.first_pages()` tire les pages 1 des noms des fichiers de `data/samples/`
+>   (une demande par catégorie et liste, Top payant d'abord ; la page 2 reste décidée par la page 1 reçue).
+> - Information « nouvelle catégorie (jamais vue dans RAW) : {numéro} » au bilan d'ingestion : cherchée une fois par
+>   catégorie et par ingestion, avant le dépôt de sa première page (`PgRepository.known_category`, lecture de
+>   `raw.raw_page`) ; numéro seulement, jamais de nom ; jamais une anomalie ; aucune pour une capture en quarantaine.
+> - Vérifié le 10 octobre 2026 : suite complète contre PostgreSQL 17 jetable, 305 réussis. Contre-épreuves : ancien
+>   contrôle de périmètre conservé → 3 échecs (autre catégorie refusée) ; information absente → 2 échecs (dont le
+>   bilan de référence). Image reconstruite en développement : plus de dossier `config` ni de variable `TARGETS` ;
+>   ingestion à vide, code 0 ; tournée de développement, 4 pages 1 trouvées dans `data/samples/`, pages 2 enchaînées,
+>   code 0. Quarantaine de développement vide (aucune capture « hors périmètre » à replacer).
