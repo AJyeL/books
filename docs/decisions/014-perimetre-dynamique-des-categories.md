@@ -142,3 +142,8 @@ personne, au moment de la navigation. La liste de `targets.toml` ne fait que le 
 >   bilan de référence). Image reconstruite en développement : plus de dossier `config` ni de variable `TARGETS` ;
 >   ingestion à vide, code 0 ; tournée de développement, 4 pages 1 trouvées dans `data/samples/`, pages 2 enchaînées,
 >   code 0. Quarantaine de développement vide (aucune capture « hors périmètre » à replacer).
+
+> Note du 10 octobre 2026 (recette sur atlas, rapportée par le porteur du projet) :
+> - Déploiement de l'étape B réussi. **Ingestion 15** : 16 captures `ok` ; **3 nouvelles catégories** signalées en
+>   information, une fois chacune (numéros seulement, aucun nom) ; extraction enchaînée : 694 lignes, toutes avec carte ;
+>   codes 0 et 0.
