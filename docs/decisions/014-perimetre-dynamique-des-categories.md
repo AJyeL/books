@@ -30,7 +30,10 @@ personne, au moment de la navigation. La liste de `targets.toml` ne fait que le 
 - **Plus aucun nom de catégorie dans le code ni dans la configuration** du dépôt public. Les noms observés vivent dans la
   base (section 3), sur atlas.
 - **Règle : aucun nouveau nom réel de catégorie dans le dépôt public** (code, configuration, tests, documentation).
-  Les exemples sont inventés ; une catégorie réelle se désigne au besoin par son numéro.
+  Les exemples sont inventés.
+- **Dans tout nouveau texte du dépôt public, ni nom ni numéro de catégorie réel : un numéro est aussi révélateur
+  qu'un nom (l'adresse Amazon le résout). Les mentions déjà publiées restent.** (Ajout du 10 octobre 2026, qui remplace
+  la possibilité, d'abord écrite ici, de désigner une catégorie réelle par son numéro.)
 - Un **rôle non bloquant** remplace la liste : le bilan de l'ingestion signale, comme **information** (et non comme
   anomalie), toute catégorie **jamais vue auparavant** dans `raw.raw_page`. La croissance du périmètre reste ainsi
   visible à chaque envoi (voir la section 6 sur le volume).
