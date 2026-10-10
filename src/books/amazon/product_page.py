@@ -12,14 +12,33 @@ teste entièrement et dont l'extension garde une copie dans ses tests.
 """
 
 import re
+from dataclasses import dataclass
 from urllib.parse import urlsplit
 
 PRODUCT_ORIGIN = ("https", "www.amazon.fr")
+# Adresse courte d'une fiche, sans libellé : celle que construit ProductRequest.url
+PRODUCT_URL = "https://www.amazon.fr/dp/"
 # ASIN : 10 caractères, majuscules et chiffres (même règle que raw.raw_page) ; entièrement numérique pour certains
 # livres papier (forme d'un ISBN-10)
 ASIN_PATTERN = re.compile(r"[A-Z0-9]{10}")
 # Chemin d'une fiche : libellé facultatif (un seul segment), /dp/, ASIN, suite libre commençant par / (ex. : /ref=…)
 PRODUCT_PATH = re.compile(r"(?:/[^/]+)?/dp/([^/]+)(/.*)?")
+
+
+@dataclass(frozen=True)
+class ProductRequest:
+    """Une fiche produit : son ASIN (pendant de PageRequest pour une page de classement)."""
+
+    asin: str
+
+    @property
+    def url(self) -> str:
+        """Adresse courte de la fiche, sans libellé ; elle-même acceptée par asin_from_url."""
+        return PRODUCT_URL + self.asin
+
+    @property
+    def label(self) -> str:
+        return f"fiche {self.asin}"
 
 
 def asin_from_url(url: str) -> tuple[str | None, str | None]:

@@ -1,6 +1,6 @@
 """Génère des captures de test conformes à la décision 007 (valeurs inventées), dans tests/fixtures/captures/.
 
-Chaque capture est une paire .html + .json, construite à partir des fausses pages de ce dossier :
+Chaque capture (page de classement ou fiche produit) est une paire .html + .json, construite à partir des fausses pages de ce dossier :
 HTML = « <!DOCTYPE html> » suivi du reste de la page, sans séparateur ; JSON au schéma version 1,
 avec empreinte et taille exactes. Après toute modification des fausses pages, relancer depuis la racine du dépôt :
     python tests/fixtures/generer_captures.py
@@ -28,13 +28,40 @@ CAPTURES = [
     ("bestsellers_exemple.html", "10000000009", "paid", 1, "2026-10-06T200040Z", ""),
 ]
 
+# Fiches produit (décision 015) : (fausse page source, ASIN, horodatage UTC, adresse affichée)
+PRODUCT_CAPTURES = [
+    ("fiche_exemple.html", "B0FAUX0001", "2026-10-06T200050Z",
+     "https://www.amazon.fr/Le-Royaume-des-cendres/dp/B0FAUX0001/ref=zg_bs_g_digital-text_d_sccl_1"),
+    # Livre audio : capture intègre, classée invalid à la validation (format non accepté)
+    ("fiche_audio.html", "B0FAUX0001", "2026-10-06T200100Z", "https://www.amazon.fr/dp/B0FAUX0001"),
+    # Page de vérification affichée à l'adresse d'une fiche : capture intègre, classée blocked
+    ("bestsellers_captcha.html", "B0FAUX0001", "2026-10-06T200110Z", "https://www.amazon.fr/dp/B0FAUX0001"),
+]
 
-def to_dom(page: str, node: str) -> bytes:
+
+def to_dom(page: str, node: str | None = None) -> bytes:
     """Forme d'une capture DOM : déclaration reconstruite en majuscules, sans séparateur (décision 007)."""
-    page = page.replace("10000000001", node)
+    if node is not None:
+        page = page.replace("10000000001", node)
     if page.lower().startswith("<!doctype html>"):
         page = page[len("<!doctype html>"):].lstrip("\n")
     return ("<!DOCTYPE html>" + page).encode("utf-8")
+
+
+def write_capture(stem: str, html: bytes, stamp: str, displayed_url: str, source: str) -> None:
+    meta = {
+        "schema_version": 1,
+        "displayed_url": displayed_url,
+        "captured_at": f"{stamp[:13]}:{stamp[13:15]}:{stamp[15:17]}Z",
+        "capture_method": "extension-dom",
+        "extension_version": "0.1.1",
+        "user_agent": USER_AGENT,
+        "html_sha256": hashlib.sha256(html).hexdigest(),
+        "html_bytes": len(html),
+    }
+    (OUT / f"{stem}.html").write_bytes(html)
+    (OUT / f"{stem}.json").write_bytes((json.dumps(meta, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
+    print(f"{stem} ({source})")
 
 
 def main() -> None:
@@ -42,20 +69,10 @@ def main() -> None:
     for source, node, list_type, page, stamp, url_tail in CAPTURES:
         stem = f"amazon_fr_bestsellers_{node}_{list_type}_p{page}_{stamp}"
         html = to_dom((HERE / source).read_text(encoding="utf-8"), node)
-        captured_at = f"{stamp[:13]}:{stamp[13:15]}:{stamp[15:17]}Z"
-        meta = {
-            "schema_version": 1,
-            "displayed_url": BASE_URL + node + url_tail,
-            "captured_at": captured_at,
-            "capture_method": "extension-dom",
-            "extension_version": "0.1.1",
-            "user_agent": USER_AGENT,
-            "html_sha256": hashlib.sha256(html).hexdigest(),
-            "html_bytes": len(html),
-        }
-        (OUT / f"{stem}.html").write_bytes(html)
-        (OUT / f"{stem}.json").write_bytes((json.dumps(meta, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
-        print(f"{stem} ({source})")
+        write_capture(stem, html, stamp, BASE_URL + node + url_tail, source)
+    for source, asin, stamp, displayed_url in PRODUCT_CAPTURES:
+        html = to_dom((HERE / source).read_text(encoding="utf-8"))
+        write_capture(f"amazon_fr_product_{asin}_{stamp}", html, stamp, displayed_url, source)
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ from books.collector.inbox import (
     LoneHtml, Pair, QuarantineError, Rejected, Untouchable, Capture,
     check_capture, quarantine, scan_inbox,
 )
+from books.amazon.product_page import ProductRequest
 from books.amazon.ranking_page import PageRequest
 from conftest import FIXTURES
 
@@ -16,6 +17,7 @@ CAPTURES = FIXTURES / "captures"
 PAID_P1 = "amazon_fr_bestsellers_10000000001_paid_p1_2026-10-06T200000Z"
 FREE_P1 = "amazon_fr_bestsellers_10000000001_free_p1_2026-10-06T200020Z"
 OUTSIDE = "amazon_fr_bestsellers_10000000009_paid_p1_2026-10-06T200040Z"
+FICHE = "amazon_fr_product_B0FAUX0001_2026-10-06T200050Z"
 LOT = "2026-10-06T201500Z"
 
 
@@ -70,6 +72,10 @@ def test_lots_et_fichiers_dans_l_ordre(inbox):
     "amazon_fr_bestsellers_10000000001_paid_p1_2026-10-06.html",   # page enregistrée à la main
     f"{PAID_P1}.html.gz",
     "notes.txt",
+    "amazon_fr_product_b0faux0001_2026-10-06T200050Z.html",       # fiche : ASIN en minuscules
+    "amazon_fr_product_B0FAUX001_2026-10-06T200050Z.html",        # fiche : ASIN de 9 caractères
+    "amazon_fr_product_B0FAUX0001_2026-10-06.html",               # fiche : horodatage incomplet
+    "fiche_B0FAUX0001_2026-10-10.html",                           # fiche enregistrée à la main (inventaire)
 ])
 def test_nom_hors_format_mis_en_quarantaine(inbox, name):
     lot_dir = add(inbox)
@@ -173,6 +179,53 @@ def test_toute_categorie_et_toute_liste_acceptees(inbox, stem):
     # Décision 014 : plus de liste de catégories ; l'adresse affichée suffit
     add(inbox, stem)
     assert isinstance(check_capture(only_pair(inbox)), Capture)
+
+
+# --- Fiches produit (décision 015 ; décision 007 amendée) ----------------------------------
+
+def test_fiche_integre(inbox):
+    add(inbox, FICHE)
+    pair = only_pair(inbox)
+    capture = check_capture(pair)
+    assert isinstance(capture, Capture)
+    assert capture.request == ProductRequest("B0FAUX0001")
+    assert capture.captured_at.isoformat() == "2026-10-06T20:00:50+00:00"
+    assert capture.displayed_url.startswith("https://www.amazon.fr/Le-Royaume-des-cendres/dp/B0FAUX0001/ref=")
+
+
+def test_fiche_et_pages_de_classement_dans_le_meme_lot(inbox):
+    add(inbox, PAID_P1, FICHE)
+    assert [i.stem for i in scan_inbox(inbox)] == [PAID_P1, FICHE]  # ordre des noms
+
+
+@pytest.mark.parametrize("url, reason", [
+    ("https://www.amazon.fr/dp/B0FAUX0009", "displayed_url (fiche B0FAUX0009) différente du nom (fiche B0FAUX0001)"),
+    ("https://www.amazon.fr/gp/bestsellers/digital-text/10000000001", "displayed_url : adresse hors des fiches produit"),
+    ("https://www.amazon.fr/gp/product/B0FAUX0001", "displayed_url : forme /gp/product/ non acceptée"),
+    ("https://www.amazon.com/dp/B0FAUX0001", "displayed_url : adresse hors de https://www.amazon.fr"),
+    ("https://www.amazon.fr/dp/B0FAUX0001/dp/B0FAUX0009", "displayed_url : /dp/ répété"),
+], ids=["autre-asin", "adresse-de-classement", "gp-product", "autre-domaine", "dp-repete"])
+def test_fiche_adresse_affichee_refusee(inbox, url, reason):
+    lot_dir = add(inbox, FICHE)
+    edit_json(lot_dir, FICHE, displayed_url=url)
+    result = check_capture(only_pair(inbox))
+    assert isinstance(result, Rejected) and result.reason.startswith(reason)
+
+
+def test_page_de_classement_a_l_adresse_d_une_fiche_refusee(inbox):
+    # Nom de page de classement, adresse affichée d'une fiche : refusée (l'inverse est testé ci-dessus)
+    lot_dir = add(inbox, PAID_P1)
+    edit_json(lot_dir, PAID_P1, displayed_url="https://www.amazon.fr/dp/B0FAUX0001")
+    result = check_capture(only_pair(inbox))
+    assert isinstance(result, Rejected)
+    assert result.reason == "displayed_url : adresse hors des pages de classement Kindle"
+
+
+def test_fiche_horodatage_du_nom_controle(inbox):
+    lot_dir = add(inbox, FICHE)
+    edit_json(lot_dir, FICHE, captured_at="2026-10-06T20:00:51Z")
+    result = check_capture(only_pair(inbox))
+    assert isinstance(result, Rejected) and "captured_at différent" in result.reason
 
 
 def rejected_capture(inbox):

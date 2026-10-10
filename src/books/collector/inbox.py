@@ -6,6 +6,8 @@
   signalé et laissé en place.
 - Seules les captures de l'extension (extension-dom, format de la décision 007) sont acceptées ;
   les pages enregistrées à la main restent réservées au développement.
+- Deux sortes de captures : les pages de classement (amazon_fr_bestsellers_…) et les fiches produit
+  (amazon_fr_product_{ASIN}_…, décision 015).
 """
 
 import hashlib
@@ -16,7 +18,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-# Adresse d'une page de classement acceptable : définition commune (décision 014)
+# Adresses acceptables : définitions communes d'une page de classement (décision 014) et d'une fiche (décision 015)
+from books.amazon.product_page import ProductRequest, asin_from_url
 from books.amazon.ranking_page import PageRequest, request_from_url
 
 EXTENSION_DOM = "extension-dom"
@@ -33,11 +36,11 @@ SCHEMA_FIELDS = {
     "html_bytes": int,
 }
 LOT_NAME = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z")
-# Nom d'une capture sans son extension (décision 007, section 2)
-CAPTURE_STEM = re.compile(
-    r"amazon_fr_bestsellers_([0-9]+)_(paid|free)_p([12])_"
-    r"([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})Z"
-)
+_STAMP = r"([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})Z"
+# Nom d'une capture de page de classement sans son extension (décision 007, section 2)
+CAPTURE_STEM = re.compile(r"amazon_fr_bestsellers_([0-9]+)_(paid|free)_p([12])_" + _STAMP)
+# Nom d'une capture de fiche produit sans son extension (décision 015, section 4 ; décision 007 amendée)
+PRODUCT_STEM = re.compile(r"amazon_fr_product_([A-Z0-9]{10})_" + _STAMP)
 SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
@@ -83,7 +86,7 @@ class Capture:
     stem: str
     html_path: Path
     json_path: Path
-    request: PageRequest
+    request: PageRequest | ProductRequest
     captured_at: datetime
     displayed_url: str
     html: bytes
@@ -94,6 +97,11 @@ class Capture:
     @property
     def label(self) -> str:
         return f"{self.lot}/{self.stem}"
+
+
+def is_capture_stem(stem: str) -> bool:
+    """Nom conforme d'une capture : page de classement ou fiche produit."""
+    return bool(CAPTURE_STEM.fullmatch(stem) or PRODUCT_STEM.fullmatch(stem))
 
 
 def scan_inbox(inbox_dir: Path) -> list[Pair | LoneHtml | Rejected | Untouchable]:
@@ -117,7 +125,7 @@ def _scan_lot(lot_dir: Path) -> list[Pair | LoneHtml | Rejected | Untouchable]:
         if entry.is_dir():
             items.append(Untouchable(entry, "sous-dossier dans un lot"))
             continue
-        if entry.suffix in (".html", ".json") and CAPTURE_STEM.fullmatch(entry.stem):
+        if entry.suffix in (".html", ".json") and is_capture_stem(entry.stem):
             by_stem.setdefault(entry.stem, {})[entry.suffix] = entry
         else:
             items.append(Rejected(lot, entry.name, (entry,), "nom hors format (décision 007, section 2)"))
@@ -135,17 +143,44 @@ def _scan_lot(lot_dir: Path) -> list[Pair | LoneHtml | Rejected | Untouchable]:
 
 
 # --- Contrôles d'intégrité (décision 007, section 6) ---------------------------------------
-# L'adresse affichée est lue par request_from_url (books.amazon.ranking_page, décision 014).
+# L'adresse affichée est lue par request_from_url (books.amazon.ranking_page, décision 014) pour une page de
+# classement, par asin_from_url (books.amazon.product_page, décision 015) pour une fiche.
+
+def _check_displayed_url(url: str, expected: PageRequest | ProductRequest) -> tuple[PageRequest | ProductRequest | None,
+                                                                                    str | None]:
+    """Demande déduite de l'adresse affichée, à comparer à celle du nom ; ou motif de refus."""
+    if isinstance(expected, ProductRequest):
+        asin, why = asin_from_url(url)
+        if asin is None:
+            return None, f"displayed_url : {why}"
+        if asin != expected.asin:
+            return None, f"displayed_url (fiche {asin}) différente du nom (fiche {expected.asin})"
+        return ProductRequest(asin), None
+    request, why = request_from_url(url)
+    if request is None:
+        return None, f"displayed_url : {why}"
+    if request != expected:
+        return None, (f"displayed_url ({request.label}) différente du nom "
+                      f"({expected.node} {expected.list_type} p{expected.page_number})")
+    return request, None
+
 
 def check_capture(pair: Pair) -> Capture | Rejected:
     """Contrôles d'intégrité de la décision 007 (section 6). Toute page de classement Kindle d'amazon.fr est dans le
-    périmètre (décision 014) : l'adresse affichée suffit, aucune liste de catégories n'est consultée."""
+    périmètre (décision 014) : l'adresse affichée suffit, aucune liste de catégories n'est consultée. Pour une fiche
+    (décision 015), l'ASIN de l'adresse affichée doit être celui du nom."""
     def reject(reason: str) -> Rejected:
         return Rejected(pair.lot, pair.stem, (pair.html_path, pair.json_path), reason)
 
-    name = CAPTURE_STEM.fullmatch(pair.stem)
-    node, list_type, page = name.group(1), name.group(2), int(name.group(3))
-    year, month, day, hour, minute, second = (int(g) for g in name.groups()[3:])
+    named: PageRequest | ProductRequest  # demande d'après le nom du fichier
+    if name := CAPTURE_STEM.fullmatch(pair.stem):
+        named = PageRequest(name.group(1), name.group(2), int(name.group(3)))
+        stamp = name.groups()[3:]
+    else:
+        name = PRODUCT_STEM.fullmatch(pair.stem)
+        named = ProductRequest(name.group(1))
+        stamp = name.groups()[1:]
+    year, month, day, hour, minute, second = (int(g) for g in stamp)
 
     json_bytes = pair.json_path.read_bytes()
     if json_bytes.startswith(b"\xef\xbb\xbf"):
@@ -174,11 +209,9 @@ def check_capture(pair: Pair) -> Capture | Rejected:
     if meta["captured_at"] != captured_at.strftime("%Y-%m-%dT%H:%M:%SZ"):
         return reject("captured_at différent de l'horodatage du nom")
 
-    request, why = request_from_url(meta["displayed_url"])
+    request, why = _check_displayed_url(meta["displayed_url"], named)
     if request is None:
-        return reject(f"displayed_url : {why}")
-    if request != PageRequest(node, list_type, page):
-        return reject(f"displayed_url ({request.label}) différente du nom ({node} {list_type} p{page})")
+        return reject(why)
 
     html = pair.html_path.read_bytes()
     if not SHA256.fullmatch(meta["html_sha256"]):

@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from books.amazon.product_page import asin_from_url
+from books.amazon.product_page import ProductRequest, asin_from_url
 from books.amazon.ranking_page import request_from_url
 from conftest import FIXTURES
 
@@ -44,3 +44,11 @@ def test_fiche_jamais_page_de_classement(cas):
 def test_page_de_classement_jamais_fiche(cas):
     asin, why = asin_from_url(cas["adresse"])
     assert asin is None and why is not None
+
+
+def test_adresse_construite_acceptee():
+    # L'adresse construite pour une fiche est elle-même acceptée, et rend le même ASIN
+    request = ProductRequest("B0FAUX0001")
+    assert request.url == "https://www.amazon.fr/dp/B0FAUX0001"
+    assert asin_from_url(request.url) == ("B0FAUX0001", None)
+    assert request.label == "fiche B0FAUX0001"

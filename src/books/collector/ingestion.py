@@ -5,10 +5,12 @@ Pour chaque élément de inbox/, dans l'ordre des lots puis des noms :
    Kindle d'amazon.fr est dans le périmètre (décision 014) ; une catégorie jamais vue dans RAW est signalée
    en information (numéro seulement, jamais une anomalie) ;
 2. « déjà ingérée » : une capture dont l'empreinte est déjà dans RAW est retirée, sans nouvelle ligne ;
-3. validation (décision 004) ; HTML et JSON déposés dans RAW, compressés, jamais écrasés ;
+3. validation (décision 004 pour une page de classement, décision 015 pour une fiche produit) ; HTML et JSON
+   déposés dans RAW, compressés, jamais écrasés ;
    une capture « blocked » ou « invalid » est déposée avec son statut, et l'ingestion continue ;
 4. ligne raw_page validée en base, puis retrait de inbox/ (le JSON d'abord, le HTML ensuite).
-En fin d'ingestion : page 2 manquante vérifiée au sein de chaque lot, puis bilan.
+En fin d'ingestion : page 2 manquante vérifiée au sein de chaque lot, puis bilan. Une fiche produit n'a ni catégorie
+(aucune information « nouvelle catégorie ») ni page 2.
 
 Statuts : success (aucune anomalie), partial (le programme a fonctionné, au moins une anomalie),
 failed (erreur d'exécution). Anomalies : capture blocked ou invalid, quarantaine, élément laissé en place,
@@ -24,7 +26,9 @@ from books.collector.inbox import (
     CAPTURE_STEM, EXTENSION_DOM, Capture, LoneHtml, Pair, QuarantineError, Rejected, Untouchable,
     check_capture, quarantine, remove_capture, remove_empty_lots, scan_inbox,
 )
+from books.amazon.product_page import ProductRequest
 from books.amazon.ranking_page import PageRequest
+from books.collector.product_validation import validate_product_page
 from books.collector.repository import PageRecord, Repository
 from books.collector.run import EXIT_CODES, MAX_REQUESTS_PER_RUN, RunResult
 from books.collector.storage import capture_relative_paths, store_raw
@@ -40,6 +44,7 @@ class Report:
     run_id: int
     lots: list[str] = field(default_factory=list)
     deposited: dict[str, int] = field(default_factory=lambda: {"ok": 0, "blocked": 0, "invalid": 0})
+    products: int = 0  # dont fiches produit (décision 015), quel que soit leur statut
     already: int = 0
     rejected_pages: list[str] = field(default_factory=list)    # captures blocked ou invalid, avec la raison
     quarantined: list[str] = field(default_factory=list)
@@ -70,6 +75,7 @@ class Report:
         out = [f"Bilan de l'ingestion {self.run_id} — lot(s) : {', '.join(self.lots) or 'aucun'}",
                f"  {'Déposées dans RAW':<19}: {sum(d.values())} "
                f"(ok {d['ok']}, blocked {d['blocked']}, invalid {d['invalid']})",
+               f"  {'Dont fiches produit':<19}: {self.products}",
                f"  {'Déjà ingérées':<19}: {self.already}"]
         out += block("Pages anormales", self.rejected_pages)
         out += block("Quarantaine", self.quarantined)
@@ -178,15 +184,19 @@ def ingest(
                 report.information.append(f"{capture.label} : déjà ingérée")
                 continue
 
+            product = isinstance(capture.request, ProductRequest)
             # Catégorie jamais vue dans RAW : information, numéro seulement (décision 014). Cherchée une fois par
             # ingestion, avant le dépôt de sa première page (après, elle figurerait déjà dans RAW).
-            node = capture.request.node
-            if node not in categories_checked:
+            if not product and capture.request.node not in categories_checked:
+                node = capture.request.node
                 categories_checked.add(node)
                 if not repo.known_category(node):
                     report.information.append(f"nouvelle catégorie (jamais vue dans RAW) : {node}")
 
-            verdict = validate_bestseller_page(capture.html, capture.request)
+            if product:
+                verdict = validate_product_page(capture.html, capture.request)
+            else:
+                verdict = validate_bestseller_page(capture.html, capture.request)
             html_rel, json_rel = capture_relative_paths(run.id, run.started_at, capture.request, capture.captured_at)
             stored_html = store_raw(raw_dir, html_rel, capture.html)
             stored_json = store_raw(raw_dir, json_rel, capture.json_bytes)
@@ -198,12 +208,18 @@ def ingest(
             # Fichiers écrits et synchronisés, ligne validée (autocommit) : la capture peut quitter inbox/
             remove_capture(capture.json_path, capture.html_path)
             report.deposited[verdict.status] += 1
-            log(f"  {capture.label} : {verdict.status}, {verdict.rank_count} rangs")
+            if product:
+                report.products += 1
+                log(f"  {capture.label} : {verdict.status}, fiche produit")
+            else:
+                log(f"  {capture.label} : {verdict.status}, {verdict.rank_count} rangs")
 
             if verdict.status != "ok":
                 # Déposée avec son statut ; l'ingestion continue (décision 008)
                 report.rejected_pages.append(f"{capture.label} : {verdict.status} : {verdict.reason}")
                 continue
+            if product:
+                continue  # ni liste courte, ni page 2
             if verdict.short_list:
                 report.information.append(
                     f"{capture.label} : liste courte ({verdict.rank_count} rangs sur {FULL_LIST_SIZE})")

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 
+from books.amazon.product_page import ProductRequest
 from books.amazon.ranking_page import PageRequest
 
 SOURCE = "amazon_fr"
@@ -32,16 +33,20 @@ def raw_relative_path(run_id: int, run_started_at: datetime, request: PageReques
     return PurePosixPath(SOURCE, day, f"run-{run_id}", name)
 
 
-def capture_relative_paths(run_id: int, run_started_at: datetime, request: PageRequest,
+def capture_relative_paths(run_id: int, run_started_at: datetime, request: PageRequest | ProductRequest,
                            captured_at: datetime) -> tuple[PurePosixPath, PurePosixPath]:
     """Emplacements du HTML et du JSON d'une capture (décision 008) :
-    amazon_fr/AAAA/MM/JJ/run-{id}/bestsellers_{node}_{liste}_p{n}_{AAAA-MM-JJTHHMMSSZ}.html.gz (et .json.gz).
+    amazon_fr/AAAA/MM/JJ/run-{id}/bestsellers_{node}_{liste}_p{n}_{AAAA-MM-JJTHHMMSSZ}.html.gz (et .json.gz) ;
+    pour une fiche (décision 015, section 5) : amazon_fr/AAAA/MM/JJ/run-{id}/product_{ASIN}_{AAAA-MM-JJTHHMMSSZ}.html.gz.
 
     L'horodatage de la capture distingue deux observations de la même page dans une même ingestion.
     """
     day = run_started_at.strftime("%Y/%m/%d")
-    stem = (f"bestsellers_{request.node}_{request.list_type}_p{request.page_number}_"
-            f"{captured_at.strftime('%Y-%m-%dT%H%M%SZ')}")
+    if isinstance(request, ProductRequest):
+        page = f"product_{request.asin}"
+    else:
+        page = f"bestsellers_{request.node}_{request.list_type}_p{request.page_number}"
+    stem = f"{page}_{captured_at.strftime('%Y-%m-%dT%H%M%SZ')}"
     folder = PurePosixPath(SOURCE, day, f"run-{run_id}")
     return folder / f"{stem}.html.gz", folder / f"{stem}.json.gz"
 

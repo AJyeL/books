@@ -36,7 +36,9 @@ ACTIVE_TAB_LIST_TYPE = {"Top 100 payants": "paid", "Top 100 gratuits": "free"}
 class Verdict:
     status: str  # "ok", "blocked" ou "invalid" (valeurs de raw.raw_page.fetch_status)
     reason: str | None  # explication, enregistrée dans error_message si la page n'est pas ok
-    rank_count: int  # nombre de livres classés trouvés
+    # Nombre de livres classés trouvés (0 si aucune liste classée) ; None pour une page qui n'a pas de liste classée
+    # par nature (fiche produit, décision 015) : inconnu ou sans objet n'est pas zéro
+    rank_count: int | None = None
     notes: tuple[str, ...] = field(default=())  # informations sans effet sur le statut
     # La pagination annonce la page suivante (li aria-label="Page {n+1}", non désactivé).
     # Second signal, avec les 50 rangs, pour décider de demander la page 2 (décision 004).
@@ -44,7 +46,7 @@ class Verdict:
 
     @property
     def short_list(self) -> bool:
-        return self.status == "ok" and self.rank_count < FULL_LIST_SIZE
+        return self.status == "ok" and self.rank_count is not None and self.rank_count < FULL_LIST_SIZE
 
 
 class _PageScanner(HTMLParser):
@@ -222,8 +224,8 @@ def next_page(request: PageRequest, verdict: Verdict) -> tuple[PageRequest | Non
     pour information (décisions 004 et 008). Utilisée par la tournée de dev (page 2 demandée) et par l'ingestion
     (page 2 attendue dans le même lot).
     """
-    if request.page_number >= MAX_PAGES_PER_LIST:
-        return None, None
+    if request.page_number >= MAX_PAGES_PER_LIST or verdict.rank_count is None:
+        return None, None  # dernière page, ou verdict sans liste classée : aucune page suivante
     full = verdict.rank_count == FULL_LIST_SIZE
     announced = verdict.next_page_announced
     following = request.page_number + 1

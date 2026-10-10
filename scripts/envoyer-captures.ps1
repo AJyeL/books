@@ -54,8 +54,9 @@ if (-not $DossierTravail) { $DossierTravail = [IO.Path]::GetTempPath() }
 # Le bilan venu d'atlas est en UTF-8
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
 
-# Nom d'une capture sans extension (décision 007) ; groupes 2 et 3 : année et mois de la capture
-$NomCapture = '^amazon_fr_bestsellers_[0-9]+_(paid|free)_p[12]_([0-9]{4})-([0-9]{2})-[0-9]{2}T[0-9]{6}Z$'
+# Nom d'une capture sans extension : page de classement (décision 007) ou fiche produit (décision 015) ;
+# groupes nommés annee et mois : année et mois de la capture (rangement dans envoyees\)
+$NomCapture = '^amazon_fr_(bestsellers_[0-9]+_(paid|free)_p[12]|product_[A-Z0-9]{10})_(?<annee>[0-9]{4})-(?<mois>[0-9]{2})-[0-9]{2}T[0-9]{6}Z$'
 # Outils fournis avec Windows, appelés par leur chemin complet (et non ceux d'autres logiciels installés)
 $Ssh = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
 $Tar = Join-Path $env:WINDIR 'System32\tar.exe'
@@ -123,7 +124,7 @@ $destinations = @{}
 $occupees = New-Object System.Collections.Generic.List[string]
 foreach ($nom in $paires) {
     $m = [regex]::Match($nom, $NomCapture)
-    $mois = Join-Path $dossier ("envoyees\{0}-{1}" -f $m.Groups[2].Value, $m.Groups[3].Value)
+    $mois = Join-Path $dossier ("envoyees\{0}-{1}" -f $m.Groups['annee'].Value, $m.Groups['mois'].Value)
     $destinations[$nom] = $mois
     foreach ($ext in '.html', '.json') {
         if (Test-Path -LiteralPath (Join-Path $mois "$nom$ext")) { $occupees.Add("$nom$ext") }

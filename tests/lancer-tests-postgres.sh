@@ -5,7 +5,8 @@
 #   bash tests/lancer-tests-postgres.sh            (arguments facultatifs transmis à pytest, ex. : -k extraction)
 #
 # 1. Réseau Docker et PostgreSQL 17 jetables, sans port publié : seul le conteneur des tests les joint.
-# 2. Migrations 001 à 005 appliquées à la base modèle books_test_template ; mot de passe de TEST de books_transformer.
+# 2. Migrations appliquées à la base modèle books_test_template ; mots de passe de TEST de books_transformer et de
+#    books_collector.
 # 3. Suite Python dans un conteneur jetable relié à ce réseau ; chaque test de base de données travaille sur une copie
 #    neuve de la base modèle (fixture « pg » de tests/python/conftest.py).
 # 4. Tout est supprimé à la fin, même en cas d'échec. Aucune base de développement ou de production n'est touchée.
@@ -40,13 +41,14 @@ for migration in sql/migrations/*.sql; do
     docker exec -i "$PG" psql -X -q -v ON_ERROR_STOP=1 -U proprio -d "$TEMPLATE" < "$migration" >/dev/null
 done
 docker exec "$PG" psql -X -q -v ON_ERROR_STOP=1 -U proprio -d "$TEMPLATE" \
-    -c "ALTER ROLE books_transformer PASSWORD 'transformer-test'" >/dev/null
+    -c "ALTER ROLE books_transformer PASSWORD 'transformer-test'" \
+    -c "ALTER ROLE books_collector PASSWORD 'collector-test'" >/dev/null
 echo "PostgreSQL 17 jetable prêt : migrations $(docker exec "$PG" psql -X -At -U proprio -d "$TEMPLATE" \
     -c "SELECT string_agg(version::text, ' ' ORDER BY version) FROM public.schema_migration")"
 
 docker run --rm --network "$NET" -v "$REPO:/src:ro" \
     -e BOOKS_TEST_PG_HOST="$PG" -e BOOKS_TEST_PG_PORT=5432 -e BOOKS_TEST_PG_TEMPLATE="$TEMPLATE" \
     -e BOOKS_TEST_PG_OWNER=proprio -e BOOKS_TEST_PG_OWNER_PASSWORD=proprio-test \
-    -e BOOKS_TEST_PG_TRANSFORMER_PASSWORD=transformer-test \
+    -e BOOKS_TEST_PG_TRANSFORMER_PASSWORD=transformer-test -e BOOKS_TEST_PG_COLLECTOR_PASSWORD=collector-test \
     -e PIP_DISABLE_PIP_VERSION_CHECK=1 python:3.12-slim sh -c 'cp -r /src /tmp/w && cd /tmp/w \
         && pip install -q --root-user-action=ignore ".[dev]" && pytest -q -rfEs "$@"' sh "$@"

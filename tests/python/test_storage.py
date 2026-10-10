@@ -7,7 +7,8 @@ from pathlib import PurePosixPath
 
 import pytest
 
-from books.collector.storage import raw_relative_path, store_raw
+from books.collector.storage import capture_relative_paths, raw_relative_path, store_raw
+from books.amazon.product_page import ProductRequest
 from books.amazon.ranking_page import PageRequest
 
 REQUEST = PageRequest("10000000001", "paid", 1)
@@ -17,6 +18,21 @@ STARTED = datetime(2026, 10, 5, 23, 30, tzinfo=UTC)
 def test_emplacement():
     assert raw_relative_path(12, STARTED, REQUEST) == PurePosixPath(
         "amazon_fr/2026/10/05/run-12/bestsellers_10000000001_paid_p1.html.gz")
+
+
+def test_emplacement_d_une_capture():
+    captured = datetime(2026, 10, 6, 20, 0, 50, tzinfo=UTC)
+    assert capture_relative_paths(12, STARTED, REQUEST, captured) == (
+        PurePosixPath("amazon_fr/2026/10/05/run-12/bestsellers_10000000001_paid_p1_2026-10-06T200050Z.html.gz"),
+        PurePosixPath("amazon_fr/2026/10/05/run-12/bestsellers_10000000001_paid_p1_2026-10-06T200050Z.json.gz"))
+
+
+def test_emplacement_d_une_fiche():
+    # Décision 015, section 5 : une fiche n'a ni catégorie, ni liste, ni page ; son emplacement porte son ASIN
+    captured = datetime(2026, 10, 6, 20, 0, 50, tzinfo=UTC)
+    assert capture_relative_paths(12, STARTED, ProductRequest("B0FAUX0001"), captured) == (
+        PurePosixPath("amazon_fr/2026/10/05/run-12/product_B0FAUX0001_2026-10-06T200050Z.html.gz"),
+        PurePosixPath("amazon_fr/2026/10/05/run-12/product_B0FAUX0001_2026-10-06T200050Z.json.gz"))
 
 
 def test_ecriture_empreinte_et_taille(tmp_path):

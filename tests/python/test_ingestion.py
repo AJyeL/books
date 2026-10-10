@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from books.amazon.product_page import ProductRequest
 from books.collector.ingestion import ingest
 from books.collector.run import EXIT_CODES
 from books.collector.repository import RunInfo
@@ -20,6 +21,9 @@ PAID_P2 = "amazon_fr_bestsellers_10000000001_paid_p2_2026-10-06T200010Z"
 FREE_P1 = "amazon_fr_bestsellers_10000000001_free_p1_2026-10-06T200020Z"
 CAPTCHA = "amazon_fr_bestsellers_10000000001_paid_p1_2026-10-06T200030Z"
 OUTSIDE = "amazon_fr_bestsellers_10000000009_paid_p1_2026-10-06T200040Z"
+FICHE = "amazon_fr_product_B0FAUX0001_2026-10-06T200050Z"
+FICHE_AUDIO = "amazon_fr_product_B0FAUX0001_2026-10-06T200100Z"
+FICHE_CAPTCHA = "amazon_fr_product_B0FAUX0001_2026-10-06T200110Z"
 LOT = "2026-10-06T201500Z"
 
 
@@ -51,7 +55,8 @@ class FakeRepo:
         return None
 
     def known_category(self, node):
-        return node in self.known or any(record.request.node == node for _, record in self.pages)
+        # Une fiche produit n'a pas de catégorie (décision 015)
+        return node in self.known or any(getattr(record.request, "node", None) == node for _, record in self.pages)
 
     @property
     def last(self):
@@ -452,6 +457,7 @@ def test_erreur_d_execution_statut_failed(dirs, monkeypatch):
 BILAN_DE_REFERENCE = """\
 Bilan de l'ingestion 42 — lot(s) : 2026-10-06T201500Z
   Déposées dans RAW  : 2 (ok 1, blocked 1, invalid 0)
+  Dont fiches produit: 0
   Déjà ingérées      : 0
   Pages anormales    : 1
     - 2026-10-06T201500Z/amazon_fr_bestsellers_10000000001_paid_p1_2026-10-06T200030Z : blocked : CAPTCHA détecté : lien canonical absent ; onglet actif introuvable ; aucune liste contenant render.zg.rank
@@ -628,3 +634,124 @@ def test_capture_en_quarantaine_ne_signale_pas_sa_categorie(dirs):
     add_damaged(captures, OUTSIDE)
     result = run(dirs, FakeRepo())
     assert not any(i.startswith(NOUVELLE) for i in result.report.information)
+
+
+# --- Fiches produit (décision 015, étape B) ----------------------------------------------
+
+def test_fiche_deposee(dirs):
+    captures, raw = dirs
+    add(captures, FICHE)
+    repo = FakeRepo()
+    result = run(dirs, repo)
+
+    assert result.status == "success"
+    (run_id, record), = repo.pages
+    assert record.request == ProductRequest("B0FAUX0001")
+    assert record.fetch_status == "ok" and record.error_message is None
+    assert record.requested_url == (
+        "https://www.amazon.fr/Le-Royaume-des-cendres/dp/B0FAUX0001/ref=zg_bs_g_digital-text_d_sccl_1")
+    assert record.stored.relative_path == (
+        f"amazon_fr/2026/10/06/run-{run_id}/product_B0FAUX0001_2026-10-06T200050Z.html.gz")
+    assert record.metadata.relative_path.endswith("/product_B0FAUX0001_2026-10-06T200050Z.json.gz")
+    html = (CAPTURES / f"{FICHE}.html").read_bytes()
+    assert gzip.decompress((raw / record.stored.relative_path).read_bytes()) == html
+    # Ni information de catégorie, ni page 2 : une fiche n'en a pas
+    assert result.report.information == [f"lots vidés et supprimés : {LOT}"]
+    assert result.report.missing_page2 == []
+    assert result.report.products == 1
+    assert inbox_files(captures) == []
+
+
+def test_lot_mixte_pages_et_fiches(dirs):
+    captures, _ = dirs
+    add(captures, PAID_P1, PAID_P2, FICHE)
+    repo = FakeRepo()
+    result = run(dirs, repo)
+    assert result.status == "success"
+    assert [r.request.label for _, r in repo.pages] == [
+        "10000000001 paid p1", "10000000001 paid p2", "fiche B0FAUX0001"]
+    assert result.report.deposited == {"ok": 3, "blocked": 0, "invalid": 0}
+    assert result.report.products == 1
+    assert "  Dont fiches produit: 1" in repo.last["notes"].splitlines()
+    assert [i for i in result.report.information if i.startswith("nouvelle catégorie")] == [
+        "nouvelle catégorie (jamais vue dans RAW) : 10000000001"]
+
+
+def test_fiche_invalid_et_blocked_deposees(dirs):
+    captures, _ = dirs
+    add(captures, FICHE_AUDIO, FICHE_CAPTCHA, FICHE)
+    repo = FakeRepo()
+    result = run(dirs, repo)
+    assert [r.fetch_status for _, r in repo.pages] == ["ok", "invalid", "blocked"]  # ordre des noms
+    assert result.status == "partial" and EXIT_CODES[result.status] == 1
+    assert result.report.deposited == {"ok": 1, "blocked": 1, "invalid": 1}
+    assert result.report.products == 3
+    assert result.report.rejected_pages == [
+        f"{LOT}/{FICHE_AUDIO} : invalid : Fiche non conforme : format affiché non accepté "
+        "(ni ebook Kindle, ni broché, ni relié)",
+        f"{LOT}/{FICHE_CAPTCHA} : blocked : CAPTCHA détecté : lien canonical absent ; titre (productTitle) "
+        "introuvable ; liste des détails (detailBullets_feature_div) introuvable ; ligne d'auteur (bylineInfo) "
+        "introuvable",
+    ]
+    assert inbox_files(captures) == []
+
+
+def test_fiche_deja_ingeree(dirs):
+    captures, _ = dirs
+    add(captures, FICHE)
+    repo = FakeRepo()
+    run(dirs, repo)
+    add(captures, FICHE, lot="2026-10-06T220000Z")
+    result = run(dirs, repo)
+    assert result.status == "success" and len(repo.pages) == 1
+    assert result.report.already == 1 and result.report.products == 0
+
+
+def test_fiche_non_integre_en_quarantaine(dirs):
+    import json
+    captures, _ = dirs
+    lot_dir = add(captures, FICHE)
+    meta = json.loads((lot_dir / f"{FICHE}.json").read_text(encoding="utf-8"))
+    meta["displayed_url"] = "https://www.amazon.fr/dp/B0FAUX0009"  # autre ASIN que le nom
+    (lot_dir / f"{FICHE}.json").write_text(json.dumps(meta), encoding="utf-8")
+    repo = FakeRepo()
+    result = run(dirs, repo)
+    assert repo.pages == [] and result.status == "partial"
+    assert result.report.quarantined == [
+        f"{LOT}/{FICHE} : displayed_url (fiche B0FAUX0009) différente du nom (fiche B0FAUX0001)"]
+
+
+def test_plafond_commun_aux_pages_et_aux_fiches(dirs):
+    captures, _ = dirs
+    add(captures, PAID_P1, FICHE)
+    repo = FakeRepo()
+    result = run(dirs, repo, max_captures=1)
+    assert len(repo.pages) == 1 and result.report.cap_reached.startswith("1 captures atteint")
+
+
+SENTINELLES = ("Sentinelle-Rgpd", "B0SENTAUT1", "Sentinelle-Commentatrice", "Exempleville-Sentinelle",
+               "Sentinelle-Editrice")
+
+
+def test_aucune_sentinelle_dans_le_bilan_ni_le_journal(dirs):
+    # Fiches conforme, invalid (deux motifs différents) et blocked : ni le bilan, ni le journal, ni les motifs
+    # enregistrés ne contiennent un nom de la page (décisions 013 et 015)
+    import json
+    captures, raw = dirs
+    lot_dir = add(captures, FICHE, FICHE_AUDIO, FICHE_CAPTCHA)
+    page = (FIXTURES / "fiche_format_hors_ligne_auteur.html").read_text(encoding="utf-8")
+    html = ("<!DOCTYPE html>" + page[len("<!doctype html>"):].lstrip("\n")).encode("utf-8")
+    stem = "amazon_fr_product_B0FAUX0001_2026-10-06T200120Z"
+    (lot_dir / f"{stem}.html").write_bytes(html)
+    meta = json.loads((lot_dir / f"{FICHE}.json").read_text(encoding="utf-8"))
+    meta.update(captured_at="2026-10-06T20:01:20Z", html_sha256=hashlib.sha256(html).hexdigest(), html_bytes=len(html))
+    (lot_dir / f"{stem}.json").write_text(json.dumps(meta), encoding="utf-8")
+    journal = []
+    repo = FakeRepo()
+    ingest(captures, repo, raw, "0.1.0", log=journal.append)
+
+    assert [r.fetch_status for _, r in repo.pages] == ["ok", "invalid", "blocked", "invalid"]
+    texts = journal + [repo.last["notes"]] + [r.error_message or "" for _, r in repo.pages]
+    for sentinelle in SENTINELLES:
+        assert sentinelle in page  # la fiche testée la contient bien
+        assert not any(sentinelle in t for t in texts), sentinelle

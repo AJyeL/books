@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "displayed_url": "https://www.amazon.fr/Le-Royaume-des-cendres/dp/B0FAUX0001/ref=zg_bs_g_digital-text_d_sccl_1",
+  "captured_at": "2026-10-06T20:00:50Z",
+  "capture_method": "extension-dom",
+  "extension_version": "0.1.1",
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+  "html_sha256": "5e1c7b215de9611875b788183d24b9c010263a9175cc9bd2d9f4baa7b99bcdea",
+  "html_bytes": 8050
+}

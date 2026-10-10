@@ -1,0 +1,25 @@
+<!DOCTYPE html><html lang="fr">
+<!-- Fausse page de test B.O.O.K.S. (variante : page CAPTCHA).
+     Structure SUPPOSÉE, aucune vraie page CAPTCHA n'ayant encore été observée :
+     à remplacer par une structure vérifiée le jour où une vraie page sera rencontrée.
+     Ni canonical, ni data-client-recs-list : seule la structure manquante, puis les signes de CAPTCHA,
+     permettent de la reconnaître. -->
+<head>
+<meta charset="utf-8">
+<title>Amazon.fr</title>
+</head>
+<body>
+<div class="a-container a-padding-double-large">
+<div class="a-row a-spacing-double-large">
+<h4>Saisissez les caractères que vous voyez ci-dessous</h4>
+<p class="a-last">Désolés, nous devons simplement nous assurer que vous n'êtes pas un robot.</p>
+<form method="get" action="/errors/validateCaptcha" name="">
+<input type="hidden" name="amzn" value="FAUX-JETON-0001"><input type="hidden" name="amzn-r" value="/gp/bestsellers/digital-text/10000000001">
+<div class="a-row a-text-center"><img src="https://images-na.ssl-images-amazon.com/captcha/faux/Captcha_fauxexemple.jpg"></div>
+<input autocomplete="off" spellcheck="false" placeholder="Saisissez les caractères" id="captchacharacters" name="field-keywords" type="text">
+<button type="submit" class="a-button-text">Continuer les achats</button>
+</form>
+</div>
+</div>
+</body>
+</html>

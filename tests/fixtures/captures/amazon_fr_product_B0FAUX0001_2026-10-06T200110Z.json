@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "displayed_url": "https://www.amazon.fr/dp/B0FAUX0001",
+  "captured_at": "2026-10-06T20:01:10Z",
+  "capture_method": "extension-dom",
+  "extension_version": "0.1.1",
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+  "html_sha256": "43d014a0f0a6cc9959c523f56ad24cb479217e8ca9a648952d51a559e915770d",
+  "html_bytes": 1325
+}

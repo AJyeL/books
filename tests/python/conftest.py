@@ -30,8 +30,8 @@ def fixture_page():
 
 
 # --- PostgreSQL 17 jetable (tests de l'extracteur, décision 011) ----------------------------------------------
-# Préparé par tests/lancer-tests-postgres.sh : base modèle avec les migrations 001 à 005, mot de passe de test de
-# books_transformer, variables BOOKS_TEST_PG_*. Sans elles, les tests qui demandent la fixture « pg » sont sautés.
+# Préparé par tests/lancer-tests-postgres.sh : base modèle migrée, mots de passe de test de books_transformer et de
+# books_collector, variables BOOKS_TEST_PG_*. Sans elles, les tests qui demandent la fixture « pg » sont sautés.
 
 PG_SKIP = "PostgreSQL de test non configuré : lancer tests/lancer-tests-postgres.sh"
 
@@ -39,11 +39,12 @@ PG_SKIP = "PostgreSQL de test non configuré : lancer tests/lancer-tests-postgre
 class PgTestDb:
     """Base de test neuve (copie de la base modèle) : connexions et pages RAW de test."""
 
-    def __init__(self, owner, transformer, raw_dir: Path, connect_transformer) -> None:
+    def __init__(self, owner, transformer, raw_dir: Path, connect_transformer, connect_collector) -> None:
         self.owner = owner  # propriétaire : prépare raw, que books_transformer ne peut pas écrire
         self.transformer = transformer  # connexion de l'extracteur, avec ses seuls droits
         self.raw_dir = raw_dir
         self.connect_transformer = connect_transformer  # seconde connexion (verrou occupé)
+        self.connect_collector = connect_collector  # connexion du collecteur, avec ses seuls droits (autocommit)
         self._run_id = None
         self._count = 0
 
@@ -111,6 +112,12 @@ def pg(tmp_path):
         return psycopg.connect(dbname=name, user="books_transformer",
                                password=env["BOOKS_TEST_PG_TRANSFORMER_PASSWORD"], autocommit=True, **server)
 
+    def connect_collector():
+        conn = psycopg.connect(dbname=name, user="books_collector",
+                               password=env["BOOKS_TEST_PG_COLLECTOR_PASSWORD"], autocommit=True, **server)
+        connections.append(conn)  # fermée à la fin du test
+        return conn
+
     with psycopg.connect(dbname="postgres", autocommit=True, **owner_login) as admin:
         admin.execute(sql.SQL("CREATE DATABASE {} TEMPLATE {}").format(sql.Identifier(name), sql.Identifier(template)))
     connections = []
@@ -121,7 +128,7 @@ def pg(tmp_path):
         connections.append(transformer)
         raw_dir = tmp_path / "raw"
         raw_dir.mkdir()
-        yield PgTestDb(owner, transformer, raw_dir, connect_transformer)
+        yield PgTestDb(owner, transformer, raw_dir, connect_transformer, connect_collector)
     finally:
         for conn in connections:
             conn.close()

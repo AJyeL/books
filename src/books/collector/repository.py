@@ -9,6 +9,7 @@ from typing import Protocol
 import psycopg
 
 from books.collector.storage import StoredFile
+from books.amazon.product_page import ProductRequest
 from books.amazon.ranking_page import PageRequest
 
 
@@ -20,9 +21,9 @@ class RunInfo:
 
 @dataclass(frozen=True)
 class PageRecord:
-    """Une ligne de raw.raw_page (page de classement)."""
+    """Une ligne de raw.raw_page : page de classement, ou fiche produit (décision 015)."""
 
-    request: PageRequest
+    request: PageRequest | ProductRequest
     fetched_at: datetime
     fetch_status: str
     capture_method: str  # obligatoire pour toute nouvelle ligne (migration 004)
@@ -66,17 +67,25 @@ class PgRepository:
 
     def record_page(self, run_id: int, record: PageRecord) -> int:
         stored = record.stored
+        request = record.request
+        # Une page de classement a une catégorie, une liste et un numéro ; une fiche a un ASIN, et rien d'autre
+        # (contrainte de la migration 001)
+        if isinstance(request, ProductRequest):
+            page_type, node, list_type, page_number, asin = "product", None, None, None, request.asin
+        else:
+            page_type, node, list_type, page_number, asin = (
+                "bestseller_list", request.node, request.list_type, request.page_number, None)
         (page_id,) = self.conn.execute(
             """
             INSERT INTO raw.raw_page (
-                run_id, page_type, category_node, list_type, page_number,
+                run_id, page_type, category_node, list_type, page_number, asin,
                 requested_url, final_url, fetched_at, http_status, fetch_status, error_message,
                 content_sha256, content_bytes, storage_path, capture_method, metadata_path, metadata_sha256)
-            VALUES (%s, 'bestseller_list', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (
-                run_id, record.request.node, record.request.list_type, record.request.page_number,
+                run_id, page_type, node, list_type, page_number, asin,
                 record.requested_url or record.request.url, record.final_url, record.fetched_at, record.http_status,
                 record.fetch_status, record.error_message,
                 stored.sha256 if stored else None,

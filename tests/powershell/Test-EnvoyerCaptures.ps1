@@ -9,7 +9,8 @@ Lancement, depuis le dossier du dépôt, Docker Desktop démarré :
 - Configuration SSH de test (-F) : la configuration SSH de l'utilisateur n'est ni lue ni modifiée.
   Le mot de passe de test est fourni par SSH_ASKPASS, pour ce test seulement.
 - Fichiers de travail dans data\tests-envoi\ (ignoré par Git), supprimés à la fin.
-- Captures envoyées : les captures de test inventées de tests\fixtures\captures\.
+- Captures envoyées : les captures de test inventées de tests\fixtures\captures\ (pages de classement et fiches
+  produit, décision 015).
 - Scénario du double-clic : copie du script et du lanceur .cmd dans data\tests-envoi\scripts\, avec un réglage
   local de test à côté, puis lancement du .cmd sans aucun paramètre (valeurs par défaut). Le réglage désigne
   une configuration SSH de test où l'alias « atlas » mène au faux atlas ; TEMP est redirigé dans data\.
@@ -47,7 +48,7 @@ function Invoke-Atlas([string]$commande) {
 }
 
 function Reset-Scenario([int]$codeIngestion, [int]$codeExtraction = 0) {
-    # PC : dossier des captures avec les 5 paires de test ; atlas : dossiers vides, codes d'ingestion et d'extraction
+    # PC : dossier des captures avec les paires de test ; atlas : dossiers vides, codes d'ingestion et d'extraction
     Remove-Item -LiteralPath $captures -Recurse -Force -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Path $captures | Out-Null
     Copy-Item -Path (Join-Path $fixtures '*') -Destination $captures
@@ -75,6 +76,8 @@ foreach ($f in Get-ChildItem -LiteralPath $fixtures -File) {
     $originaux[$f.Name] = (Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 $nomsOriginaux = @($originaux.Keys | Sort-Object)
+$nbFichiers = $nomsOriginaux.Count  # paires .html + .json : pages de classement et fiches produit
+$nomsFiches = @($nomsOriginaux | Where-Object { $_ -like 'amazon_fr_product_*' })
 
 # --- Préparation : dossiers, réglage, configuration SSH de test, faux atlas ----------------
 Remove-Item -LiteralPath $racine -Recurse -Force -ErrorAction SilentlyContinue
@@ -119,7 +122,10 @@ try {
     }
     $identiques = ($recues.Count -eq $originaux.Count)
     foreach ($nom in $originaux.Keys) { if ($recues[$nom] -ne $originaux[$nom]) { $identiques = $false } }
-    Test-Condition 'sans anomalie : octets reçus sur atlas identiques aux originaux (10 fichiers)' $identiques
+    Test-Condition "sans anomalie : octets reçus sur atlas identiques aux originaux ($nbFichiers fichiers)" $identiques
+    $fichesRangees = @($nomsFiches | Where-Object { $recues.ContainsKey($_) -and (Get-Ranges) -contains $_ })
+    Test-Condition 'sans anomalie : fiches produit envoyées et rangées (décision 015)' (
+        $nomsFiches.Count -ge 2 -and $fichesRangees.Count -eq $nomsFiches.Count)
     Test-Condition 'sans anomalie : attente/ vide sur atlas' ((Invoke-Atlas 'ls -A ~/books-data/captures/attente') -eq '')
     Test-Condition 'sans anomalie : dossier de travail supprimé' (@(Get-ChildItem -LiteralPath $travail).Count -eq 0)
     Test-Condition 'sans anomalie : ingestion puis extraction sur atlas (décision 012)' ((Get-Appels) -eq "ingestion`nextraction")
@@ -130,13 +136,13 @@ try {
     Reset-Scenario 1
     $code = Invoke-Envoi
     Test-Condition 'avec anomalies : code 1' ($code -eq 1)
-    Test-Condition 'avec anomalies : captures rangées quand même' (@(Get-Ranges).Count -eq 10 -and @(Get-Restants).Count -eq 0)
+    Test-Condition 'avec anomalies : captures rangées quand même' (@(Get-Ranges).Count -eq $nbFichiers -and @(Get-Restants).Count -eq 0)
 
     # 3. Transfert réussi, ingestion non effectuée (configuration sur atlas)
     Reset-Scenario 2
     $code = Invoke-Envoi
     Test-Condition 'ingestion non effectuée : code 1' ($code -eq 1)
-    Test-Condition 'ingestion non effectuée : captures rangées' (@(Get-Ranges).Count -eq 10)
+    Test-Condition 'ingestion non effectuée : captures rangées' (@(Get-Ranges).Count -eq $nbFichiers)
     Test-Condition 'ingestion non effectuée : extraction lancée quand même, sans anomalie' (
         (Get-Appels) -eq "ingestion`nextraction" -and $sortieEnvoi -match 'Extraction sans anomalie')
 
@@ -145,7 +151,7 @@ try {
     $code = Invoke-Envoi
     Test-Condition 'extraction en échec : code 1' ($code -eq 1)
     Test-Condition 'extraction en échec : message' ($sortieEnvoi -match 'Ingestion sans anomalie' -and $sortieEnvoi -match 'Extraction avec anomalies')
-    Test-Condition 'extraction en échec : captures rangées quand même' (@(Get-Ranges).Count -eq 10)
+    Test-Condition 'extraction en échec : captures rangées quand même' (@(Get-Ranges).Count -eq $nbFichiers)
 
     # 3 ter. Configuration invalide de l'extracteur sur atlas (code 2) : code 1 sur le PC, le code 2 restant réservé au PC
     Reset-Scenario 0 2
@@ -177,7 +183,7 @@ try {
     [IO.File]::WriteAllText($askpass, "@echo faux-mot-de-passe`r`n")
     $code = Invoke-Envoi
     Test-Condition 'mauvais mot de passe : code 3' ($code -eq 3)
-    Test-Condition 'mauvais mot de passe : rien déplacé' (@(Get-Restants).Count -eq 10 -and @(Get-Ranges).Count -eq 0)
+    Test-Condition 'mauvais mot de passe : rien déplacé' (@(Get-Restants).Count -eq $nbFichiers -and @(Get-Ranges).Count -eq 0)
     [IO.File]::WriteAllText($askpass, "@echo mot-de-passe-de-test`r`n")
 
     # 6. Orphelin et fichier hors format : signalés et laissés sur place, les paires partent
@@ -186,11 +192,17 @@ try {
     $orphelin = $premier -replace 'T[0-9]{6}Z', 'T235959Z'  # même capture, autre horodatage, sans JSON
     Copy-Item -LiteralPath (Join-Path $captures $premier) -Destination (Join-Path $captures $orphelin)
     Copy-Item -LiteralPath (Join-Path $captures $premier) -Destination (Join-Path $captures ($premier -replace '\.html$', ' (1).html'))
+    # Paire de fiche au nom hors format (ASIN de 9 caractères, décision 015) : signalée et laissée sur place.
+    # (Pas d'ASIN en minuscules ici : Windows ne distingue pas la casse, la copie écraserait la vraie capture.)
+    $ficheHtml = $nomsFiches | Where-Object { $_ -like '*.html' } | Select-Object -First 1
+    $horsFormat = $ficheHtml -creplace 'B0FAUX0001', 'B0FAUX001'
+    $horsFormatPaire = @($horsFormat, ($horsFormat -replace '\.html$', '.json'))
+    foreach ($nom in $horsFormatPaire) { Copy-Item -LiteralPath (Join-Path $captures $ficheHtml) -Destination (Join-Path $captures $nom) }
     $code = Invoke-Envoi
     Test-Condition 'orphelin et hors format : code 0' ($code -eq 0)
-    $attendus = (@($orphelin, ($premier -replace '\.html$', ' (1).html')) | Sort-Object) -join ','
+    $attendus = (@($orphelin, ($premier -replace '\.html$', ' (1).html')) + $horsFormatPaire | Sort-Object) -join ','
     Test-Condition 'orphelin et hors format : laissés sur place' ((@(Get-Restants) -join ',') -eq $attendus)
-    Test-Condition 'orphelin et hors format : les 5 paires rangées' (@(Get-Ranges).Count -eq 10)
+    Test-Condition 'orphelin et hors format : toutes les paires conformes rangées' (@(Get-Ranges).Count -eq $nbFichiers)
 
     # 7. Rien à envoyer : aucune connexion
     Reset-Scenario 0
@@ -198,7 +210,7 @@ try {
     $code = Invoke-Envoi
     Test-Condition 'rien à envoyer : code 0' ($code -eq 0)
     Test-Condition 'rien à envoyer : aucun lot arrivé sur atlas' ((Invoke-Atlas 'ls -A ~/books-data/captures/inbox ~/books-data/captures/attente; ls -d ~/recues 2>/dev/null') -notmatch '20')
-    Test-Condition 'rien à envoyer : les HTML restent sur place' (@(Get-Restants).Count -eq 5)
+    Test-Condition 'rien à envoyer : les HTML restent sur place' (@(Get-Restants).Count -eq $nbFichiers / 2)
 
     # 8. Collision dans envoyees\ : rien envoyé, rien déplacé, fichier existant intact
     Reset-Scenario 0
@@ -208,7 +220,7 @@ try {
     $code = Invoke-Envoi
     Test-Condition 'collision dans envoyees : code 2' ($code -eq 2)
     Test-Condition 'collision dans envoyees : rien envoyé' ((Invoke-Atlas 'ls -d ~/recues 2>/dev/null') -eq '')
-    Test-Condition 'collision dans envoyees : rien déplacé, fichier existant intact' (@(Get-Restants).Count -eq 10 -and [IO.File]::ReadAllText((Join-Path $mois $premier)) -eq 'deja la')
+    Test-Condition 'collision dans envoyees : rien déplacé, fichier existant intact' (@(Get-Restants).Count -eq $nbFichiers -and [IO.File]::ReadAllText((Join-Path $mois $premier)) -eq 'deja la')
 
     # 9. Réglage local absent
     $code = Invoke-Envoi (Join-Path $racine 'absent.psd1')
@@ -244,7 +256,7 @@ try {
     }
     Test-Condition 'double-clic sans paramètre : pas d''erreur de lancement' ($sortieEnvoi -notmatch 'Join-Path|Impossible de lier')
     Test-Condition 'double-clic sans paramètre : code 0' ($code -eq 0)
-    Test-Condition 'double-clic sans paramètre : captures rangées' (@(Get-Ranges).Count -eq 10 -and @(Get-Restants).Count -eq 0)
+    Test-Condition 'double-clic sans paramètre : captures rangées' (@(Get-Ranges).Count -eq $nbFichiers -and @(Get-Restants).Count -eq 0)
     Test-Condition 'double-clic sans paramètre : dossier de travail vidé' (@(Get-ChildItem -LiteralPath $travail).Count -eq 0)
 }
 finally {
