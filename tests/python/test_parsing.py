@@ -42,7 +42,7 @@ def by_rank(name: str) -> dict[int, RankingEntry]:
 
 
 def test_version_initiale():
-    assert EXTRACTOR_VERSION == "2"  # 2 : noms de la catégorie (décision 014)
+    assert EXTRACTOR_VERSION == "3"  # 2 : noms de la catégorie (décision 014) ; 3 : fiches produit (décision 015)
 
 
 @pytest.mark.parametrize("name", [COMPLETE, THIRTY, FREE])

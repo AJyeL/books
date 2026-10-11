@@ -212,7 +212,7 @@ class LostConnectionRepo:
         return {}
 
     def count_up_to_date(self, version):
-        return 0
+        return 0, 0
 
     def pages_to_extract(self, version, force):
         return [self.page]
@@ -265,10 +265,92 @@ def test_page_sans_nom_lu_comptee_sans_anomalie(pg):
     assert rows_of(pg, without)[0][1] == 50  # les lignes de la page sont extraites
 
 
-def test_passage_de_la_version_1_a_la_version_2(pg):
+def test_passage_de_la_version_2_a_la_version_3(pg):
     page_id = pg.add_page(COMPLETE)
-    run(pg, extractor_version="1")  # pages extraites par la version 1
+    run(pg, extractor_version="2")  # pages extraites par la version 2
     result, _ = run(pg)  # version courante
-    assert EXTRACTOR_VERSION == "2" and result.report.extracted == 1
+    assert EXTRACTOR_VERSION == "3" and result.report.extracted == 1
     assert pg.query("SELECT extract_run_id FROM staging.category_observation WHERE raw_page_id = %s",
                     (page_id,)) == [(result.run_id,)]
+
+
+# --- Fiches produit (décision 015, étape D) -------------------------------------------------------------------
+
+FICHE = page("fiche_extraction_exemple.html")
+FICHE_PAPIER = page("fiche_extraction_papier.html")
+SENTINELLES = ("Sentinelle-Rgpd", "B0SENTAUT1", "Sentinelle-Commentatrice", "Exempleville-Sentinelle",
+               "Sentinelle-Editrice")
+
+
+def test_extraction_de_classements_et_de_fiches(pg):
+    classement = pg.add_page(COMPLETE)
+    kindle = pg.add_page(FICHE, page_type="product")
+    papier = pg.add_page(FICHE_PAPIER, page_type="product")
+    result, logs = run(pg)
+    report = result.report
+    # Fiche papier : ni succès ni anomalie, comptée à part
+    assert result.status == "success" and EXIT_CODES[result.status] == 0
+    assert (report.extracted, report.products_extracted, len(report.skipped), report.anomalies) == (1, 1, 1, 0)
+    assert pages_by_status(pg) == {classement: "ok", kindle: "ok", papier: "skipped"}
+    assert pg.query("SELECT status, pages_extracted, pages_failed, pages_skipped FROM staging.extract_run "
+                    "WHERE id = %s", (result.run_id,)) == [("success", 2, 0, 1)]
+    assert "Fiches extraites     : 1" in result.notes
+    assert "Fiches mises à part  : 1 (format papier ; ni succès ni anomalie)" in result.notes
+    assert "classes de span inconnues dans les descriptions : a-list-item : 2, a-size-medium : 1" in result.notes
+    assert "balises retirées des descriptions : script : 1" in result.notes
+    assert pg.query("SELECT count(*) FROM staging.product_observation") == [(1,)]
+
+
+def test_fiche_papier_non_relue_puis_reprise_au_changement_de_version(pg):
+    papier = pg.add_page(FICHE_PAPIER, page_type="product")
+    run(pg)
+    second, _ = run(pg)
+    assert (second.report.to_extract, second.report.up_to_date, second.report.up_to_date_skipped) == (0, 1, 1)
+    assert "Déjà à jour          : 1 (dont 1 fiche(s) papier mise(s) à part)" in second.notes
+    third, _ = run(pg, extractor_version="version-suivante")
+    assert third.report.to_extract == 1 and len(third.report.skipped) == 1
+    assert pg.query("SELECT er.extractor_version FROM staging.page_extraction pe "
+                    "JOIN staging.extract_run er ON er.id = pe.extract_run_id WHERE pe.raw_page_id = %s",
+                    (papier,)) == [("version-suivante",)]
+
+
+def test_fiche_en_echec_d_analyse(pg):
+    bad = pg.add_page(page("fiche_extraction_rang_espace.html"), page_type="product")
+    result, _ = run(pg)
+    assert result.status == "partial" and pages_by_status(pg) == {bad: "parse_failed"}
+    assert "fiche B0FAUX0001" in result.notes and "rang général de forme inconnue" in result.notes
+
+
+def test_champs_absents_comptes_au_bilan(pg):
+    pg.add_page(page("fiche_extraction_sans_avis.html"), page_type="product")
+    pg.add_page(page("fiche_extraction_sans_serie.html"), page_type="product")
+    result, _ = run(pg)
+    assert result.report.product_missing == {"note": 1, "série": 1}
+    assert "champs absents des fiches extraites : note : 1, série : 1" in result.notes
+
+
+def test_aucune_sentinelle_rgpd_dans_staging_ni_le_bilan(pg):
+    pg.add_page(FICHE, page_type="product")
+    pg.add_page(FICHE_PAPIER, page_type="product")
+    pg.add_page(page("fiche_extraction_rang_espace.html"), page_type="product")
+    result, logs = run(pg)
+    dumps = [str(pg.query(f"SELECT * FROM staging.{t}")) for t in (
+        "product_observation", "product_format", "product_sales_rank", "product_rating_share", "page_extraction",
+        "extract_run")]
+    for sentinelle in SENTINELLES:
+        assert sentinelle in FICHE.decode("utf-8")
+        assert not any(sentinelle in d for d in dumps + logs + [result.notes]), sentinelle
+
+
+def test_comptes_des_classements_inchanges_par_la_version_3(pg):
+    # Recette de la décision 015 : lignes de classement et observations de catégorie identiques en version 3
+    for content, list_type in ((COMPLETE, "paid"), (THIRTY, "paid"), (FREE, "free")):
+        pg.add_page(content, list_type=list_type)
+    run(pg, extractor_version="2")
+    query = ("SELECT rank, asin, has_card, title, price_amount, rating, review_count FROM staging.ranking_entry "
+             "ORDER BY raw_page_id, rank")
+    before = pg.query(query)
+    names = pg.query("SELECT display_name, short_name FROM staging.category_observation ORDER BY raw_page_id")
+    run(pg)
+    assert pg.query(query) == before
+    assert pg.query("SELECT display_name, short_name FROM staging.category_observation ORDER BY raw_page_id") == names

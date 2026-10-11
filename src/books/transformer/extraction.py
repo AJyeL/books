@@ -1,25 +1,37 @@
-"""Extraction : pages RAW du périmètre → lignes de staging.ranking_entry (décision 011).
+"""Extraction : pages RAW du périmètre → STAGING (décisions 011, 014 et 015).
 
 Pour chaque page à extraire, dans l'ordre de raw.raw_page :
 1. intégrité du fichier RAW (books.transformer.integrity) ; écart : page « integrity_failed » ;
-2. analyse (books.transformer.parsing) ; forme inconnue : page « parse_failed » ;
+2. analyse : page de classement (books.transformer.parsing) ou fiche produit (books.transformer.product_parsing) ;
+   forme inconnue : page « parse_failed » ; fiche papier : page « skipped » (motif « format papier ») ;
 3. écriture des lignes, dans une transaction par page.
 Une page en échec n'arrête pas les suivantes ; ses anciennes lignes sont supprimées. Seule une erreur d'exécution
 (base de données, disque) arrête l'extraction : l'exécution est alors close en « failed ».
 
 Statuts et codes de sortie, comme l'ingestion (décision 008) : success (0) aucune anomalie ; partial (1) au moins une
-page en échec ; failed (1) erreur d'exécution. Verrou occupé : ExtractionBusy, aucune exécution enregistrée (1).
+page en échec ; failed (1) erreur d'exécution. Une fiche mise à part n'est ni un succès ni une anomalie : elle est
+comptée à part et n'a aucun effet sur le statut (décision 015, note du 11 octobre 2026).
+Verrou occupé : ExtractionBusy, aucune exécution enregistrée (1).
 """
 
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from books.transformer.integrity import RawIntegrityError, read_raw_page
 from books.transformer.parsing import EXTRACTOR_VERSION, ParseError, parse_ranking_page
+from books.transformer.product_parsing import PageSkipped, ParsedProduct, parse_product_page
 from books.transformer.repository import TransformerRepository
 
 EXIT_CODES = {"success": 0, "partial": 1, "failed": 1}
+# Champs d'une fiche dont l'absence est comptée au bilan (information)
+PRODUCT_FIELDS = {
+    "série": "series_form", "date de publication": "publication_date", "langue": "language",
+    "pages imprimées": "print_pages", "taille du fichier": "file_size_value", "ISBN-13": "isbn13",
+    "note": "rating", "nombre d'avis": "review_count", "couverture": "cover_url", "description": "description_text",
+    "bloc A+": "has_aplus", "fil de catégories": "breadcrumb",
+}
 
 
 class ExtractionBusy(Exception):
@@ -34,16 +46,26 @@ class ExtractionReport:
     force: bool
     to_extract: int = 0
     up_to_date: int = 0
+    up_to_date_skipped: int = 0
     extracted: int = 0
     rows: int = 0
     rows_with_card: int = 0
     # Pages extraites dont un nom de catégorie n'a pas été lu (décision 014) : information, jamais une anomalie
     without_display_name: int = 0
     without_short_name: int = 0
+    products_extracted: int = 0
+    skipped: list[str] = field(default_factory=list)
+    product_missing: Counter = field(default_factory=Counter)
+    unknown_span_classes: Counter = field(default_factory=Counter)
+    removed_tags: Counter = field(default_factory=Counter)
     parse_failures: list[str] = field(default_factory=list)
     integrity_failures: list[str] = field(default_factory=list)
     out_of_scope: dict[str, int] = field(default_factory=dict)
     error: str | None = None
+
+    @property
+    def pages_extracted(self) -> int:
+        return self.extracted + self.products_extracted
 
     @property
     def pages_failed(self) -> int:
@@ -59,20 +81,42 @@ class ExtractionReport:
             return "failed"
         return "success" if self.anomalies == 0 else "partial"
 
+    def add_product(self, product: ParsedProduct) -> None:
+        self.products_extracted += 1
+        self.product_missing.update(label for label, name in PRODUCT_FIELDS.items() if getattr(product, name) is None)
+        self.unknown_span_classes.update(dict(product.unknown_span_classes))
+        self.removed_tags.update(dict(product.removed_tags))
+
     def lines(self) -> list[str]:
         out = [f"Extracteur version {self.extractor_version}"
                + (" (réextraction complète demandée)" if self.force else ""),
                f"  Pages à extraire     : {self.to_extract}",
-               f"  Déjà à jour          : {self.up_to_date}",
+               f"  Déjà à jour          : {self.up_to_date}"
+               + (f" (dont {self.up_to_date_skipped} fiche(s) papier mise(s) à part)" if self.up_to_date_skipped else ""),
                f"  Extraites            : {self.extracted} ({self.rows} lignes, dont {self.rows_with_card} avec carte"
                f" et {self.rows - self.rows_with_card} sans carte)",
                f"  Sans nom d'affichage : {self.without_display_name}",
                f"  Sans nom court       : {self.without_short_name}",
+               f"  Fiches extraites     : {self.products_extracted}",
+               f"  Fiches mises à part  : {len(self.skipped)} (format papier ; ni succès ni anomalie)",
                f"  Échec d'analyse      : {len(self.parse_failures)}",
                f"  Échec d'intégrité    : {len(self.integrity_failures)}"]
         hors = sum(self.out_of_scope.values())
         out.append(f"  Hors périmètre       : {hors}"
                    + (" (" + ", ".join(f"{m} : {n}" for m, n in self.out_of_scope.items()) + ")" if hors else ""))
+        info = []
+        if self.product_missing:
+            info.append("champs absents des fiches extraites : "
+                        + ", ".join(f"{k} : {n}" for k, n in sorted(self.product_missing.items())))
+        if self.unknown_span_classes:
+            info.append("classes de span inconnues dans les descriptions : "
+                        + ", ".join(f"{k} : {n}" for k, n in sorted(self.unknown_span_classes.items())))
+        if self.removed_tags:
+            info.append("balises retirées des descriptions : "
+                        + ", ".join(f"{k} : {n}" for k, n in sorted(self.removed_tags.items())))
+        if info:
+            out.append("Informations :")
+            out.extend(f"  - {item}" for item in info)
         for title, items in (("Échecs d'intégrité", self.integrity_failures), ("Échecs d'analyse", self.parse_failures)):
             if items:
                 out.append(f"{title} :")
@@ -100,7 +144,9 @@ def extract(repo: TransformerRepository, raw_dir: Path, *, extractor_version: st
     run_id = repo.open_run(extractor_version)
     try:
         report.out_of_scope = repo.out_of_scope()
-        report.up_to_date = 0 if force else repo.count_up_to_date(extractor_version)
+        if not force:
+            report.up_to_date, report.up_to_date_skipped = repo.count_up_to_date(extractor_version)
+            report.up_to_date += report.up_to_date_skipped
         pages = repo.pages_to_extract(extractor_version, force)
         report.to_extract = len(pages)
         for page in pages:
@@ -111,10 +157,21 @@ def extract(repo: TransformerRepository, raw_dir: Path, *, extractor_version: st
                 report.integrity_failures.append(f"{page.label} : {exc}")
                 continue
             try:
-                parsed = parse_ranking_page(content)
+                if page.is_product:
+                    product = parse_product_page(content)
+                else:
+                    parsed = parse_ranking_page(content)
+            except PageSkipped as exc:
+                repo.save_skipped(run_id, page.id, str(exc))
+                report.skipped.append(page.label)
+                continue
             except ParseError as exc:
                 repo.save_failure(run_id, page.id, "parse_failed", str(exc))
                 report.parse_failures.append(f"{page.label} : {exc}")
+                continue
+            if page.is_product:
+                repo.save_product(run_id, page.id, product)
+                report.add_product(product)
                 continue
             repo.save_extraction(run_id, page.id, parsed)
             report.extracted += 1
@@ -130,7 +187,8 @@ def extract(repo: TransformerRepository, raw_dir: Path, *, extractor_version: st
         for line in lines:
             log(line)
         try:
-            repo.close_run(run_id, report.status, report.extracted, report.pages_failed, "\n".join(lines))
+            repo.close_run(run_id, report.status, report.pages_extracted, report.pages_failed, len(report.skipped),
+                           "\n".join(lines))
         except Exception as exc:
             if report.error is None:
                 raise

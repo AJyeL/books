@@ -1,5 +1,5 @@
-"""Tests de books.transformer.repository contre un PostgreSQL 17 jetable (migrations 001 à 005), sous le rôle
-books_transformer : la clé composée, les contraintes et les droits sont ceux de la vraie base (décision 011).
+"""Tests de books.transformer.repository contre un PostgreSQL 17 jetable (migrations 001 à 007), sous le rôle
+books_transformer : la clé composée, les contraintes et les droits sont ceux de la vraie base (décisions 011 et 015).
 
 Lancement : bash tests/lancer-tests-postgres.sh (sinon, ces tests sont sautés).
 """
@@ -10,10 +10,12 @@ import psycopg
 import pytest
 
 from books.transformer.parsing import ParsedPage, RankingEntry, parse_ranking_page
+from books.transformer.product_parsing import parse_product_page
 from books.transformer.repository import PgTransformerRepository
 from conftest import FIXTURES
 
 COMPLETE = (FIXTURES / "extraction_page1_complete.html").read_bytes()
+FICHE = (FIXTURES / "fiche_extraction_exemple.html").read_bytes()
 
 
 def entries(n: int = 3) -> list[RankingEntry]:
@@ -45,11 +47,15 @@ def test_perimetre_et_hors_perimetre(pg):
     pg.add_page(COMPLETE, method=None)
     pg.add_page(COMPLETE, status="blocked")
     pg.add_page(COMPLETE, status="invalid")
-    pg.add_page(COMPLETE, page_type="product")
+    product = pg.add_page(FICHE, page_type="product")  # fiche produit : dans le périmètre depuis la version 3
+    pg.add_page(FICHE, page_type="product", status="invalid")
     repo = PgTransformerRepository(pg.transformer)
-    assert [p.id for p in repo.pages_to_extract("1", force=False)] == [inside]
+    pages = repo.pages_to_extract("1", force=False)
+    assert [p.id for p in pages] == [inside, product]
+    assert [p.is_product for p in pages] == [False, True]
+    assert pages[1].asin == "B0FAUX0001" and pages[1].label.startswith("fiche B0FAUX0001 ")
     assert repo.out_of_scope() == {"méthode manual-html": 1, "méthode non enregistrée": 1,
-                                   "statut blocked": 1, "statut invalid": 1, "type product": 1}
+                                   "statut blocked": 1, "statut invalid": 2}
 
 
 def test_ecriture_d_une_page_et_relecture(pg):
@@ -68,9 +74,9 @@ def test_page_a_jour_puis_changement_de_version_puis_force(pg):
     repo = PgTransformerRepository(pg.transformer)
     repo.save_extraction(repo.open_run("1"), page, parsed())
     assert repo.pages_to_extract("1", force=False) == []
-    assert repo.count_up_to_date("1") == 1
+    assert repo.count_up_to_date("1") == (1, 0)
     assert [p.id for p in repo.pages_to_extract("2", force=False)] == [page]  # autre version : à refaire
-    assert repo.count_up_to_date("2") == 0
+    assert repo.count_up_to_date("2") == (0, 0)
     assert [p.id for p in repo.pages_to_extract("1", force=True)] == [page]
 
 
@@ -79,7 +85,7 @@ def test_page_en_echec_reprise_a_chaque_execution(pg):
     repo = PgTransformerRepository(pg.transformer)
     repo.save_failure(repo.open_run("1"), page, "parse_failed", "motif")
     assert [p.id for p in repo.pages_to_extract("1", force=False)] == [page]
-    assert repo.count_up_to_date("1") == 0
+    assert repo.count_up_to_date("1") == (0, 0)
 
 
 def test_reextraction_remplace_les_lignes(pg):
@@ -129,9 +135,10 @@ def test_ecriture_atomique_d_une_page(pg):
 def test_cloture_de_l_execution(pg):
     repo = PgTransformerRepository(pg.transformer)
     run = repo.open_run("1")
-    repo.close_run(run, "partial", 2, 1, "bilan")
-    assert pg.query("SELECT extractor_version, status, pages_extracted, pages_failed, notes, finished_at IS NOT NULL "
-                    "FROM staging.extract_run WHERE id = %s", (run,)) == [("1", "partial", 2, 1, "bilan", True)]
+    repo.close_run(run, "partial", 2, 1, 3, "bilan")
+    assert pg.query("SELECT extractor_version, status, pages_extracted, pages_failed, pages_skipped, notes, "
+                    "finished_at IS NOT NULL FROM staging.extract_run WHERE id = %s",
+                    (run,)) == [("1", "partial", 2, 1, 3, "bilan", True)]
 
 
 def test_verrou_une_seule_extraction(pg):
@@ -176,3 +183,63 @@ def test_observation_de_categorie_ecrite_remplacee_supprimee(pg):
     assert observation(pg, page) == [(run2, "Nom changé d'exemple", None)]  # remplacée, nom non lu : NULL
     repo.save_failure(repo.open_run("3"), page, "parse_failed", "motif")
     assert observation(pg, page) == []  # page en échec : plus d'observation
+
+
+# --- Fiches produit (migration 007, décision 015) -------------------------------------------------------------
+
+def product_rows(pg, page_id):
+    """Nombre de lignes de la page dans chaque table de fiche, et exécutions distinctes."""
+    counts = {}
+    for table in ("product_observation", "product_format", "product_sales_rank", "product_rating_share"):
+        counts[table] = pg.query(f"SELECT count(*), array_agg(DISTINCT extract_run_id) FROM staging.{table} "
+                                 "WHERE raw_page_id = %s", (page_id,))[0]
+    return counts
+
+
+def test_ecriture_d_une_fiche(pg):
+    page = pg.add_page(FICHE, page_type="product")
+    repo = PgTransformerRepository(pg.transformer)
+    run = repo.open_run("3")
+    repo.save_product(run, page, parse_product_page(FICHE))
+    assert pg.query("SELECT extract_run_id, status, error_message, entry_count FROM staging.page_extraction "
+                    "WHERE raw_page_id = %s", (page,)) == [(run, "ok", None, 1)]
+    assert product_rows(pg, page) == {"product_observation": (1, [run]), "product_format": (4, [run]),
+                                      "product_sales_rank": (4, [run]), "product_rating_share": (5, [run])}
+    # Valeurs relues telles quelles ; empreintes acceptées par la base (elle les recalcule dans ses contraintes)
+    assert pg.query("SELECT rating, review_count, file_size_value, file_size_unit, has_aplus "
+                    "FROM staging.product_observation WHERE raw_page_id = %s",
+                    (page,)) == [(Decimal("4.4"), 1234, Decimal("1.2"), "MB", True)]
+
+
+def test_fiche_mise_a_part_puis_changement_de_version(pg):
+    page = pg.add_page(FICHE, page_type="product")
+    repo = PgTransformerRepository(pg.transformer)
+    run = repo.open_run("3")
+    repo.save_skipped(run, page, "format papier")
+    assert pg.query("SELECT status, error_message, entry_count FROM staging.page_extraction WHERE raw_page_id = %s",
+                    (page,)) == [("skipped", "format papier", 0)]
+    assert repo.pages_to_extract("3", force=False) == []  # pas relue par la même version
+    assert repo.count_up_to_date("3") == (0, 1)
+    assert [p.id for p in repo.pages_to_extract("4", force=False)] == [page]  # reprise au changement de version
+
+
+def test_reextraction_d_une_fiche_remplace_ses_lignes_et_echec_les_supprime(pg):
+    page = pg.add_page(FICHE, page_type="product")
+    repo = PgTransformerRepository(pg.transformer)
+    repo.save_product(repo.open_run("3"), page, parse_product_page(FICHE))
+    run2 = repo.open_run("4")
+    repo.save_product(run2, page, parse_product_page(FICHE))
+    assert {t: v[1] for t, v in product_rows(pg, page).items()} == {
+        "product_observation": [run2], "product_format": [run2], "product_sales_rank": [run2],
+        "product_rating_share": [run2]}
+    repo.save_failure(repo.open_run("5"), page, "parse_failed", "forme nouvelle")
+    assert {t: v[0] for t, v in product_rows(pg, page).items()} == {
+        "product_observation": 0, "product_format": 0, "product_sales_rank": 0, "product_rating_share": 0}
+
+
+def test_fiche_mise_a_part_apres_extraction_perd_ses_lignes(pg):
+    page = pg.add_page(FICHE, page_type="product")
+    repo = PgTransformerRepository(pg.transformer)
+    repo.save_product(repo.open_run("3"), page, parse_product_page(FICHE))
+    repo.save_skipped(repo.open_run("4"), page, "format papier")
+    assert sum(v[0] for v in product_rows(pg, page).values()) == 0

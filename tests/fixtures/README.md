@@ -139,3 +139,26 @@ La page de vérification `bestsellers_captcha.html`, demandée comme fiche, est 
 | `fiche_papier_isbn_tirets.html` | ISBN-10 écrit avec tirets | `2000000001` | ok |
 | `fiche_papier_isbn_different.html` | ISBN-10 différent de l'ASIN | `2000000001` | `invalid` |
 | `fiche_papier_deux_isbn10.html` | deux lignes ISBN-10, sans ligne ASIN | `2000000001` | `invalid` |
+
+## Fiches de l'extracteur (`fiche_extraction_*.html`, décision 015, étape D)
+
+`fiche_extraction_exemple.html` est écrite à la main : fiche ebook Kindle `B0FAUX0001`, conforme à la validation, qui
+reprend la structure relevée sur 431 captures réelles (`docs/exploration-amazon.md`, 11 octobre 2026) : onglet Kindle en
+Kindle Unlimited (« Emprunt », prix d'achat dans « ou … pour acheter »), onglets audio (avec des `<script>` dans le titre
+et le message), broché et relié (« — ») ; rangs avec le séparateur U+202F (écrit `&#8239;`) ; répartition par étoiles avec
+ses colonnes cachées ; description à classes `a-text-bold` et `a-text-italic`, `p`, `br`, `h4`, `ul`/`li`, `u`, une classe
+inconnue et un `<script>` ; bloc A+ ; piège de la recommandation (« Format : Broché ») ; second bloc de note dans la
+liste des détails (jamais lu). Mêmes quatre **sentinelles RGPD** que `fiche_exemple.html`.
+
+Les variantes sont générées par `generer_fiches_extraction.py` (`python tests/fixtures/generer_fiches_extraction.py`) :
+
+| Variante | Point testé | Résultat attendu |
+|---|---|---|
+| `gratuit` | rang « n°… des titres gratuits », lien réel mal formé (`?tf=1/ref=…?tf=1`), prix `0,00 €` | extraite, liste `free` |
+| `rang_rare` | rang général dans une sous-boutique (lien `books/{numéro}`) | extraite |
+| `sans_avis` | ni note ni compteur, répartition à `0 %` | extraite, 0 avis |
+| `un_commentaire` | « 1 Commentaire » au singulier | extraite |
+| `sans_aplus`, `fait_partie`, `sans_serie`, `taille_kb`, `sans_description`, `sans_couverture` | formes ou absences observées | extraite |
+| `offre_essai`, `a_partir_de` | qualificatifs `avec_offre_essai`, `a_partir_de` | extraite |
+| `papier` | ligne d'auteur « Broché » | mise à part (« format papier ») |
+| `poche` et les 19 autres | forme inconnue (séparateur, date, pages, taille, avis, répartition, série, onglet, lien…) | échec de la fiche |
