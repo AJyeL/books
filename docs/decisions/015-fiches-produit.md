@@ -399,3 +399,43 @@ contre-épreuve.
 >   d'avis) ; toute autre forme fait échouer la page (règle de la décision 011, section 5).
 > - **Recette en développement** : en plus de la section 9, point 2, les comptes de `ranking_entry` et de
 >   `category_observation` doivent être identiques avant et après le passage à la version 3 de l'extracteur.
+
+> Note du 11 octobre 2026 (**étape D du code : migration 007 et extracteur version 3**) :
+> - **Migration 007** (`sql/migrations/007_fiches_produit.sql`) : `product_observation`, `product_format`,
+>   `product_sales_rank`, `product_rating_share`, rattachées à `page_extraction` par la clé composée ; statut `skipped`
+>   ajouté à `page_extraction` ; colonne `extract_run.pages_skipped`. La base vérifie elle-même que chaque empreinte de
+>   description est celle de son texte (`sha256()`), qu'une note n'existe qu'avec des avis, qu'un seul onglet est
+>   sélectionné et qu'un seul rang est général par fiche. `books_transformer` : `SELECT`, `INSERT`, `DELETE` ;
+>   `books_collector` : rien. Test SQL `test_007_fiches_produit.sql` : 50 vérifications.
+> - **Analyse** (`src/books/transformer/product_parsing.py`), fonction pure : règles des notes de l'étape D, formes de
+>   l'inventaire seulement. Le contenu des `script`, `style`, `noscript` n'est jamais lu (des `<script>` figurent dans
+>   les onglets audio). Seul le bloc de note du haut de la fiche est lu (un second `#acrPopover` figure dans la liste des
+>   détails). Le lien du rang général gratuit, mal formé par Amazon, est reconnu (`docs/exploration-amazon.md`).
+>   **`EXTRACTOR_VERSION = "3"`**.
+> - **Deux écarts au plan, à valider** :
+>   - qualificatif de prix **`avec_offre_essai`** ajouté (livre audio « avec l'offre d'essai », 2 onglets sur 431 fiches),
+>     plutôt que de le confondre avec `avec_abonnement` ou de faire échouer ces fiches ;
+>   - l'**ASIN** et l'horodatage ne sont pas recopiés dans `product_observation` : ils s'obtiennent par jointure avec
+>     `raw.raw_page` (contexte par jointure, décision 011 ; comme `category_observation`). Les balises retirées des
+>     descriptions sont comptées au bilan, comme les classes de span inconnues.
+> - **Tests** : fiche d'exemple inventée de l'extracteur et 33 variantes (`generer_fiches_extraction.py`) ; tests de
+>   l'analyse, du dépôt et de l'orchestration contre PostgreSQL 17 jetable, dont : fiche papier non relue par la même
+>   version et reprise au changement de version ; réextraction et échec qui remplacent ou suppriment les lignes ; aucune
+>   sentinelle RGPD (auteur, éditeur, commentatrice, livraison) dans STAGING, les motifs ni le bilan ; lignes de classement
+>   et observations de catégorie identiques entre les versions 2 et 3. Suite complète : **589 réussis**.
+> - **Contre-épreuves**, chacune en échec : SQL (empreinte non vérifiée, plusieurs onglets sélectionnés, statut `skipped`
+>   absent, note sans avis) ; Python (contenu des `script` lu, toute espace acceptée dans les rangs, Top gratuit lu dans
+>   les paramètres ordinaires, gras non traduit, fiche papier extraite, titre lu dans la ligne d'auteur, bloc de note des
+>   détails lu, colonnes cachées de la répartition lues, accord de « Commentaire » non contrôlé, fiche papier relue à
+>   chaque exécution).
+> - **Analyse en lecture seule des 431 fiches de l'inventaire**, dans les conditions de la production (validation
+>   d'abord) : **0 échec** ; 256 fiches Kindle extraites, 174 fiches papier mises à part, 1 fiche poche refusée par la
+>   validation (hors périmètre). Comptes identiques à ceux de l'inventaire (séries, avis, A+, tailles, rangs, emprunts KU).
+> - **Recette en développement** (section 9, point 2 ; note des décisions de l'étape D) : migration 007 appliquée, tests SQL
+>   005 à 007 conformes, image reconstruite ; 4 vraies captures Kindle de l'inventaire ingérées (`ok`) en plus des 3 fiches
+>   du 10 octobre ; extraction en version 3 : 14 classements réextraits (690 lignes, 554 avec carte), 5 fiches Kindle
+>   extraites, 2 fiches papier mises à part, 0 échec, code 0. **Lignes de classement et observations de catégorie
+>   identiques** avant et après (comptes 690 / 554 / 505 et 14, et empreintes du contenu). Seconde exécution : 21 pages
+>   déjà à jour, dont 2 fiches papier.
+> - **Déploiement sur atlas, à faire** : sauvegarde, migration 007, reconstruction de l'image, puis une extraction qui
+>   réextraira toutes les pages (version 3) et extraira les fiches déjà dans RAW.

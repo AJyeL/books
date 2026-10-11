@@ -377,3 +377,8 @@ détaillée.
 > Note du 10 octobre 2026 : `EXTRACTOR_VERSION` passe à « 2 » (décision 014) : l'extracteur lit aussi les noms de la
 > catégorie (`staging.category_observation`, migration 006). Toutes les pages sont réextraites à la première exécution
 > de la version 2. Les règles de lecture des lignes de classement sont inchangées.
+
+> Note du 11 octobre 2026 : `EXTRACTOR_VERSION` passe à « 3 » (décision 015, étape D) : le périmètre s'étend aux pages
+> `product` (`ok`, `extension-dom`). Les fiches Kindle sont extraites dans quatre tables (migration 007) ; les fiches
+> papier reçoivent le statut `skipped` (motif « format papier »), ni succès ni anomalie. Les règles de lecture des pages
+> de classement sont inchangées ; toutes les pages sont réextraites à la première exécution de la version 3.

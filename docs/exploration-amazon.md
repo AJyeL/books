@@ -654,3 +654,12 @@ n'est jamais lu (l'éditeur est seulement compté). Notation des séparateurs : 
 Limites : 431 fiches d'un seul jour, choisies par la navigation du porteur du projet (pas un échantillon aléatoire),
 une version de l'extension et de Chrome ; les formes absentes de l'échantillon (autres langues, autres unités) restent
 possibles et devront être des échecs visibles.
+
+## Fiches produit : lien du rang général gratuit (11 octobre 2026)
+
+Relevé lors de la mise au point de l'extracteur version 3 (décision 015, étape D), sur les 55 fiches Kindle du Top
+gratuit de l'inventaire : le lien « Voir les 100 premiers en Boutique Kindle » du rang général gratuit est **mal formé**
+par Amazon : `/gp/bestsellers/digital-text?tf=1/ref=pd_zg_ts_digital-text?tf=1`, avec deux `?`. Une lecture ordinaire
+des paramètres ne trouve pas `tf=1` ; l'extracteur reconnaît le Top gratuit à `tf=1` placé après un `?` ou un `&`, où
+qu'il soit dans le lien. Les liens des rangs de catégorie du Top gratuit ont la forme ordinaire
+`/gp/bestsellers/digital-text/{numéro}?tf=1…`.
