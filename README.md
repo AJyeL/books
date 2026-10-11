@@ -131,10 +131,11 @@ cd ~/books && docker compose exec postgres sh -c 'psql -U books_reader -d "$POST
 
 ## Tests
 
-Tests Python, dans un conteneur jetable (le dépôt est monté en lecture seule) :
+Tests Python, dans un conteneur jetable (le dépôt est monté en lecture seule, et copié **sans `data/`** : les tests
+ne dépendent jamais de vraies données) :
 
 ```bash
-docker run --rm -v "${PWD}:/src:ro" python:3.12-slim sh -c 'cp -r /src /tmp/w && cd /tmp/w && pip install -q --root-user-action=ignore ".[dev]" && pytest -v'
+docker run --rm -v "${PWD}:/src:ro" python:3.12-slim sh -c 'mkdir /tmp/w && (cd /src && tar --exclude=./data -cf - .) | tar -xf - -C /tmp/w && cd /tmp/w && pip install -q --root-user-action=ignore ".[dev]" && pytest -v'
 ```
 
 Cette commande **saute** les tests qui demandent une base de données (dépôt et orchestration de l'extracteur,

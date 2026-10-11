@@ -8,7 +8,8 @@
 # 2. Migrations appliquées à la base modèle books_test_template ; mots de passe de TEST de books_transformer et de
 #    books_collector.
 # 3. Suite Python dans un conteneur jetable relié à ce réseau ; chaque test de base de données travaille sur une copie
-#    neuve de la base modèle (fixture « pg » de tests/python/conftest.py).
+#    neuve de la base modèle (fixture « pg » de tests/python/conftest.py). Le dépôt est copié dans le conteneur SANS
+#    data/ : les tests ne dépendent jamais de vraies données (captures, fiches, RAW), seulement de tests/fixtures/.
 # 4. Tout est supprimé à la fin, même en cas d'échec. Aucune base de développement ou de production n'est touchée.
 # Les mots de passe ci-dessous ne protègent que ces conteneurs jetables : ce ne sont pas des secrets.
 set -euo pipefail
@@ -50,5 +51,5 @@ docker run --rm --network "$NET" -v "$REPO:/src:ro" \
     -e BOOKS_TEST_PG_HOST="$PG" -e BOOKS_TEST_PG_PORT=5432 -e BOOKS_TEST_PG_TEMPLATE="$TEMPLATE" \
     -e BOOKS_TEST_PG_OWNER=proprio -e BOOKS_TEST_PG_OWNER_PASSWORD=proprio-test \
     -e BOOKS_TEST_PG_TRANSFORMER_PASSWORD=transformer-test -e BOOKS_TEST_PG_COLLECTOR_PASSWORD=collector-test \
-    -e PIP_DISABLE_PIP_VERSION_CHECK=1 python:3.12-slim sh -c 'cp -r /src /tmp/w && cd /tmp/w \
+    -e PIP_DISABLE_PIP_VERSION_CHECK=1 python:3.12-slim sh -c 'mkdir /tmp/w && (cd /src && tar --exclude=./data -cf - .) | tar -xf - -C /tmp/w && cd /tmp/w \
         && pip install -q --root-user-action=ignore ".[dev]" && pytest -q -rfEs "$@"' sh "$@"
