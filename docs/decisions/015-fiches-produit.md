@@ -448,3 +448,23 @@ contre-épreuve.
 >   en dérivaient ; fiches dérivées et captures de test régénérées, suite complète relancée (589 réussis). La règle
 >   « pages d'exemple inventées » (section 8) s'entend : jamais un texte qu'on sait présent sur une vraie page. L'ancien titre
 >   reste dans l'historique git, qui n'est pas réécrit.
+
+> Note du 11 octobre 2026 (**déploiement de l'étape D sur atlas**, commit `abba8ee`, rapporté par le porteur du projet) :
+> - Sauvegarde de la base ; `git pull --ff-only` jusqu'à `abba8ee` ; **migration 007 appliquée** (`COMMIT`) ; migrations
+>   1 à 7 et les 4 tables de fiches observées. Tests SQL non lancés en production (ils restent lancés en base jetable et
+>   en développement).
+> - **Extracteur version 3** : 496 pages extraites ou mises à part ; 66 pages de classement (3 129 lignes, dont 2 679
+>   avec carte) ; **256 fiches Kindle extraites, 174 fiches papier mises à part** ; 0 échec ; code 0. Comptes des fiches
+>   identiques à ceux de l'analyse en lecture seule de l'inventaire (note de l'étape D du code).
+> - **Classements identiques à la version 2** : comptes et empreintes MD5 du contenu de `ranking_entry` et de
+>   `category_observation`, relevés avant et après.
+> - Tables de fiches : `product_observation` 256, onglets sélectionnés 256, rangs généraux 256, `product_rating_share`
+>   1 280 (5 lignes par fiche).
+> - Seconde exécution : 0 page à extraire, code 0 (les fiches papier ne sont pas relues).
+> - Sauvegarde rapatriée sur le PC et vérifiée (SHA-256, décision 009).
+> - **Informations du bilan** (jamais des anomalies) : champs absents des fiches extraites : ISBN-13 176, série 58,
+>   note 17, pages imprimées 5, taille du fichier 3, couverture 1 ; classe de `span` inconnue `a-list-item` (28),
+>   portée par les éléments de liste : structurelle, **à déclarer connue à la prochaine version de l'extracteur**
+>   (changement de règle d'analyse, donc `EXTRACTOR_VERSION` incrémentée dans le même commit).
+> - **La décision 015 est mise en œuvre de bout en bout** (étapes A à D) : les fiches Kindle sont lues dans STAGING en
+>   production.
