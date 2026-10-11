@@ -78,13 +78,16 @@ docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_
 
 Migrations déjà appliquées : table `public.schema_migration`.
 
-## Mot de passe des rôles books_collector et books_transformer
+## Mot de passe des rôles books_collector, books_transformer et books_reader
 
 À faire une fois par environnement (PC, atlas) et pour chaque rôle : après la migration 002 pour
 `books_collector` (collecteur), après la migration 005 pour `books_transformer` (extracteur, décision 011),
-et après toute restauration. Les deux mots de passe sont différents ; aucun n'est jamais écrit dans le dépôt.
-La procédure est décrite pour `books_collector` ; pour l'autre rôle, remplacer son nom, et la variable
-`BOOKS_COLLECTOR_PASSWORD` par `BOOKS_TRANSFORMER_PASSWORD`.
+après la migration 008 pour `books_reader` (explorations SQL, décision 016), et après toute restauration.
+Les mots de passe sont différents ; aucun n'est jamais écrit dans le dépôt.
+La procédure est décrite pour `books_collector` ; pour `books_transformer`, remplacer son nom, et la variable
+`BOOKS_COLLECTOR_PASSWORD` par `BOOKS_TRANSFORMER_PASSWORD`. Pour `books_reader`, remplacer son nom et **sauter
+l'étape 3** : aucun programme ne s'en sert, son mot de passe se garde dans un gestionnaire de mots de passe, jamais
+dans `.env` (il ne sert qu'aux connexions par le port publié, voir « Explorations SQL »).
 
 1. Ouvrir psql en tant que propriétaire :
 
@@ -103,6 +106,29 @@ La procédure est décrite pour `books_collector` ; pour l'autre rôle, remplace
    ni dans les journaux du serveur (contrairement à `ALTER ROLE … PASSWORD '…'`).
 
 3. Recopier ce mot de passe dans `.env` : `BOOKS_COLLECTOR_PASSWORD=…`
+
+## Explorations SQL (rôle books_reader)
+
+Rôle de lecture seule (décision 016), sur atlas (après `ssh`) comme sur le PC :
+
+```bash
+cd ~/books && docker compose exec postgres sh -c 'psql -U books_reader -d "$POSTGRES_DB"'
+```
+
+- **Aucun mot de passe demandé** : dans le conteneur, la connexion locale (et même `-h 127.0.0.1`) est en `trust`
+  (image officielle `postgres:17`). Le rôle protège contre les **erreurs humaines**, pas contre un intrus ; la barrière
+  contre un intrus reste l'accès SSH à atlas (décision 016, section 1).
+- **Ce qu'il lit** : toutes les tables de `staging`, `raw.collect_run`, `raw.raw_page` sans ses adresses
+  (`requested_url` et `final_url` : identifiant de session possible dans `ref=`), `public.schema_migration`.
+  Un `SELECT *` sur `raw.raw_page` est refusé : nommer les colonnes. Il ne lira jamais la correspondance des
+  auteurs (décision 013).
+- **Garde-fous** : transactions en lecture seule par défaut ; requête interrompue après 2 minutes ; transaction
+  inactive fermée après 5 minutes ; 2 connexions au plus. Aucune écriture ni création d'objet n'est permise, même
+  en désactivant la lecture seule.
+- **Par le port publié** (`127.0.0.1:5433` de l'hôte, par exemple via un tunnel SSH) : mot de passe exigé (SCRAM).
+  C'est le seul usage de son mot de passe.
+- Sur le PC, une copie rapatriée (décision 009) restaurée en développement s'explore de la même façon, sans risque
+  pour la production.
 
 ## Tests
 
@@ -161,6 +187,14 @@ Tests SQL de la migration 007 (fiches produit dans STAGING, décision 015), mêm
 
 ```bash
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_007_fiches_produit.sql
+```
+
+Tests SQL de la migration 008 (rôle de lecture `books_reader`, décision 016), même principe. Ils contiennent la
+**liste blanche** de ce que `books_reader` peut lire : toute migration qui crée ou modifie une table qu'il lit, ou lui
+ouvre un accès, met cette liste à jour dans le même commit.
+
+```bash
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_008_role_lecture.sql
 ```
 
 Les tests SQL supposent **toutes** les migrations appliquées : depuis la 004, leurs lignes de test portent
@@ -226,8 +260,8 @@ vérifie son empreinte SHA-256 et la range avec son manifeste (`books_….dump` 
 
 Une sauvegarde `pg_dump` (voir `scripts/backup.sh`) ne contient **ni les rôles, ni les droits portant
 sur la base elle-même**. Après restauration sur un serveur neuf, `schema_migration` indiquerait les
-migrations 002 et 005 comme appliquées, alors que `books_collector` et `books_transformer` n'existeraient pas
-et que le retrait du droit `TEMPORARY` serait perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
+migrations 002, 005 et 008 comme appliquées, alors que `books_collector`, `books_transformer` et `books_reader`
+n'existeraient pas (ni les réglages de `books_reader`), et que le retrait du droit `TEMPORARY` serait perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
 
 1. Démarrer PostgreSQL :
 
@@ -235,11 +269,12 @@ et que le retrait du droit `TEMPORARY` serait perdu. Procédure, sur une base vi
    docker compose up -d postgres
    ```
 
-2. Créer les deux rôles **avant** la restauration (sinon leurs droits sur `raw` et `staging` ne peuvent pas être
-   restaurés, et `--exit-on-error` arrête la restauration) :
+2. Créer les trois rôles **avant** la restauration (sinon leurs droits sur `raw` et `staging` ne peuvent pas être
+   restaurés, et `--exit-on-error` arrête la restauration), avec la limite de connexions et les réglages de
+   `books_reader` (migration 008, décision 016), absents de la sauvegarde :
 
    ```bash
-   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE ROLE books_collector LOGIN" -c "CREATE ROLE books_transformer LOGIN"'
+   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE ROLE books_collector LOGIN" -c "CREATE ROLE books_transformer LOGIN" -c "CREATE ROLE books_reader LOGIN CONNECTION LIMIT 2" -c "ALTER ROLE books_reader SET default_transaction_read_only = on" -c "ALTER ROLE books_reader SET statement_timeout = '"'"'2min'"'"'" -c "ALTER ROLE books_reader SET idle_in_transaction_session_timeout = '"'"'5min'"'"'"'
    ```
 
 3. Restaurer la sauvegarde choisie :
@@ -254,10 +289,11 @@ et que le retrait du droit `TEMPORARY` serait perdu. Procédure, sur une base vi
    docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "REVOKE TEMPORARY ON DATABASE \"$POSTGRES_DB\" FROM PUBLIC"'
    ```
 
-5. Définir les mots de passe de `books_collector` et de `books_transformer` (section ci-dessus) et les reporter
-   dans `.env`.
+5. Définir les mots de passe des trois rôles (section ci-dessus) ; reporter ceux de `books_collector` et de
+   `books_transformer` dans `.env`, jamais celui de `books_reader`.
 
-6. Vérifier avec les tests SQL des migrations 002 et 005 (section Tests).
+6. Vérifier avec les tests SQL des migrations 005 à 008 (section Tests) ; le test 008 contrôle les attributs, les
+   réglages et la liste blanche de `books_reader`.
 
 Les pages brutes se restaurent à part, depuis `~/books-backup/raw` vers `~/books-data/raw`.
 

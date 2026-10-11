@@ -41,8 +41,9 @@ def test_dossier_raw_introuvable_code_2(environ, tmp_path, capsys):
     assert "Dossier des pages brutes introuvable" in capsys.readouterr().err
 
 
-def test_autre_role_refuse_code_2(environ, capsys):
-    environ.setenv("POSTGRES_USER", "proprio")
+@pytest.mark.parametrize("role", ["proprio", "books_reader"])  # books_reader : rôle de lecture (décision 016)
+def test_autre_role_refuse_code_2(environ, role, capsys):
+    environ.setenv("POSTGRES_USER", role)
     assert main([]) == 2
     assert "l'extracteur se connecte en books_transformer" in capsys.readouterr().err
 
