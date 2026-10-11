@@ -130,6 +130,15 @@ Question adressée par écrit à la CNIL le 9 octobre 2026, réponse attendue ; 
   obtenir un code, il passera par une fonction qui ne rend que le code (piste à étudier, par exemple une fonction
   `SECURITY DEFINER` du rôle dédié). `books_collector` n'aura aucun accès. Les futurs rôles d'analyse et de tableau
   de bord n'y auront pas accès.
+
+  > Note du 11 octobre 2026 (décision 016, rôle de lecture `books_reader`) : **règle impérative pour la mise en œuvre**.
+  > PostgreSQL accorde par défaut le droit d'exécuter toute nouvelle fonction à `PUBLIC`, c'est-à-dire à tous les rôles.
+  > Toute fonction du schéma séparé est donc créée puis immédiatement fermée par
+  > `REVOKE EXECUTE ON FUNCTION … FROM PUBLIC`, dans la même migration, et accordée nommément aux seuls rôles qui en ont
+  > besoin (`books_transformer` pour la fonction qui rend un code). Le schéma séparé ne reçoit aucun droit pour
+  > `books_reader`. Le test de liste blanche de la décision 016 (`tests/sql/test_008_role_lecture.sql`) échoue si
+  > `books_reader` peut lire une colonne ou exécuter une fonction hors de sa liste ; il simule déjà un schéma de
+  > correspondance et sa fonction.
 - **Sauvegardes et copies** : un `pg_dump` de la base contiendra le schéma séparé ; les copies sur le PC
   (décision 009) aussi. La durée de conservation (section 4, question 3) s'appliquera à ces copies.
 - **Inventaires** : la règle des études hors ligne (`docs/exploration-amazon.md` : comptes seulement, auteur jamais

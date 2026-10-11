@@ -97,11 +97,22 @@ même protocole. Les trois formats d'un même livre se comparent ainsi un à un 
 | Noms des commentateurs, textes et images des avis | **internautes, tiers** | **jamais extraits** (section 6) |
 | Offres d'occasion et vendeurs tiers | vendeurs, parfois des personnes physiques | jamais extraits |
 | « Livraison à {code postal} {ville} » | **le porteur du projet** (localisation déduite de sa connexion) | jamais extraite ; absente du dépôt public |
+| Identifiant de session dans le paramètre `ref=` des liens (`…/ref=…/{NNN-NNNNNNN-NNNNNNN}`) | **le porteur du projet** (session Amazon du navigateur de veille, non connecté) | dans RAW (pages et adresse affichée), jamais extrait ; absent du dépôt public ; adresses de RAW non lisibles par le rôle de lecture (décision 016) |
 | Description, bloc A+ | auteurs (citation possible du nom) | stockage seulement, ni affichage ni citation (décision 013, section 3) |
 
 - La mention de livraison figure **aussi sur les pages de classement**. Vérifié le 10 octobre 2026 : **15/15 captures
   en local** (`data/captures/`), **60/60 pages RAW sur atlas** (comptes faits par le porteur du projet).
   Vérifié le 10 octobre 2026 : elle n'apparaît **nulle part** dans le dépôt public, historique compris.
+- L'identifiant de session (ligne ajoutée le 11 octobre 2026) : relevé **par comptes seulement**, aucune valeur affichée,
+  sur les captures de `data/` le 11 octobre 2026 :
+  - pages contenant un identifiant dans un lien `ref=` : classements de l'extension 15/17, enregistrements Ctrl+S de
+    classement 7/7, fiches Ctrl+S 4/6, fiches de l'inventaire 410/431 ; les autres portent la même forme ailleurs
+    dans la page, ou aucune occurrence (2 classements) ; jamais plus d'un identifiant par page ; **3 identifiants
+    distincts** sur l'ensemble des captures ;
+  - **adresse affichée** (JSON jumeau, recopiée dans `raw.raw_page.requested_url`) : 0 sur 14 classements, **256 sur
+    431 fiches** de l'inventaire (fiches ouvertes depuis un lien qui le portait) ; en développement, 5 des 7 fiches de
+    RAW ; `final_url` toujours vide ;
+  - dépôt public : seule la valeur inventée `123-1234567-1234567` des pages de test, historique compris.
 
 ### 3. Adresse acceptée
 
