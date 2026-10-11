@@ -218,3 +218,10 @@ Recette en développement :
 >   développement. **Elles sont gardées.** Elles restent **hors du périmètre de l'extracteur** (décision 011, section 1 :
 >   seules les captures `extension-dom` sont extraites) et n'entrent pas dans STAGING. Constaté par l'extracteur :
 >   `Hors périmètre : 14 (méthode manual-html : 14)`, 0 page à extraire, code 0. Aucun effet sur atlas.
+
+> Note du 11 octobre 2026 (décision 017, guide de veille) : `books_reader` sert **aussi au script d'export du guide**
+> (`scripts/exporter-guide.sh`), par la même connexion locale du conteneur, sans mot de passe. Il reste en lecture
+> seule. Il reçoit `USAGE` sur le schéma `guide` et `SELECT` sur ses trois vues, créées avec `security_invoker = true` :
+> elles lisent les tables avec ses propres droits et ne lui donnent **aucune donnée de plus**. La liste attendue du
+> test de liste blanche (`tests/sql/test_008_role_lecture.sql`) est mise à jour par la migration 009, comme l'exige la
+> section 7.

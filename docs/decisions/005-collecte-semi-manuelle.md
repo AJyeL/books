@@ -69,6 +69,14 @@ Aucun programme du projet n'envoie de requête à Amazon : ni le collecteur, ni 
 - Les **fiches produit** sont exclues. Elles contiennent des avis clients nominatifs : leur ajout attendra une
   décision RGPD dédiée (décision 002, section 6), puis un élargissement explicite de la liste blanche.
 
+> Note du 11 octobre 2026 (décision 017, guide de veille) : l'extension reçoit un **panneau latéral de
+> renseignement**. En mode enregistrement, elle compare la liste classée affichée à une référence importée à la main
+> (fichier choisi par le porteur du projet, rapatrié d'atlas par un script) et montre les nouveaux entrants, les
+> fiches Kindle manquantes et les changements de rang. Les interdits de cette décision sont inchangés : aucune requête,
+> aucun onglet ouvert, aucune action sur la page, rien n'est écrit dans la page Amazon. Seule permission ajoutée :
+> `sidePanel`. Le guide renseigne, il ne commande pas ; la question de la collecte « répétée et systématique » qu'il
+> accentue rejoint la liste destinée au juriste (décision 017, section 8).
+
 ### 5. Capture
 
 - La page est capturée **telle qu'elle est affichée** : le DOM du document, c'est-à-dire la page après son exécution
