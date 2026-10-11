@@ -1,7 +1,10 @@
 #!/bin/sh
 # Doublure de test de « docker », sur un faux atlas ou dans un conteneur de test.
 #
-# « docker compose exec … » (pg_dump de scripts/backup.sh et scripts/exporter-sauvegarde.sh) :
+# « docker compose exec … » sous books_reader, lecture de guide.export_document (scripts/exporter-guide.sh) :
+#   voir la branche dédiée ci-dessous (~/faux-guide, ~/code-guide).
+#
+# Autre « docker compose exec … » (pg_dump de scripts/backup.sh et scripts/exporter-sauvegarde.sh) :
 #   écrit sur la sortie standard le contenu de ~/faux-dump (à défaut, un petit faux dump binaire)
 #   et rend le code écrit dans ~/code-pg-dump (0 par défaut ; message sur la sortie d'erreur sinon).
 #
@@ -18,6 +21,22 @@ if [ "${1:-}" = compose ] && [ "${2:-}" = --profile ] && [ "${3:-}" = transforme
     exit "$code"
 fi
 if [ "${1:-}" = compose ] && [ "${2:-}" = exec ]; then
+    case "$*" in
+        *books_reader*guide.export_document*)
+            # Lecture du guide (scripts/exporter-guide.sh) : contenu de ~/faux-guide (à défaut, un document minimal
+            # inventé, sur une ligne, à la forme de json_build_object) ; code écrit dans ~/code-guide (0 par défaut)
+            code=$(cat "$HOME/code-guide" 2>/dev/null || echo 0)
+            if [ "$code" -ne 0 ]; then
+                echo "psql factice : erreur simulée" >&2
+                exit "$code"
+            fi
+            if [ -f "$HOME/faux-guide" ]; then
+                cat "$HOME/faux-guide"
+            else
+                echo '{"schema_version" : 1, "generated_at" : "2026-10-11T18:00:00Z", "lists" : [], "kindle_asins" : []}'
+            fi
+            exit 0 ;;
+    esac
     code=$(cat "$HOME/code-pg-dump" 2>/dev/null || echo 0)
     if [ "$code" -ne 0 ]; then
         echo "pg_dump factice : erreur simulée" >&2

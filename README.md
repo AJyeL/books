@@ -230,6 +230,18 @@ Tests du script de rapatriement (`scripts/rapatrier-sauvegarde.ps1`), même prin
 powershell -NoProfile -ExecutionPolicy Bypass -File tests\powershell\Test-RapatrierSauvegarde.ps1
 ```
 
+Tests du script d'export du guide de veille (`scripts/exporter-guide.sh`), dans un conteneur Debian jetable :
+
+```bash
+docker run --rm -v "${PWD}:/src:ro" debian:bookworm-slim bash /src/tests/shell/test_exporter_guide.sh
+```
+
+Tests du script de réception du guide (`scripts/recevoir-guide.ps1`), même principe que ceux du script d'envoi :
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File tests\powershell\Test-RecevoirGuide.ps1
+```
+
 ## Envoi des captures vers atlas (PC)
 
 Décisions 008 et 012. Après une séance de capture, double-cliquer sur `scripts\envoyer-captures.cmd`,
@@ -260,6 +272,24 @@ vérifie son empreinte SHA-256 et la range avec son manifeste (`books_….dump` 
   code 2, réglage à corriger (aucune connexion).
 - Aucune copie n'est supprimée ; le bilan signale le seuil de révision (24 copies ou 5 Go).
 - Pour restaurer une copie : la remettre sur atlas, puis suivre la section suivante.
+
+## Guide de veille (PC)
+
+Décision 017. Après l'envoi des captures d'une séance, double-cliquer sur `scripts\recevoir-guide.cmd`, puis saisir
+le mot de passe d'atlas quand `ssh` le demande. Atlas lit la référence du guide (schéma `guide`, sous `books_reader`) ;
+le PC la reçoit, vérifie son empreinte SHA-256 et son format (version 1), et la range avec son manifeste
+(`guide_….json` et `guide_….json.sha256`). Importer ensuite ce fichier dans l'extension (page d'options du guide)
+avant la séance suivante.
+
+- **Rythme** : envoyer, puis exporter le guide, puis l'importer. Une page réouverte juste après son envoi montre des
+  écarts nuls : c'est normal.
+- **Prérequis** : l'alias SSH `atlas`, et le réglage local `scripts\recevoir-guide.local.psd1`, copié depuis
+  `recevoir-guide.exemple.psd1`, qui désigne un dossier existant (ignoré par Git). **Jamais le dossier des captures** :
+  l'envoi y signalerait le guide comme fichier hors format.
+- **Issues** : code 0, guide reçu et vérifié ; code 1, échec (rien n'est ajouté au dossier, relancer) ;
+  code 2, réglage à corriger (aucune connexion).
+- Aucun guide n'est supprimé ni écrasé. Le fichier contient des numéros de catégorie réels : il ne va jamais dans le
+  dépôt.
 
 ## Restauration d'une sauvegarde
 
