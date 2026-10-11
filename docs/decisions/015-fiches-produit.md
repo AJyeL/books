@@ -371,3 +371,31 @@ contre-épreuve.
 >   libellé poche : son ajout aux formats acceptés demandera l'examen de sa structure, puis une décision.
 > - Rappel : RAW n'étant jamais revalidé, cette fiche reste `invalid` ; une nouvelle capture, après l'éventuel ajout du
 >   libellé, serait une nouvelle observation.
+
+> Note du 11 octobre 2026 (**décisions de l'étape D et amendement de la section 6**, adoptés par le porteur du projet,
+> d'après l'inventaire de 431 fiches, `docs/exploration-amazon.md`) :
+> - **Description en deux colonnes** (remplace « description (texte) » de la section 6) :
+>   - `description_text` : texte décodé, espaces normalisés (toute suite d'espaces, insécables comprises, devient une
+>     espace ; aucune en début ni en fin) ;
+>   - `description_markup` : **balises de sens seulement**, aucun attribut : gras `<b>`, italique `<i>`, soulignement
+>     `<u>`, titres `<h3>` à `<h5>`, listes `<ul>`/`<li>`, paragraphes `<p>`, sauts de ligne `<br>`. Amazon n'emploie pas de
+>     balises de gras ni d'italique : `span.a-text-bold` devient `<b>`, `span.a-text-italic` devient `<i>` (les deux
+>     s'emboîtent). Toute autre balise est retirée, son texte conservé. Toute autre classe de `span` rencontrée est
+>     comptée au bilan, en information ;
+>   - chacune avec son **empreinte SHA-256** (`description_text_sha256`, `description_markup_sha256`), pour repérer un
+>     changement de description entre deux observations sans comparer les textes.
+> - **Fiches papier : statut `skipped`** dans `staging.page_extraction`, motif « format papier », aucune ligne dans les
+>   tables de fiches. Ni succès, ni anomalie : une **catégorie à part** du bilan, sans effet sur le code de sortie. Une
+>   page `skipped` n'est pas relue à chaque exécution ; elle est reprise au prochain changement de version de
+>   l'extracteur (même règle que les pages extraites). Migration 007 : statut ajouté aux contraintes de
+>   `page_extraction`.
+> - **Offre Kindle Unlimited** : elle ne vit que dans `staging.product_format` (onglet Kindle dont le prix affiché est
+>   « Emprunt », prix d'achat lu dans « ou … pour acheter ») ; **`ku_offer_hint` est retiré de
+>   `product_observation`** (une règle, un propriétaire). Indice non vérifié, utilisé dans aucune analyse avant décision.
+> - **Prix des onglets** : qualificatif `exact`, `a_partir_de` (« à partir de … »), `avec_abonnement` (livre audio),
+>   `non_affiche` (« — » : prix `NULL`).
+> - **Taille du fichier** : valeur et unité telles qu'affichées (`9.9 MB`, `999 KB`), sans conversion.
+> - **Séparateurs** : seuls ceux observés sont acceptés (U+202F dans les rangs ; U+00A0 dans les prix et les compteurs
+>   d'avis) ; toute autre forme fait échouer la page (règle de la décision 011, section 5).
+> - **Recette en développement** : en plus de la section 9, point 2, les comptes de `ranking_entry` et de
+>   `category_observation` doivent être identiques avant et après le passage à la version 3 de l'extracteur.
