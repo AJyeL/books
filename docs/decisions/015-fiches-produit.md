@@ -362,3 +362,12 @@ contre-épreuve.
 >   `raw_page product ok | 3` ; comptes de classement et de STAGING inchangés.
 > - **Réserve « validation à rejouer sur de vraies captures » (note de l'étape B) : levée en production.**
 > - Prochaine étape de la décision : **étape D** (migration 007, extracteur version 3, section 9, point 2).
+
+> Note du 11 octobre 2026 (premiers volumes en production, rapportés par le porteur du projet) :
+> - Ingestion 18 : 3 fiches `ok` (premier envoi réel, note précédente).
+> - Ingestions du 10 octobre au soir : **environ 427 fiches `ok`**, et **1 fiche poche `invalid`** (ingestion 21, motif
+>   « format affiché non accepté (ni ebook Kindle, ni broché, ni relié) », sans contenu de la page), comme prévu par la
+>   règle « Poche refusé tant qu'il n'a pas été observé » (note de l'étape B). C'est la première observation d'un
+>   libellé poche : son ajout aux formats acceptés demandera l'examen de sa structure, puis une décision.
+> - Rappel : RAW n'étant jamais revalidé, cette fiche reste `invalid` ; une nouvelle capture, après l'éventuel ajout du
+>   libellé, serait une nouvelle observation.
