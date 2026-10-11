@@ -78,16 +78,15 @@ docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_
 
 Migrations déjà appliquées : table `public.schema_migration`.
 
-## Mot de passe des rôles books_collector, books_transformer et books_reader
+## Mot de passe des rôles books_collector et books_transformer
 
 À faire une fois par environnement (PC, atlas) et pour chaque rôle : après la migration 002 pour
 `books_collector` (collecteur), après la migration 005 pour `books_transformer` (extracteur, décision 011),
-après la migration 008 pour `books_reader` (explorations SQL, décision 016), et après toute restauration.
-Les mots de passe sont différents ; aucun n'est jamais écrit dans le dépôt.
+et après toute restauration. Les deux mots de passe sont différents ; aucun n'est jamais écrit dans le dépôt.
+`books_reader` (explorations SQL, décision 016) n'a **pas de mot de passe** tant qu'aucun tunnel n'est décidé :
+pas de secret sans usage.
 La procédure est décrite pour `books_collector` ; pour `books_transformer`, remplacer son nom, et la variable
-`BOOKS_COLLECTOR_PASSWORD` par `BOOKS_TRANSFORMER_PASSWORD`. Pour `books_reader`, remplacer son nom et **sauter
-l'étape 3** : aucun programme ne s'en sert, son mot de passe se garde dans un gestionnaire de mots de passe, jamais
-dans `.env` (il ne sert qu'aux connexions par le port publié, voir « Explorations SQL »).
+`BOOKS_COLLECTOR_PASSWORD` par `BOOKS_TRANSFORMER_PASSWORD`.
 
 1. Ouvrir psql en tant que propriétaire :
 
@@ -126,7 +125,7 @@ cd ~/books && docker compose exec postgres sh -c 'psql -U books_reader -d "$POST
   inactive fermée après 5 minutes ; 2 connexions au plus. Aucune écriture ni création d'objet n'est permise, même
   en désactivant la lecture seule.
 - **Par le port publié** (`127.0.0.1:5433` de l'hôte, par exemple via un tunnel SSH) : mot de passe exigé (SCRAM).
-  C'est le seul usage de son mot de passe.
+  Le rôle n'en ayant pas, cette connexion est impossible tant qu'aucun tunnel n'est décidé (décision 016, section 2).
 - Sur le PC, une copie rapatriée (décision 009) restaurée en développement s'explore de la même façon, sans risque
   pour la production.
 
@@ -289,8 +288,8 @@ n'existeraient pas (ni les réglages de `books_reader`), et que le retrait du dr
    docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "REVOKE TEMPORARY ON DATABASE \"$POSTGRES_DB\" FROM PUBLIC"'
    ```
 
-5. Définir les mots de passe des trois rôles (section ci-dessus) ; reporter ceux de `books_collector` et de
-   `books_transformer` dans `.env`, jamais celui de `books_reader`.
+5. Définir les mots de passe de `books_collector` et de `books_transformer` (section ci-dessus) et les reporter
+   dans `.env` ; `books_reader` reste sans mot de passe.
 
 6. Vérifier avec les tests SQL des migrations 005 à 008 (section Tests) ; le test 008 contrôle les attributs, les
    réglages et la liste blanche de `books_reader`.

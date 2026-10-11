@@ -43,9 +43,11 @@ qu'une exploration ordinaire ne voit jamais certaines données (section 4).
   base ou de rôle, ni réplication, ni contournement des règles de lignes. Il n'est **membre d'aucun rôle**, ni des rôles
   prédéfinis `pg_read_all_data` et `pg_read_server_files`.
 - Créé par la **migration 008**, donc en développement et en production, comme les autres rôles.
-- **Mot de passe** : défini à la main (`\password`), différent dans chaque environnement, gardé dans le gestionnaire de
-  mots de passe du porteur du projet. **Il n'est pas dans `.env`** : aucun programme du projet ne s'en sert. Il ne sert
-  qu'aux connexions par le port publié (section 6).
+- **Aucun mot de passe** (précision du 11 octobre 2026, relecture) : pas de secret sans usage. Un mot de passe ne
+  servirait qu'aux connexions par le port publié (section 6), et aucun tunnel n'est décidé. Sans mot de passe, ces
+  connexions sont impossibles (SCRAM ne peut aboutir) ; la connexion locale du conteneur n'en demande pas. Si un tunnel
+  est décidé, sa décision définira le mot de passe : à la main (`\password`), différent dans chaque environnement, gardé
+  dans le gestionnaire de mots de passe du porteur du projet, **jamais dans `.env`** (aucun programme ne s'en sert).
 
 ### 3. Droits exacts (liste blanche)
 
@@ -117,7 +119,8 @@ avec `-h 127.0.0.1`, ne demande donc aucun mot de passe.
   droits et ses garde-fous.
 - **Par le port publié** (`127.0.0.1:5433` de l'hôte, par exemple plus tard un outil graphique sur le PC via un tunnel
   SSH) : la connexion arrive d'une autre adresse que `127.0.0.1` du conteneur, donc avec mot de passe vérifié (SCRAM).
-  C'est le seul usage du mot de passe. Le tunnel n'est pas mis en place par cette décision.
+  Le rôle n'ayant pas de mot de passe (section 2), elle est aujourd'hui impossible. Le tunnel n'est pas mis en place par
+  cette décision ; s'il l'est, sa décision définira aussi le mot de passe.
 - Les règles d'authentification de l'image ne sont pas modifiées : le modèle de menace (section 1) ne le demande pas.
 
 ### 7. Règles pour l'avenir
@@ -169,7 +172,8 @@ Recette en développement :
 - connexion `docker compose exec` sans mot de passe, sous `books_reader` ;
 - une requête d'exploration réelle répond ;
 - une écriture est refusée ;
-- par le port publié : mot de passe exigé, mauvais mot de passe refusé.
+- par le port publié, avec un mot de passe temporaire effacé ensuite : mot de passe exigé, mauvais mot de passe
+  refusé (le rôle reste ensuite sans mot de passe, section 2).
 
 ## Conséquences
 
@@ -203,3 +207,14 @@ Recette en développement :
 >   connexion simultanée refusée. Par le port publié, avec un mot de passe temporaire effacé ensuite
 >   (`PASSWORD NULL`) : bon mot de passe accepté, mauvais mot de passe et absence de mot de passe refusés.
 >   L'extracteur reste à code 0.
+
+> Note du 11 octobre 2026 (**relecture de la mise en œuvre**, décisions du porteur du projet) :
+> - La fermeture de `raw.forbid_change` à `PUBLIC` (note précédente) est **approuvée**.
+> - **Pas de mot de passe** pour `books_reader`, sur atlas comme en développement, tant qu'aucun tunnel n'est décidé :
+>   pas de secret sans usage (sections 2 et 6 précisées ; README mis à jour). En développement, le mot de passe
+>   temporaire de la recette a déjà été effacé (`PASSWORD NULL`).
+> - Recette en développement : deux lancements du service `collector`, qui en développement fait une tournée sur la
+>   source locale `data/samples` et non une ingestion, ont ajouté 14 pages `manual-html` (tournées 16 et 17) à la RAW de
+>   développement. **Elles sont gardées.** Elles restent **hors du périmètre de l'extracteur** (décision 011, section 1 :
+>   seules les captures `extension-dom` sont extraites) et n'entrent pas dans STAGING. Constaté par l'extracteur :
+>   `Hors périmètre : 14 (méthode manual-html : 14)`, 0 page à extraire, code 0. Aucun effet sur atlas.
