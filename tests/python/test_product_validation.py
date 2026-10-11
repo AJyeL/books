@@ -161,7 +161,7 @@ VARIANTES = sorted(p.name for p in FIXTURES.glob("fiche_*.html"))
 def test_aucun_contenu_de_la_page_dans_les_motifs(nom):
     # Motifs sans contenu de la page : ni sentinelle, ni titre, ni format refusé, ni libellé de l'adresse canonique
     verdict = valider(nom)
-    for interdit in SENTINELLES + ("Royaume", "Livre audio", "Poche"):
+    for interdit in SENTINELLES + ("Titre d’exemple", "Livre audio", "Poche"):
         assert interdit not in (verdict.reason or "")
 
 

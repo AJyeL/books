@@ -439,3 +439,12 @@ contre-épreuve.
 >   déjà à jour, dont 2 fiches papier.
 > - **Déploiement sur atlas, à faire** : sauvegarde, migration 007, reconstruction de l'image, puis une extraction qui
 >   réextraira toutes les pages (version 3) et extraira les fiches déjà dans RAW.
+
+> Note du 11 octobre 2026 (relecture de l'étape D par le porteur du projet) :
+> - **Les deux écarts de la note précédente sont approuvés** : le qualificatif de prix `avec_offre_essai`, et l'ASIN (avec
+>   l'horodatage) obtenu par jointure avec `raw.raw_page`, non recopié dans `product_observation`.
+> - **Titre des pages de test** : le titre inventé des fausses pages, de classement et de fiche, figurait aussi dans une
+>   vraie capture. Il est remplacé partout dans le dépôt par « Titre d'exemple pour les tests », ainsi que les libellés qui
+>   en dérivaient ; fiches dérivées et captures de test régénérées, suite complète relancée (589 réussis). La règle
+>   « pages d'exemple inventées » (section 8) s'entend : jamais un texte qu'on sait présent sur une vraie page. L'ancien titre
+>   reste dans l'historique git, qui n'est pas réécrit.

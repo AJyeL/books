@@ -190,7 +190,7 @@ def test_fiche_integre(inbox):
     assert isinstance(capture, Capture)
     assert capture.request == ProductRequest("B0FAUX0001")
     assert capture.captured_at.isoformat() == "2026-10-06T20:00:50+00:00"
-    assert capture.displayed_url.startswith("https://www.amazon.fr/Le-Royaume-des-cendres/dp/B0FAUX0001/ref=")
+    assert capture.displayed_url.startswith("https://www.amazon.fr/Titre-exemple-pour-les-tests/dp/B0FAUX0001/ref=")
 
 
 def test_fiche_et_pages_de_classement_dans_le_meme_lot(inbox):

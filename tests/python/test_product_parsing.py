@@ -40,7 +40,7 @@ def test_fiche_d_exemple_conforme_a_la_validation():
 
 def test_fiche_d_exemple_observation():
     p = analyser("exemple")
-    assert (p.format_label, p.title) == ("Format Kindle", "Le Royaume des cendres")
+    assert (p.format_label, p.title) == ("Format Kindle", "Titre d’exemple pour les tests")
     assert (p.series_form, p.series_name, p.series_position, p.series_total) == (
         "livre_n_sur_n", "La Saga d'exemple", 2, 3)
     assert (p.publication_date, p.language, p.print_pages) == (date(2026, 1, 1), "Français", 412)

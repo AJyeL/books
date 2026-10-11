@@ -650,7 +650,7 @@ def test_fiche_deposee(dirs):
     assert record.request == ProductRequest("B0FAUX0001")
     assert record.fetch_status == "ok" and record.error_message is None
     assert record.requested_url == (
-        "https://www.amazon.fr/Le-Royaume-des-cendres/dp/B0FAUX0001/ref=zg_bs_g_digital-text_d_sccl_1")
+        "https://www.amazon.fr/Titre-exemple-pour-les-tests/dp/B0FAUX0001/ref=zg_bs_g_digital-text_d_sccl_1")
     assert record.stored.relative_path == (
         f"amazon_fr/2026/10/06/run-{run_id}/product_B0FAUX0001_2026-10-06T200050Z.html.gz")
     assert record.metadata.relative_path.endswith("/product_B0FAUX0001_2026-10-06T200050Z.json.gz")

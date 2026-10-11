@@ -31,14 +31,14 @@ CAPTURES = [
 # Fiches produit (décision 015) : (fausse page source, ASIN, horodatage UTC, adresse affichée)
 PRODUCT_CAPTURES = [
     ("fiche_exemple.html", "B0FAUX0001", "2026-10-06T200050Z",
-     "https://www.amazon.fr/Le-Royaume-des-cendres/dp/B0FAUX0001/ref=zg_bs_g_digital-text_d_sccl_1"),
+     "https://www.amazon.fr/Titre-exemple-pour-les-tests/dp/B0FAUX0001/ref=zg_bs_g_digital-text_d_sccl_1"),
     # Livre audio : capture intègre, classée invalid à la validation (format non accepté)
     ("fiche_audio.html", "B0FAUX0001", "2026-10-06T200100Z", "https://www.amazon.fr/dp/B0FAUX0001"),
     # Page de vérification affichée à l'adresse d'une fiche : capture intègre, classée blocked
     ("bestsellers_captcha.html", "B0FAUX0001", "2026-10-06T200110Z", "https://www.amazon.fr/dp/B0FAUX0001"),
     # Fiche papier dont l'ISBN-10 sert d'ASIN (ASIN numérique, sans ligne « ASIN : ») : intègre, ok
     ("fiche_papier_exemple.html", "2000000001", "2026-10-06T200130Z",
-     "https://www.amazon.fr/Le-Royaume-des-cendres/dp/2000000001/ref=tmm_pap_swatch_0"),
+     "https://www.amazon.fr/Titre-exemple-pour-les-tests/dp/2000000001/ref=tmm_pap_swatch_0"),
 ]
 
 

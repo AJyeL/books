@@ -106,7 +106,7 @@ toutes les valeurs ci-dessous (ASIN, titres, auteurs, prix) sont **inventées**.
 |---|---|---|---|
 | ASIN | `div[data-asin]` dans la carte | `B0FAUX0001` | 30 / 30 |
 | Rang affiché | `span.zg-bdg-text` | `#7` | 30 / 30 |
-| Titre | `a[role=link] > span > div` (texte complet ; la troncature est seulement visuelle, en CSS) | `Le Royaume des cendres` | 30 / 30 |
+| Titre | `a[role=link] > span > div` (texte complet ; la troncature est seulement visuelle, en CSS) | `Titre d’exemple pour les tests` | 30 / 30 |
 | Titre (doublon) | attribut `alt` de l'image | identique au titre | 30 / 30 |
 | Auteur | `a.a-link-child > div` ; un seul auteur affiché | `Camille Exemple` | 30 / 30 |
 | Identifiant auteur | lien de l'auteur `/{nom}/e/{id}` | `/Camille-Exemple/e/B0AUTEUR01` | 30 / 30 |
@@ -116,7 +116,7 @@ toutes les valeurs ci-dessous (ASIN, titres, auteurs, prix) sont **inventées**.
 | Prix | `span[class*=p13n-sc-price]` | `4,99 €` | 30 / 30 |
 | Autres formats | `span.zg-book-title-format-text` | `3 formats disponibles` | 29 / 30 et 16 / 30 |
 | Couverture | `img.p13n-product-image` (`src` et `data-a-dynamic-image`, plusieurs tailles) | URL `images-eu.ssl-images-amazon.com/images/I/…` | 30 / 30 |
-| Lien fiche produit | `href` en `/{slug}/dp/{ASIN}/ref=…` | `/Le-Royaume-des-cendres/dp/B0FAUX0001/ref=…` | 30 / 30 |
+| Lien fiche produit | `href` en `/{slug}/dp/{ASIN}/ref=…` | `/Titre-exemple-pour-les-tests/dp/B0FAUX0001/ref=…` | 30 / 30 |
 
 - Un livre sans évaluation n'a ni note ni nombre d'évaluations : absence normale, pas une anomalie.
 - Les milliers sont séparés par une espace insécable (U+00A0) : `1 234` ; la virgule est décimale (`4,99`).

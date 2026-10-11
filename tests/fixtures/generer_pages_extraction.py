@@ -63,7 +63,7 @@ def particular_cards() -> dict[int, str]:
     """Cartes 1 à 7 : chacune illustre une forme acceptée."""
     return {
         # Complète ; auteur sentinelle ; vignette ku-sticker
-        1: card(1, title="Le Royaume des cendres", price="4,99&nbsp;€", rating=("4,5", "4,5", "87"),
+        1: card(1, title="Titre d’exemple pour les tests", price="4,99&nbsp;€", rating=("4,5", "4,5", "87"),
                 cover=COVER_KU.format(n=1), author=AUTHOR_SENTINEL, author_id=AUTHOR_SENTINEL_ID),
         # Sans évaluation affichée
         2: card(2, title="Ombres sur Valmeraude", price="2,99&nbsp;€", rating=None, cover=COVER_PLAIN.format(n=2)),

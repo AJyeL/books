@@ -15,9 +15,9 @@ HERE = Path(__file__).resolve().parent
 EXEMPLE = "fiche_exemple.html"
 PAPIER = "fiche_papier_exemple.html"
 
-CANONICAL = '<link rel="canonical" href="https://www.amazon.fr/Le-Royaume-des-cendres/dp/B0FAUX0001" />'
+CANONICAL = '<link rel="canonical" href="https://www.amazon.fr/Titre-exemple-pour-les-tests/dp/B0FAUX0001" />'
 FORMAT_LIGNE = '<span class="a-color-secondary">Format&nbsp;: </span><span>Format Kindle</span>'
-TITRE = '<span id="productTitle" class="a-size-extra-large celwidget">\n      Le Royaume des cendres\n    </span>'
+TITRE = '<span id="productTitle" class="a-size-extra-large celwidget">\n      Titre d’exemple pour les tests\n    </span>'
 ASIN_VALEUR = "<span>B0FAUX0001</span>"
 LIGNE_ASIN = '<li><span class="a-list-item"> <span class="a-text-bold">ASIN'
 LIGNE_ISBN10 = '<li><span class="a-list-item"> <span class="a-text-bold">ISBN-10'
@@ -60,7 +60,7 @@ VARIANTES = [
     ("fiche_sans_titre.html", EXEMPLE, [('id="productTitle"', 'id="productTitleAbsent"', 1)]),
     ("fiche_titre_vide.html", EXEMPLE, [(TITRE, '<span id="productTitle" class="a-size-extra-large celwidget">\n    </span>', 1)]),
     ("fiche_deux_titres.html", EXEMPLE, [(TITRE, TITRE + "\n    " + TITRE, 1)]),
-    ("fiche_titre_captcha.html", EXEMPLE, [("Le Royaume des cendres\n    </span>", "Le Captcha des cendres\n    </span>", 1)]),
+    ("fiche_titre_captcha.html", EXEMPLE, [("Titre d’exemple pour les tests\n    </span>", "Titre d’exemple avec Captcha\n    </span>", 1)]),
     ("fiche_sans_asin_details.html", EXEMPLE, [(LIGNE_ASIN, '<li><span class="a-list-item"> <span class="a-text-bold">EAN', 1)]),
     # Ligne « ASIN : » et ligne « ISBN-10 : » de valeur différente : l'ASIN décide, l'ISBN-10 est ignoré
     ("fiche_asin_et_isbn10.html", EXEMPLE,

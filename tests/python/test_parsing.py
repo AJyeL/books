@@ -63,7 +63,7 @@ def test_page_complete_une_ligne_par_rang():
 
 def test_carte_complete():
     assert by_rank(COMPLETE)[1] == RankingEntry(
-        rank=1, asin="B0FAUX0001", has_card=True, title="Le Royaume des cendres",
+        rank=1, asin="B0FAUX0001", has_card=True, title="Titre d’exemple pour les tests",
         price_amount=Decimal("4.99"), currency="EUR", rating=Decimal("4.5"), review_count=87,
         cover_url="https://images-eu.ssl-images-amazon.com/images/I/FAUX0001._UX300__OU08__PJku-sticker-v7,"
                   "TopRight,0,-50_AC_UL900_SR900,600_.jpg",

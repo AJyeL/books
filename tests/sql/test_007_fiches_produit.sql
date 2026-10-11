@@ -92,7 +92,7 @@ BEGIN
         publication_date, language, print_pages, file_size_value, file_size_unit, isbn13, rating, review_count,
         cover_url, description_text, description_text_sha256, description_markup, description_markup_sha256,
         has_aplus, breadcrumb)
-    VALUES (page1, run1, 'Format Kindle', 'Le Royaume des cendres', 'livre_n_sur_n', 'La Saga d''exemple', 2, 3,
+    VALUES (page1, run1, 'Format Kindle', 'Titre d’exemple pour les tests', 'livre_n_sur_n', 'La Saga d''exemple', 2, 3,
             '2026-01-01', 'Français', 412, 1.2, 'MB', '978-2000000005', 4.4, 1234,
             'https://m.media-amazon.com/images/I/exemple.jpg', 'Une description inventée.',
             pg_temp.h('Une description inventée.'), '<p>Une description <b>inventée</b>.</p>',
