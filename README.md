@@ -157,6 +157,12 @@ Tests SQL de la migration 006 (observation du nom des catégories, décision 014
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_006_observation_des_categories.sql
 ```
 
+Tests SQL de la migration 007 (fiches produit dans STAGING, décision 015), même principe :
+
+```bash
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_007_fiches_produit.sql
+```
+
 Les tests SQL supposent **toutes** les migrations appliquées : depuis la 004, leurs lignes de test portent
 une méthode de capture.
 
