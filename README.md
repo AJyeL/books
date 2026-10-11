@@ -196,6 +196,12 @@ ouvre un accès, met cette liste à jour dans le même commit.
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_008_role_lecture.sql
 ```
 
+Tests SQL de la migration 009 (guide de veille, schéma `guide`, décision 017), même principe :
+
+```bash
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_009_guide.sql
+```
+
 Les tests SQL supposent **toutes** les migrations appliquées : depuis la 004, leurs lignes de test portent
 une méthode de capture.
 

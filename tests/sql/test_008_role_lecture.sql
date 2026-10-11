@@ -1,6 +1,6 @@
 -- Tests de la migration 008 : rôle de lecture books_reader (décision 016, section 8)
 --
--- À exécuter EN TANT QUE PROPRIÉTAIRE de la base, depuis le dossier du dépôt (bash), migrations 001 à 008 appliquées :
+-- À exécuter EN TANT QUE PROPRIÉTAIRE de la base, depuis le dossier du dépôt (bash), toutes les migrations appliquées (001 à 009) :
 --   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_008_role_lecture.sql
 -- Même principe que test_007 : le propriétaire prépare raw, puis endosse books_reader (SET LOCAL ROLE). Les réglages du
 -- rôle ne s'appliquent qu'à une vraie connexion : ils sont vérifiés dans le catalogue (test 7) et par la recette.
@@ -208,6 +208,9 @@ RESET ROLE;
 DO $$
 DECLARE
     expected text[] := ARRAY[
+        'guide.export_document.document', 'guide.kindle_product.asin', 'guide.kindle_product.last_observed_at',
+        'guide.reference_entry.asin', 'guide.reference_entry.category_node', 'guide.reference_entry.list_type',
+        'guide.reference_entry.observed_at', 'guide.reference_entry.rank',
         'public.schema_migration.applied_at', 'public.schema_migration.description', 'public.schema_migration.version',
         'raw.collect_run.collector_version', 'raw.collect_run.finished_at', 'raw.collect_run.id', 'raw.collect_run.notes',
         'raw.collect_run.pages_failed', 'raw.collect_run.pages_ok', 'raw.collect_run.started_at', 'raw.collect_run.status',
@@ -270,10 +273,10 @@ BEGIN
         RAISE EXCEPTION 'ÉCHEC test 6 : colonnes lisibles hors liste : % ; colonnes de la liste non lisibles : %',
             coalesce(extra, 'aucune'), coalesce(missing, 'aucune');
     END IF;
-    IF cardinality(readable) <> 106 THEN
-        RAISE EXCEPTION 'ÉCHEC test 6 : % colonnes lisibles, 106 attendues', cardinality(readable);
+    IF cardinality(readable) <> 114 THEN
+        RAISE EXCEPTION 'ÉCHEC test 6 : % colonnes lisibles, 114 attendues', cardinality(readable);
     END IF;
-    RAISE NOTICE 'OK test 6a : 106 colonnes lisibles, exactement la liste blanche (adresses de RAW et correspondance exclues)';
+    RAISE NOTICE 'OK test 6a : 114 colonnes lisibles, exactement la liste blanche (adresses de RAW et correspondance exclues)';
 
     -- Test 6b : aucune fonction exécutable, aucune séquence utilisable hors du catalogue système
     SELECT string_agg(n.nspname || '.' || p.proname, ', ') INTO extra
@@ -298,8 +301,8 @@ BEGIN
      WHERE nspname NOT IN ('pg_catalog', 'information_schema') AND nspname NOT LIKE 'pg\_toast%'
        AND nspname NOT LIKE 'pg\_temp\_%'
        AND has_schema_privilege('books_reader', oid, 'USAGE');
-    IF extra IS DISTINCT FROM 'public, raw, staging' THEN
-        RAISE EXCEPTION 'ÉCHEC test 6 : schémas visibles par books_reader : % (attendu : public, raw, staging)', extra;
+    IF extra IS DISTINCT FROM 'guide, public, raw, staging' THEN
+        RAISE EXCEPTION 'ÉCHEC test 6 : schémas visibles par books_reader : % (attendu : guide, public, raw, staging)', extra;
     END IF;
     IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname NOT LIKE 'pg\_temp\_%'
                 AND has_schema_privilege('books_reader', oid, 'CREATE'))
@@ -307,7 +310,7 @@ BEGIN
        OR has_database_privilege('books_reader', current_database(), 'TEMPORARY') THEN
         RAISE EXCEPTION 'ÉCHEC test 6 : books_reader peut créer un objet (schéma, table ou table temporaire)';
     END IF;
-    RAISE NOTICE 'OK test 6c : schémas visibles public, raw et staging ; aucun droit de création';
+    RAISE NOTICE 'OK test 6c : schémas visibles guide, public, raw et staging ; aucun droit de création';
 END;
 $$;
 
