@@ -564,3 +564,93 @@ développement, puis relevées en lecture seule dans RAW : formes et comptes seu
   Classement des meilleures ventes, Commentaires client. Le libellé de série est rédigé comme une ligne de détail
   (« Livre n sur N : »), en gras.
 - Limite : un livre, une séance, une version de l'extension et de Chrome.
+
+## Fiches produit : inventaire de 431 captures pour l'étape D (11 octobre 2026)
+
+Inventaire préalable à l'extracteur des fiches (décision 015, étape D) : **431 captures réelles** de l'extension 0.3.0,
+toutes du 10 octobre 2026, copiées dans `data/fiches-inventaire/` (hors du dépôt). Étude hors ligne, en lecture seule,
+par des scripts jetables qui ne sortent que des comptes et des formes : mots hors d'un vocabulaire d'interface masqués,
+chiffres remplacés par 9 ; ni titre, ni nom, ni ASIN, ni ISBN, ni nom de catégorie. Le texte de l'auteur et de l'éditeur
+n'est jamais lu (l'éditeur est seulement compté). Notation des séparateurs : `␣` espace, `⍽` U+00A0, `˙` U+202F.
+
+Échantillon, par format affiché dans la ligne d'auteur : **256 Kindle**, **174 papier** (118 brochés, 56 reliés),
+**1 poche** (refusé par la validation, compté à part). « K » et « P » ci-dessous : nombre de fiches Kindle et papier.
+
+### Identité
+| Donnée | Kindle (256) | Papier (174) |
+|---|---|---|
+| Forme de l'ASIN | `B0…` : 256 | 10 chiffres : 85 ; 9 chiffres + `X` : 10 ; `B0…` : 79 |
+| Ligne « ASIN : » / « ISBN-10 : » | ASIN seul : 256 | ASIN seul : 77 ; ISBN-10 seul : 95 ; **les deux : 2** (ISBN-10 différent de l'ASIN) |
+| Règle de l'indice 3 amendée | satisfaite : 256 | satisfaite : 174 |
+| ISBN-13 (`999-9999999999`) | 80 | 171 |
+| Titre (`#productTitle`, un seul) | 256 ; 11 à 147 caractères (médiane 53) | 174 ; 7 à 105 (médiane 35) |
+
+### Liste des détails
+| Libellé | K | P | Formes |
+|---|---|---|---|
+| Date de publication | 256 | 171 | `9 mois 9999` et `99 mois 9999`, mois en toutes lettres et en minuscules, tous les mois observés |
+| Langue | 256 | 172 | Français (K 252, P 171), Anglais (K 4, P 1) |
+| Nombre de pages de l'édition imprimée | 251 | 170 | `99 pages`, `999 pages`, `9999 pages` |
+| Taille du fichier | 253 | — | `9.9 MB` (207), `999 KB` (35), `99.9 MB` (11) : **point décimal**, unités **KB / MB** |
+| Série « Livre n sur N : » | 190 | 149 | valeur : nom de la série, **toujours un lien** |
+| Série « Fait partie de la série : » | 8 | 6 | idem, sans rang |
+| Éditeur (valeur non lue) | 107 | 171 | — |
+| Autres libellés | Accessibilité 256, Confort de lecture 253, Word Wise 253, Page Flip 253, Lecteur d'écran 237, Commentaires client 239, Âge de lecture 37, Édition 31, Niveau scolaire 8, X-Ray 4 | Poids de l'article 173, Dimensions 172, Commentaires client 169, Âge de lecture 48, Édition 6 | — |
+
+### Note, avis, répartition
+- `#acrPopover` et `#acrCustomerReviewText` **toujours ensemble** : K 239, P 169 ; sans avis : K 17, P 5.
+- Note (icône) : `9,9 sur 5⍽étoiles` sur toutes ; classe `a-star-mini-9` ou `a-star-mini-9-9` (demi-étoile).
+- Compteur visible : `(9)`, `(99)`, `(999)`, `(9⍽999)`, `(99⍽999)`, `(999⍽999)` ; milliers séparés par U+00A0.
+- `aria-label` du compteur : `999 Commentaires`, **singulier pour 1** (`1 Commentaire`, 8 cas) ; milliers en `&nbsp;`.
+  Différence avec les pages de classement (« évaluations », toujours au pluriel).
+- `#histogramTable` présent sur **les 431 fiches**, avis ou non ; pourcentages `9 %`, `99 %`, `100 %` ; sur une fiche
+  sans avis, seulement des `0 %` (cohérent avec la règle « compteur absent et répartition à 0 % → 0 avis », décision 015).
+
+### Rangs de vente (« Classement des meilleures ventes d'Amazon »)
+- Présent : K 256, P 168. **Séparateur des milliers : U+202F** (espace fine insécable) : `9˙999`, `999˙999`, `9˙999˙999`,
+  différent de celui des prix et des avis (U+00A0).
+- Rang général, Kindle : `9˙999 en Boutique Kindle (Voir les 100 premiers en Boutique Kindle)` (201) ;
+  **Top gratuit** : `n°9˙999 des titres gratuits dans la Boutique Kindle (…)` (55), seul cas avec le préfixe `n°`, lien
+  `tf=1`. Lien du rang général : `/gp/bestsellers/digital-text`, sans numéro.
+- Rang général, papier : `999˙999 en Livres (Voir les 100 premiers en Livres)` (163) ; **forme rare** (4) : rang général
+  dans une sous-boutique nommée, lien `/gp/bestsellers/books/{numéro}`.
+- Rangs de catégorie (`ul.zg_hrsr`) : texte `99 en` suivi du lien `/gp/bestsellers/{boutique}/{numéro}` ; sans préfixe `n°`.
+  Kindle : 3 rangs (249) ou 2 (7) ; boutiques `digital-text` (447), `digital-text` avec `tf=1` (158) et **`books` (156)**.
+  Papier : 0 à 3 rangs, tous `books`.
+
+### Formats et prix (`#tmmSwatches`, un onglet par format)
+- Identifiants d'onglet : `KINDLE`, `OTHER` (3 fiches Kindle sans autre format, libellé « Format Kindle »), `PAPERBACK`
+  (Broché), `HARDCOVER` (Relié), `MASS_MARKET_PAPERBACK` (Poche), `AUDIO_DOWNLOAD` (Livre audio), `AUDIO_CD` (CD, 1).
+  1 à 4 onglets par fiche. L'onglet sélectionné est le format de la page, **sans lien** ; tous les autres portent un lien
+  `/dp/{ASIN}` (100 %).
+- Prix : `9,99⍽€`, `99,99⍽€` (U+00A0 avant `€`). Formes rares : `à partir de 99,99⍽€` (8, relié ou broché) ; `—` sans
+  prix (relié 6, CD 1).
+- **Onglet Kindle en Kindle Unlimited** : le prix affiché est le mot **`Emprunt`**, et le prix d'achat est dans le
+  message `ou 9,99⍽€ pour acheter` (362 onglets Kindle) ; sinon prix affiché et message `Disponible immédiatement` (65).
+  Prix Kindle nuls (`0,00⍽€`) dans l'onglet : 46 ; le Top gratuit compte 55 fiches (une partie du prix nul est dans le
+  message « pour acheter »).
+- Livre audio : `9,99⍽€` avec le message `avec votre abonnement` (112) ; forme rare `avec …+` (2).
+
+### Couverture, description, A+, fil de catégories
+- Couverture (`#landingImage`, `data-old-hires`) : `https://m.media-amazon.com/images/…` sur 428 fiches ; vide sur 3.
+- Description (`#bookDescription_feature_div`, contenu dans `.a-expander-content`) : présente sur 431 ; **vide sur
+  5 fiches papier** (sans conteneur) ; Kindle 53 à 3 776 caractères (médiane 1 247), papier 0 à 3 623 (médiane 1 005).
+- **Balises de la description** (fiches qui en contiennent) : `br` 323, `p` 209, `h4` 64, `u` 27, `ul` et `li` 9,
+  `h3` 1, `h5` 1, `span` partout ; **aucun** `b`, `i`, `strong`, `em`, `a`, `img`, `table`, `div`, `ol`, `h1`, `h2`,
+  `h6`. **Gras et italique passent par des classes** sur des `span` : `a-text-bold` (301 fiches), `a-text-italic` (126),
+  les deux ensemble (118) ; `a-list-item` sur les `span` des listes (9). Seul attribut présent : `class`.
+- A+ (`#aplus_feature_div`) : élément présent partout, **contenu** seulement sur K 53, P 40 (1 à 10 images et plus).
+- Fil de catégories : K 256 (premier niveau « Boutique Kindle » 225, « Livres » 31 ; 4 à 8 niveaux) ; P 171 (« Livres » ;
+  2 à 6 niveaux) ; absent sur 3 fiches papier.
+
+### Formes rares ou inattendues
+- 2 fiches papier avec ligne « ASIN : » **et** ligne « ISBN-10 : » différente (l'ASIN décide, décision 015 amendée).
+- Rang général papier dans une sous-boutique (4), avec un numéro de catégorie dans le lien.
+- Prix `à partir de …` (8) et prix absent `—` (7) dans les onglets ; onglet `OTHER` (3) ; onglet `AUDIO_CD` (1).
+- Description vide (5) ; couverture sans `data-old-hires` (3) ; fil de catégories absent (3) ; date (3), langue (2),
+  pages (9) ou classement (6) absents.
+- Une fiche poche (`MASS_MARKET_PAPERBACK`) : refusée par la validation, comme prévu.
+
+Limites : 431 fiches d'un seul jour, choisies par la navigation du porteur du projet (pas un échantillon aléatoire),
+une version de l'extension et de Chrome ; les formes absentes de l'échantillon (autres langues, autres unités) restent
+possibles et devront être des échecs visibles.
