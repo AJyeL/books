@@ -50,7 +50,7 @@ class PgTestDb:
 
     def add_page(self, content: bytes, *, method: str | None = "extension-dom", status: str = "ok",
                  page_type: str = "bestseller_list", node: str = "10000000001", list_type: str = "paid",
-                 page: int = 1, unique: bool = True) -> int:
+                 page: int = 1, unique: bool = True, asin: str = "B0FAUX0001") -> int:
         """Dépose une page dans RAW (fichier gzip et ligne raw.raw_page) ; identifiant de la ligne.
         unique : un commentaire numéroté rend le contenu distinct (index unique des captures extension-dom)."""
         if self._run_id is None:
@@ -73,7 +73,7 @@ class PgTestDb:
             VALUES (%s, %s, %s, %s, %s, %s, 'https://test', %s, %s, %s, %s, %s, %s, %s) RETURNING id
             """,
             (self._run_id, page_type, None if product else node, None if product else list_type,
-             None if product else page, "B0FAUX0001" if product else None, status,
+             None if product else page, asin if product else None, status,
              stored.sha256, stored.size, stored.relative_path, method,
              "test.json" if extension else None,
              hashlib.sha256(stored.relative_path.encode()).hexdigest() if extension else None),

@@ -162,3 +162,18 @@ Les variantes sont générées par `generer_fiches_extraction.py` (`python tests
 | `offre_essai`, `a_partir_de` | qualificatifs `avec_offre_essai`, `a_partir_de` | extraite |
 | `papier` | ligne d'auteur « Broché » | mise à part (« format papier ») |
 | `poche` et les 19 autres | forme inconnue (séparateur, date, pages, taille, avis, répartition, série, onglet, lien…) | échec de la fiche |
+
+## Contrat du guide de veille (`guide_*.json`, décision 017)
+
+Fichiers du **contrat** entre ce dépôt (export d'atlas, réception sur le PC) et l'extension (dépôt privé, décision 006),
+qui en reçoit une copie avec le commit d'origine. Valeurs inventées : ni ASIN, ni numéro de catégorie réels
+(décision 014).
+
+| Fichier | Rôle |
+|---|---|
+| `guide_exemple.json` | document valide au format version 1 (décision 017, section 4) : deux catégories, Top payant et Top gratuit, page 2 de référence plus ancienne que la page 1, fiches Kindle en base |
+| `guide_vecteurs.json` | cas de comparaison sur cet exemple : page affichée (ASIN et rangs) et résultat attendu (entrants, fiches Kindle manquantes, changements de rang avec écart signé et date de référence, liste sans référence) |
+
+Vérifiés par `tests/python/test_guide_contrat.py` : format de l'exemple, 25 mutations refusées, vecteurs rejoués par une
+implémentation de référence des règles de la décision 017 (section 2), et export réel lu par `books_reader` dans
+`guide.export_document` (base PostgreSQL de test).

@@ -1,0 +1,21 @@
+{"schema_version": 1,
+ "generated_at": "2026-10-11T18:00:00Z",
+ "lists": [
+  {"category_node": "10000000001", "list_type": "free",
+   "entries": [
+    {"asin": "B0FAUXG001", "rank": 1, "observed_at": "2026-10-10T19:10:00Z"},
+    {"asin": "B0FAUXG002", "rank": 2, "observed_at": "2026-10-10T19:10:00Z"}]},
+  {"category_node": "10000000001", "list_type": "paid",
+   "entries": [
+    {"asin": "B0FAUX0001", "rank": 1, "observed_at": "2026-10-10T19:00:00Z"},
+    {"asin": "B0FAUX0002", "rank": 2, "observed_at": "2026-10-10T19:00:00Z"},
+    {"asin": "B0FAUX0003", "rank": 3, "observed_at": "2026-10-10T19:00:00Z"},
+    {"asin": "B0FAUX0004", "rank": 4, "observed_at": "2026-10-10T19:00:00Z"},
+    {"asin": "B0FAUX0005", "rank": 5, "observed_at": "2026-10-10T19:00:00Z"},
+    {"asin": "B0FAUX0051", "rank": 51, "observed_at": "2026-10-09T18:30:00Z"},
+    {"asin": "B0FAUX0052", "rank": 52, "observed_at": "2026-10-09T18:30:00Z"},
+    {"asin": "B0FAUX0053", "rank": 53, "observed_at": "2026-10-09T18:30:00Z"}]},
+  {"category_node": "10000000002", "list_type": "paid",
+   "entries": [
+    {"asin": "B0FAUXB001", "rank": 1, "observed_at": "2026-10-10T20:00:00Z"}]}],
+ "kindle_asins": ["B0FAUX0001", "B0FAUX0002", "B0FAUX0051", "B0FAUXB001", "B0FAUXG001"]}
