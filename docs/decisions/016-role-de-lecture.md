@@ -181,3 +181,25 @@ Recette en développement :
 - **Décision 015** : l'identifiant de session est ajouté aux données personnelles relevées (section 2).
 - Un futur rôle de tableau de bord suivra le même modèle (liste blanche explicite, test de liste blanche) ; il fera
   l'objet de sa propre décision.
+
+> Note du 11 octobre 2026 (**mise en œuvre et recette en développement**, commits `ad3725d` et `4476a6c`) :
+> - **Écart au texte, à valider** (règle de la section 4 appliquée à l'existant) : la migration 008 ferme aussi à `PUBLIC`
+>   la seule fonction existante hors du catalogue système, `raw.forbid_change` (déclencheurs d'ajout seul de RAW,
+>   migration 001). Le droit d'exécution n'étant vérifié qu'à la création d'un déclencheur, ceux de RAW s'appliquent
+>   toujours à tous (test 9 : un rôle sans ce droit qui modifie une page est arrêté par le déclencheur).
+> - **Test 008** en base jetable : 69 contrôles conformes, dont la liste blanche exacte (106 colonnes ; aucune fonction
+>   ni séquence ; schémas `public`, `raw` et `staging`) et la correspondance simulée de la décision 013. Tests 005 à 007
+>   inchangés et conformes. Suite Python : 590 réussis (l'extracteur refuse `books_reader`).
+> - **Contre-épreuves**, chacune en échec au test prévu : `SELECT` sur toute la table `raw.raw_page` (test 2) ; `INSERT`
+>   sur `staging.ranking_entry` (test 3) ; membre de `books_transformer` (test 5) ; privilèges par défaut (test 6 : les
+>   colonnes de la correspondance simulée deviennent lisibles) ; fonction simulée sans `REVOKE` (test 6) ; lecture seule
+>   par défaut retirée (test 7). Septième : `REVOKE` de `raw.forbid_change` retiré (test 6).
+> - **Restauration** selon le README sur un serveur jetable neuf (rôles et réglages créés, `pg_restore`, `TEMPORARY`
+>   retiré) : tests 005 à 008 conformes ; la fermeture de `raw.forbid_change` est dans la sauvegarde.
+> - **Recette en développement** : migration appliquée, tests 005 à 008 conformes. Session réelle de `books_reader` par
+>   `docker compose exec`, sans mot de passe : lecture seule par défaut, délais de 2 et 5 minutes actifs ; requêtes
+>   d'exploration (comptes par liste et par langue) servies ; `INSERT` refusé en lecture seule, puis par les droits après
+>   `SET TRANSACTION READ WRITE` ; `requested_url`, `SELECT *` sur `raw.raw_page` et table temporaire refusés ; troisième
+>   connexion simultanée refusée. Par le port publié, avec un mot de passe temporaire effacé ensuite
+>   (`PASSWORD NULL`) : bon mot de passe accepté, mauvais mot de passe et absence de mot de passe refusés.
+>   L'extracteur reste à code 0.
