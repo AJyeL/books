@@ -182,3 +182,25 @@ pages.
 - **Décision 016** : note ajoutée (`books_reader` sert aussi au script d'export).
 - **Décision 006** : l'évolution de l'extension est décrite ici avant sa mise en service, comme elle l'exige.
 - Le panneau sera réalisé dans le dépôt privé de l'extension, à partir du contrat de la section 4.
+
+> Note du 11 octobre 2026 (**déploiement sur atlas**, commit `e209e9e`, rapporté par le porteur du projet) :
+> - Sauvegarde de la base ; `git pull --ff-only` jusqu'à `e209e9e` ; **migration 009 appliquée** ; image non
+>   reconstruite (aucun changement du code de l'image). Aucun test SQL en production.
+> - **Observation en lecture seule conforme** (session forcée en lecture seule) : les 3 vues du schéma `guide` en
+>   `security_invoker` ; `books_reader` lit 114 colonnes, n'exécute aucune fonction hors du catalogue système et ne peut
+>   modifier aucune table ni vue ; aucun autre rôle n'a accès au schéma `guide`.
+> - Sauvegarde rapatriée sur le PC (décision 009).
+
+> Note du 11 octobre 2026 (**premier guide réel**, rapporté par le porteur du projet) :
+> - Export par `recevoir-guide.cmd` depuis le PC : **10 listes, 699 livres de référence, 255 fiches Kindle** ; empreinte
+>   SHA-256 et format version 1 vérifiés par la réception ; **mêmes nombres sur atlas** (observation en lecture seule)
+>   **et sur le PC** (bilan de la réception).
+> - 255 ASIN de fiches Kindle pour 256 fiches Kindle extraites à l'étape D (décision 015) : la vue compte des ASIN
+>   distincts ; l'écart correspond au cas prévu lors du déploiement (une même fiche observée deux fois), non vérifié
+>   ligne à ligne.
+
+> Note du 12 octobre 2026 (**recette de l'extension 0.4.0**, dépôt privé, rapportée par le porteur du projet) :
+> - 11 octobre : import du guide réel par la page d'options ; **refus d'un fichier renommé** (nom différent de sa date
+>   d'export) ; fiches Kindle manquantes affichées dans le panneau latéral.
+> - 12 octobre : avec une référence d'un jour, **nouveaux entrants et évolutions de rang observés en séance réelle**.
+> - Le guide est en service : décision mise en œuvre de bout en bout (atlas, PC, extension).
