@@ -196,8 +196,10 @@ pages.
 >   SHA-256 et format version 1 vérifiés par la réception ; **mêmes nombres sur atlas** (observation en lecture seule)
 >   **et sur le PC** (bilan de la réception).
 > - 255 ASIN de fiches Kindle pour 256 fiches Kindle extraites à l'étape D (décision 015) : la vue compte des ASIN
->   distincts ; l'écart correspond au cas prévu lors du déploiement (une même fiche observée deux fois), non vérifié
->   ligne à ligne.
+>   distincts. **Écart vérifié** le 11 octobre 2026 sous `books_reader`, par une requête `count(*)` /
+>   `count(DISTINCT asin)` sur les fiches Kindle extraites (onglet sélectionné) : **256 observations, 255 ASIN
+>   distincts**, un même ASIN observé deux fois ; côté offre Kindle Unlimited, 209 observations pour 208 ASIN. C'est le
+>   cas prévu lors du déploiement.
 
 > Note du 12 octobre 2026 (**recette de l'extension 0.4.0**, dépôt privé, rapportée par le porteur du projet) :
 > - 11 octobre : import du guide réel par la page d'options ; **refus d'un fichier renommé** (nom différent de sa date
