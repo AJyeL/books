@@ -128,3 +128,31 @@ Les captures ne sont pas concernées : leurs originaux restent sur le PC, dans `
 >   En cas de perte totale d'atlas, la reprise cohérente est donc une base vide suivie de la réingestion
 >   de tout `envoyees\` ; ne jamais restaurer un dump sans les fichiers bruts du même moment.
 > - Reste ouvert : automatiser ce test de restauration (étape 2, avec le NAS).
+
+> Note du 3 novembre 2026 (**restauration d'essai d'une copie rapatriée, avec les rôles et les droits**) :
+> - **Copie** : `books_2026-11-03T18-46-57Z.dump` (1 479 489 octets), rapatriée le jour même par
+>   `rapatrier-sauvegarde.cmd` ; comptes relevés sur atlas sous `books_reader` aussitôt après, sans envoi de captures
+>   entre les deux (requête `sql/observations/comptes_par_table.sql`). Copie placée par le porteur du projet dans
+>   `data/restauration-essai/` avec son manifeste ; l'original reste dans le dossier des sauvegardes.
+> - **Empreinte** : manifeste d'une ligne, désignant ce dump ; SHA-256 recalculée conforme, avant toute restauration.
+> - **Table des matières** (`pg_restore --list`, sans données) : base `books`, 134 entrées (11 tables et leurs
+>   données, 3 vues, 3 schémas, 52 droits), un seul propriétaire ; dump produit par PostgreSQL 17.11.
+> - **Restauration selon le README**, dans un PostgreSQL 17.11 jetable sur le PC (même version qu'atlas), **sans port
+>   publié**, propriétaire du même nom que sur atlas ; jamais la base de développement ni atlas :
+>   rôles `books_collector`, `books_transformer` et `books_reader` (limite de connexions et trois réglages) créés avant
+>   `pg_restore --exit-on-error` ; restauration **sans aucune erreur** (code 0) ; droit `TEMPORARY` retiré à `PUBLIC` ;
+>   mots de passe non définis, volontairement (aucune connexion par le réseau ; `books_reader` reste sans mot de passe,
+>   décision 016).
+> - **Tests SQL 005 à 009** sur la copie restaurée : conformes (63, 16, 51, 69 et 14 contrôles), dont la liste blanche
+>   exacte de `books_reader` et les vues `security_invoker` : les droits sont revenus avec la sauvegarde.
+> - **Comptes** : même requête sous `books_reader` des deux côtés, sorties en UTF-8 et fins de ligne LF (redirection
+>   faite dans le conteneur), version de PostgreSQL retirée de la sortie d'atlas ; `diff --strip-trailing-cr`
+>   **vide** : 20 lignes identiques (migrations 1 à 9 ; 36 tournées et 1 295 pages RAW, par type et statut ;
+>   1 292 extractions, par statut ; 14 793 lignes de classement ; tables de fiches ; 692 lignes de référence et 506 ASIN
+>   de fiches Kindle dans `guide`).
+> - **Rangement** : conteneur détruit avec son volume (vérifié : aucun conteneur ni volume restant) ; tout ayant réussi,
+>   `data/restauration-essai/` supprimé, comme convenu.
+> - **Ce que l'essai prouve** : cette copie se restaure entièrement, droits compris, avec PostgreSQL 17.11, par la
+>   procédure du README. **Limites** : les fichiers bruts (`~/books-data/raw`) ne sont pas concernés, et la règle demeure
+>   (ne jamais restaurer un dump sans les fichiers bruts du même moment) ; l'essai reste manuel, son automatisation
+>   reste à l'étape 2.
