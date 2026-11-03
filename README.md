@@ -328,8 +328,13 @@ n'existeraient pas (ni les réglages de `books_reader`), et que le retrait du dr
 5. Définir les mots de passe de `books_collector` et de `books_transformer` (section ci-dessus) et les reporter
    dans `.env` ; `books_reader` reste sans mot de passe.
 
-6. Vérifier avec les tests SQL des migrations 005 à 008 (section Tests) ; le test 008 contrôle les attributs, les
-   réglages et la liste blanche de `books_reader`.
+6. Vérifier avec les tests SQL des migrations 005 à 009 (section Tests) ; le test 008 contrôle les attributs, les
+   réglages et la liste blanche de `books_reader`. Comparer ensuite les comptes de lignes à ceux de la base d'origine,
+   par la même requête lancée sous `books_reader` des deux côtés (comptes seulement, aucune donnée) :
+
+   ```bash
+   docker compose exec -T postgres sh -c 'psql -X -At -F " | " -U books_reader -d "$POSTGRES_DB"' < sql/observations/comptes_par_table.sql
+   ```
 
 Les pages brutes se restaurent à part, depuis `~/books-backup/raw` vers `~/books-data/raw`.
 
