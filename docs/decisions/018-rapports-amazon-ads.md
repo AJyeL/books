@@ -112,6 +112,10 @@ avec le statut `invalid` et son motif. **Il n'est jamais ignoré.**
 - RAW reste nominatif, comme pour les captures (décision 013, section 2, « Limite assumée ») : cela vaut pour les
   fichiers sur atlas, leurs sauvegardes et la copie `envoyes\` du PC.
 
+> Note du 4 novembre 2026 : le mécanisme est décrit par la décision 019 (natures `search_term`, `targeting`,
+> `campaign`, `ad_group` et `product_title` ; étape 1 mise en œuvre par la migration 010, sans utilisateur). Son
+> utilisation par les rapports Ads sera l'étape 3.
+
 ### 6. Chevauchement des rapports
 
 - Des rapports successifs couvrent les mêmes jours. **Tous sont gardés**, en observations datées par leur date d'export.

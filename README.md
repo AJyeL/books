@@ -203,6 +203,15 @@ Tests SQL de la migration 009 (guide de veille, schéma `guide`, décision 017),
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_009_guide.sql
 ```
 
+Tests SQL de la migration 010 (correspondance des textes sensibles, schéma `mapping`, décision 019), même principe :
+
+```bash
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_010_correspondance.sql
+```
+
+Les appels concurrents de `mapping.code_for` sont vérifiés par la suite Python
+(`tests/python/test_correspondance_concurrence.py`, PostgreSQL jetable).
+
 Les tests SQL supposent **toutes** les migrations appliquées : depuis la 004, leurs lignes de test portent
 une méthode de capture.
 
@@ -296,8 +305,9 @@ avant la séance suivante.
 
 Une sauvegarde `pg_dump` (voir `scripts/backup.sh`) ne contient **ni les rôles, ni les droits portant
 sur la base elle-même**. Après restauration sur un serveur neuf, `schema_migration` indiquerait les
-migrations 002, 005 et 008 comme appliquées, alors que `books_collector`, `books_transformer` et `books_reader`
-n'existeraient pas (ni les réglages de `books_reader`), et que le retrait du droit `TEMPORARY` serait perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
+migrations 002, 005, 008 et 010 comme appliquées, alors que `books_collector`, `books_transformer`, `books_reader` et
+`books_mapping` n'existeraient pas (ni les réglages de `books_reader`), et que le retrait du droit `TEMPORARY` serait
+perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
 
 1. Démarrer PostgreSQL :
 
@@ -305,12 +315,13 @@ n'existeraient pas (ni les réglages de `books_reader`), et que le retrait du dr
    docker compose up -d postgres
    ```
 
-2. Créer les trois rôles **avant** la restauration (sinon leurs droits sur `raw` et `staging` ne peuvent pas être
-   restaurés, et `--exit-on-error` arrête la restauration), avec la limite de connexions et les réglages de
-   `books_reader` (migration 008, décision 016), absents de la sauvegarde :
+2. Créer les quatre rôles **avant** la restauration (sinon leurs droits sur `raw` et `staging`, et la propriété du
+   schéma `mapping`, ne peuvent pas être restaurés, et `--exit-on-error` arrête la restauration), avec la limite de
+   connexions et les réglages de `books_reader` (migration 008, décision 016), absents de la sauvegarde.
+   `books_mapping` est sans connexion (migration 010, décision 019) :
 
    ```bash
-   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE ROLE books_collector LOGIN" -c "CREATE ROLE books_transformer LOGIN" -c "CREATE ROLE books_reader LOGIN CONNECTION LIMIT 2" -c "ALTER ROLE books_reader SET default_transaction_read_only = on" -c "ALTER ROLE books_reader SET statement_timeout = '"'"'2min'"'"'" -c "ALTER ROLE books_reader SET idle_in_transaction_session_timeout = '"'"'5min'"'"'"'
+   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE ROLE books_collector LOGIN" -c "CREATE ROLE books_transformer LOGIN" -c "CREATE ROLE books_reader LOGIN CONNECTION LIMIT 2" -c "ALTER ROLE books_reader SET default_transaction_read_only = on" -c "ALTER ROLE books_reader SET statement_timeout = '"'"'2min'"'"'" -c "ALTER ROLE books_reader SET idle_in_transaction_session_timeout = '"'"'5min'"'"'" -c "CREATE ROLE books_mapping NOLOGIN"'
    ```
 
 3. Restaurer la sauvegarde choisie :
@@ -328,12 +339,20 @@ n'existeraient pas (ni les réglages de `books_reader`), et que le retrait du dr
 5. Définir les mots de passe de `books_collector` et de `books_transformer` (section ci-dessus) et les reporter
    dans `.env` ; `books_reader` reste sans mot de passe.
 
-6. Vérifier avec les tests SQL des migrations 005 à 009 (section Tests) ; le test 008 contrôle les attributs, les
-   réglages et la liste blanche de `books_reader`. Comparer ensuite les comptes de lignes à ceux de la base d'origine,
-   par la même requête lancée sous `books_reader` des deux côtés (comptes seulement, aucune donnée) :
+6. Vérifier avec les tests SQL des migrations 005 à 010 (section Tests) ; le test 008 contrôle les attributs, les
+   réglages et la liste blanche de `books_reader`, le test 010 les droits de la correspondance. Comparer ensuite les
+   comptes de lignes à ceux de la base d'origine, par la même requête lancée sous `books_reader` des deux côtés
+   (comptes seulement, aucune donnée) :
 
    ```bash
    docker compose exec -T postgres sh -c 'psql -X -At -F " | " -U books_reader -d "$POSTGRES_DB"' < sql/observations/comptes_par_table.sql
+   ```
+
+   `books_reader` ne voit pas le schéma `mapping` : ses comptes par nature (aucune clé) se comparent par une requête
+   lancée par le propriétaire des deux côtés :
+
+   ```bash
+   docker compose exec -T postgres sh -c 'psql -X -At -F " | " -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < sql/observations/comptes_correspondance.sql
    ```
 
 Les pages brutes se restaurent à part, depuis `~/books-backup/raw` vers `~/books-data/raw`.

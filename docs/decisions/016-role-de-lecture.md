@@ -225,3 +225,10 @@ Recette en développement :
 > elles lisent les tables avec ses propres droits et ne lui donnent **aucune donnée de plus**. La liste attendue du
 > test de liste blanche (`tests/sql/test_008_role_lecture.sql`) est mise à jour par la migration 009, comme l'exige la
 > section 7.
+
+> Note du 4 novembre 2026 (décision 019, correspondance des textes sensibles) : la migration 010 crée le schéma
+> `mapping`, propriété du rôle sans connexion `books_mapping`. **`books_reader` n'y a aucun droit** : ni usage du schéma,
+> ni lecture, ni exécution de `mapping.code_for`. Dans le test de liste blanche (`tests/sql/test_008_role_lecture.sql`),
+> la correspondance simulée est remplacée par la vraie ; la liste des 114 colonnes lisibles et celle des schémas
+> visibles sont inchangées. Les comptes de la correspondance, que `books_reader` ne voit pas, se relèvent par le
+> propriétaire (`sql/observations/comptes_correspondance.sql`).

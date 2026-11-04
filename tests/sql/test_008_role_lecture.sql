@@ -1,6 +1,6 @@
 -- Tests de la migration 008 : rôle de lecture books_reader (décision 016, section 8)
 --
--- À exécuter EN TANT QUE PROPRIÉTAIRE de la base, depuis le dossier du dépôt (bash), toutes les migrations appliquées (001 à 009) :
+-- À exécuter EN TANT QUE PROPRIÉTAIRE de la base, depuis le dossier du dépôt (bash), toutes les migrations appliquées (001 à 010) :
 --   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_008_role_lecture.sql
 -- Même principe que test_007 : le propriétaire prépare raw, puis endosse books_reader (SET LOCAL ROLE). Les réglages du
 -- rôle ne s'appliquent qu'à une vraie connexion : ils sont vérifiés dans le catalogue (test 7) et par la recette.
@@ -45,7 +45,8 @@ CREATE FUNCTION pg_temp.reader_tables() RETURNS text[] LANGUAGE sql IMMUTABLE AS
                  'public.schema_migration']
 $$;
 
--- Préparation, en tant que propriétaire : une page RAW de test, et une correspondance simulée de la décision 013
+-- Préparation, en tant que propriétaire : une page RAW de test, et une correspondance réelle (migration 010,
+-- décision 019), créée par mapping.code_for avec une clé inventée
 DO $$
 BEGIN
     IF NOT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) THEN
@@ -60,25 +61,17 @@ BEGIN
         SELECT id, 'product', 'B0FAUX0001', 'https://test', 'ok', 'fe' || repeat('a', 62), 1, 'test',
                'extension-dom', 'test.json', 'fe' || repeat('c', 62)
           FROM raw.collect_run WHERE collector_version = 'test';
-
-    -- Correspondance simulée (décision 013) : schéma séparé, table, fonction SECURITY DEFINER qui ne rend qu'un code,
-    -- fermée à PUBLIC et accordée au seul books_transformer, selon la règle de la décision 016 (section 4)
-    CREATE SCHEMA test_correspondance;
-    CREATE TABLE test_correspondance.author_map (code text PRIMARY KEY, display_name text, amazon_author_id text);
-    INSERT INTO test_correspondance.author_map VALUES ('A0001', 'Camille Sentinelle-Rgpd', 'B0SENTAUT1');
-    CREATE FUNCTION test_correspondance.code_for(author_id text) RETURNS text
-        LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog
-        AS $f$ SELECT code FROM test_correspondance.author_map WHERE amazon_author_id = author_id $f$;
-    REVOKE EXECUTE ON FUNCTION test_correspondance.code_for(text) FROM PUBLIC;
-    GRANT USAGE ON SCHEMA test_correspondance TO books_transformer;
-    GRANT EXECUTE ON FUNCTION test_correspondance.code_for(text) TO books_transformer;
-    RAISE NOTICE 'OK test 0 : propriétaire, migration 8 présente, page RAW de test et correspondance simulée créées';
+    IF EXISTS (SELECT 1 FROM mapping.text_code WHERE key = 'Camille Sentinelle-Rgpd') THEN
+        RAISE EXCEPTION 'ÉCHEC test 0 : la clé de test est déjà présente dans mapping.text_code';
+    END IF;
+    RAISE NOTICE 'OK test 0 : propriétaire, migration 8 présente, page RAW de test créée';
 END;
 $$;
 
 CREATE TEMP TABLE test_ids ON COMMIT DROP AS
-    SELECT (SELECT id FROM raw.raw_page WHERE requested_url = 'https://test') AS page1;
-GRANT SELECT ON test_ids TO books_reader;
+    SELECT (SELECT id FROM raw.raw_page WHERE requested_url = 'https://test') AS page1,
+           mapping.code_for('author', 'Camille Sentinelle-Rgpd') AS author_code;
+GRANT SELECT ON test_ids TO books_reader, books_transformer;
 
 -- ============================================================================================================
 -- Tests 5 et 7 : attributs et réglages, relevés dans le catalogue par le propriétaire
@@ -184,11 +177,11 @@ BEGIN
     PERFORM pg_temp.expect_refusal(4, 'CREATE FUNCTION dans public',
         'CREATE FUNCTION public.test_lecteur() RETURNS int LANGUAGE sql AS ''SELECT 1''', '42501', NULL);
 
-    -- Test 6d : correspondance simulée (décision 013) illisible et inexécutable
-    PERFORM pg_temp.expect_refusal(6, 'lecture de la correspondance simulée',
-        'SELECT display_name FROM test_correspondance.author_map', '42501', NULL);
-    PERFORM pg_temp.expect_refusal(6, 'appel de la fonction de la correspondance simulée',
-        'SELECT test_correspondance.code_for(''B0SENTAUT1'')', '42501', NULL);
+    -- Test 6d : correspondance (décision 019) illisible et inexécutable
+    PERFORM pg_temp.expect_refusal(6, 'lecture de mapping.text_code',
+        'SELECT key FROM mapping.text_code', '42501', NULL);
+    PERFORM pg_temp.expect_refusal(6, 'appel de mapping.code_for',
+        'SELECT mapping.code_for(''author'', ''Camille Sentinelle-Rgpd'')', '42501', NULL);
     PERFORM pg_temp.expect_refusal(6, 'appel de raw.forbid_change',
         'SELECT raw.forbid_change()', '42501', NULL);
 
@@ -336,16 +329,17 @@ $$;
 
 RESET ROLE;
 
--- Test 10 : la correspondance simulée reste utilisable par le rôle à qui elle est accordée (la simulation est fidèle)
+-- Test 10 : la correspondance reste utilisable par le rôle à qui elle est accordée (le refus du test 6d ne vient
+-- pas d'une fonction cassée)
 SET LOCAL ROLE books_transformer;
 
 DO $$
 BEGIN
-    IF test_correspondance.code_for('B0SENTAUT1') IS DISTINCT FROM 'A0001' THEN
-        RAISE EXCEPTION 'ÉCHEC test 10 : la fonction simulée ne rend pas le code à books_transformer';
+    IF mapping.code_for('author', 'Camille Sentinelle-Rgpd') IS DISTINCT FROM (SELECT author_code FROM test_ids) THEN
+        RAISE EXCEPTION 'ÉCHEC test 10 : mapping.code_for ne rend pas le code à books_transformer';
     END IF;
-    PERFORM pg_temp.expect_refusal(10, 'lecture de la correspondance simulée par books_transformer',
-        'SELECT display_name FROM test_correspondance.author_map', '42501', NULL);
+    PERFORM pg_temp.expect_refusal(10, 'lecture de mapping.text_code par books_transformer',
+        'SELECT key FROM mapping.text_code', '42501', NULL);
     RAISE NOTICE 'OK test 10 : books_transformer obtient le code par la fonction, jamais le nom';
 END;
 $$;
@@ -359,7 +353,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM raw.collect_run WHERE collector_version = 'test')
        OR EXISTS (SELECT 1 FROM raw.raw_page WHERE requested_url = 'https://test')
        OR EXISTS (SELECT 1 FROM staging.extract_run WHERE extractor_version LIKE 'test%')
-       OR EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'test_correspondance')
+       OR EXISTS (SELECT 1 FROM mapping.text_code WHERE key = 'Camille Sentinelle-Rgpd')
        OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'test_sans_execute') THEN
         RAISE EXCEPTION 'ÉCHEC : des lignes ou des objets de test ont été conservés';
     END IF;

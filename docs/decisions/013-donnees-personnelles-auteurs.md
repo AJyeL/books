@@ -115,6 +115,12 @@ Question adressée par écrit à la CNIL le 9 octobre 2026, réponse attendue ; 
 
 ## Conséquences et impact sur l'existant
 
+> Note du 4 novembre 2026 (décision 019) : **section 2 mise en œuvre, étape 1** : le mécanisme de correspondance seul,
+> sans aucun utilisateur (migration 010 : rôle `books_mapping` sans connexion, schéma `mapping`, fonction
+> `mapping.code_for` qui ne rend qu'un code, accordée au seul `books_transformer`). Voir la décision 019. La liste
+> d'exclusion (section 6) sera la première tâche de l'étape 2, avant que l'extracteur appelle la fonction. La règle de
+> la décision 011 (section 9) reste en vigueur : l'extracteur ne lit aucun auteur.
+
 - **Rien n'est modifié dans le code par cette décision.** La mise en œuvre de la section 2 sera une étape dédiée,
   décidée et testée à part. D'ici là, la règle de la décision 011 (section 9) reste en vigueur : l'extracteur ne lit
   aucun auteur.
