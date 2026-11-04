@@ -66,6 +66,41 @@ services:
         bind:
           create_host_path: false
 
+  # Ingestion des rapports Amazon Ads dans RAW (décision 018, lot A) : jamais lancée par « docker compose up ».
+  # Lancement : docker compose --profile ads run --rm ads
+  ads:
+    # Même image que le collecteur ; même rôle (books_collector, migration 011), autre commande et autres montages
+    build: .
+    image: books-collector
+    profiles: ["ads"]
+    entrypoint: ["python", "-m", "books.ads"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      BOOKS_ENV: ${BOOKS_ENV:-}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Le programme refuse tout autre rôle que books_collector
+      POSTGRES_USER: books_collector
+      POSTGRES_PASSWORD: ${BOOKS_COLLECTOR_PASSWORD:-}
+      BOOKS_RAW_DIR: /data/raw
+      # Rapports à ingérer (inbox/) et verrou d'ingestion ; aucun accès au dossier des captures
+      BOOKS_ADS_DIR: /data/ads
+    # Mêmes garde-fous que pour le collecteur si BOOKS_RAW_DIR ou BOOKS_ADS_DIR manquent dans .env
+    volumes:
+      - type: bind
+        source: ${BOOKS_RAW_DIR:-/BOOKS_RAW_DIR-non-defini}
+        target: /data/raw
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${BOOKS_ADS_DIR:-/BOOKS_ADS_DIR-non-defini}
+        target: /data/ads
+        bind:
+          create_host_path: false
+
   # Extracteur RAW → STAGING (décision 011) : jamais lancé par « docker compose up » (profil dédié).
   # Lancement : docker compose --profile transformer run --rm transformer   (réextraction complète : … transformer --force)
   transformer:

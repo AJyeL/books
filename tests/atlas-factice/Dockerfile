@@ -1,4 +1,4 @@
-# Faux atlas, pour tester scripts/envoyer-captures.ps1 sans le vrai serveur (tests uniquement).
+# Faux atlas, pour tester scripts/envoyer-captures.ps1 et scripts/envoyer-ads.ps1 sans le vrai serveur (tests uniquement).
 # Serveur SSH, utilisateur arnaud (UID 1000) au mot de passe de test, disposition des dossiers d'atlas,
 # et faux « docker » (tests/shell/faux-docker) à la place du collecteur.
 # Construction, depuis le dossier du dépôt : docker build -t books-atlas-factice -f tests/atlas-factice/Dockerfile tests
@@ -15,8 +15,11 @@ RUN apt-get update \
              /home/arnaud/books-data/captures/attente \
              /home/arnaud/books-data/captures/inbox \
              /home/arnaud/books-data/captures/quarantaine \
+             /home/arnaud/books-data/ads/attente \
+             /home/arnaud/books-data/ads/inbox \
  && chown -R arnaud:arnaud /home/arnaud \
- && chmod 700 /home/arnaud/books-data/captures /home/arnaud/books-data/captures/*
+ && chmod 700 /home/arnaud/books-data/captures /home/arnaud/books-data/captures/* \
+              /home/arnaud/books-data/ads /home/arnaud/books-data/ads/*
 
 COPY shell/faux-docker /usr/local/bin/docker
 RUN chmod 755 /usr/local/bin/docker

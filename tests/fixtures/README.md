@@ -177,3 +177,21 @@ qui en reçoit une copie avec le commit d'origine. Valeurs inventées : ni ASIN,
 Vérifiés par `tests/python/test_guide_contrat.py` : format de l'exemple, 25 mutations refusées, vecteurs rejoués par une
 implémentation de référence des règles de la décision 017 (section 2), et export réel lu par `books_reader` dans
 `guide.export_document` (base PostgreSQL de test).
+
+## Rapports Amazon Ads (`ads/*.csv`, décision 018)
+
+Deux rapports journaliers **inventés**, à la forme des vrais (inventaires des 3 et 4 novembre 2026) : BOM UTF-8, fins de
+ligne CRLF, identifiants de campagne et de groupe en `="…"`, dates en mois abrégés français (dont `déc.`), point
+décimal, coût à 5 ou 2 décimales, une cellule de mesure vide, un terme contenant une virgule (champ entre guillemets)
+et le mot « Sentinelle » (rien ne doit le recopier). Les libellés d'en-tête sont ceux de l'interface d'Amazon Ads ;
+toutes les valeurs (compte, campagnes, groupes, ASIN `B0FAUX…`, SKU, titres, termes, ciblages, mesures) sont
+inventées. `.gitignore` exclut tous les `*.csv`, sauf ceux de ce dossier.
+
+| Fichier | Rôle |
+|---|---|
+| `Advertised_product_-_12_05_2026T19_59_56.csv` | Advertised product, dimension « Date » : 3 lignes, 2 campagnes, 2 produits |
+| `Search_term_-_12_05_2026T20_05_45.csv` | Search term, dimension « Date » : 3 lignes, ciblages produit et catégorie |
+
+Utilisés par `tests/python/test_ads_validation.py` (nature du fichier : chaque motif `invalid` du lot A est produit par
+mutation de ces deux fichiers) et `tests/python/test_ads_ingestion.py` (dépôt dans RAW), ainsi que par
+`tests/powershell/Test-EnvoyerAds.ps1` (envoi vers un faux atlas).

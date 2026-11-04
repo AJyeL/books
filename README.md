@@ -209,6 +209,12 @@ Tests SQL de la migration 010 (correspondance des textes sensibles, schéma `map
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_010_correspondance.sql
 ```
 
+Tests SQL de la migration 011 (rapports Amazon Ads dans RAW, décision 018), même principe :
+
+```bash
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_011_rapports_ads.sql
+```
+
 Les appels concurrents de `mapping.code_for` sont vérifiés par la suite Python
 (`tests/python/test_correspondance_concurrence.py`, PostgreSQL jetable).
 
@@ -232,6 +238,19 @@ Tests du script d'export de la sauvegarde (`scripts/exporter-sauvegarde.sh`), da
 
 ```bash
 docker run --rm -v "${PWD}:/src:ro" debian:bookworm-slim bash /src/tests/shell/test_exporter_sauvegarde.sh
+```
+
+Tests du script de réception des rapports Amazon Ads (`scripts/recevoir-ads.sh`), dans un conteneur Debian jetable :
+
+```bash
+docker run --rm -v "${PWD}:/src:ro" debian:bookworm-slim bash /src/tests/shell/test_recevoir_ads.sh
+```
+
+Tests du script d'envoi des rapports (`scripts/envoyer-ads.ps1`), même principe que ceux du script d'envoi des
+captures (faux atlas sur `127.0.0.1:2222`) :
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File tests\powershell\Test-EnvoyerAds.ps1
 ```
 
 Tests du script de rapatriement (`scripts/rapatrier-sauvegarde.ps1`), même principe que ceux du script d'envoi :
@@ -268,6 +287,30 @@ résultat de l'ingestion) ; les deux bilans s'affichent.
   sur atlas, ou atlas pas à jour). Le code 2 signale un réglage invalide sur le PC (rien envoyé).
   Une page en échec d'extraction donne le code 1 à chaque envoi, tant qu'elle n'est pas traitée.
 - `envoyees\` est une archive permanente : ne jamais la vider.
+
+## Envoi des rapports Amazon Ads vers atlas (PC)
+
+Décision 018, lot A. Télécharger chaque rapport à la main, par le lien de l'e-mail d'Amazon (aucun programme ne suit
+ce lien), dans le dossier des rapports ; puis double-cliquer sur `scripts\envoyer-ads.cmd` et saisir le mot de passe
+d'atlas quand `ssh` le demande. Atlas vérifie le lot, le place dans `~/books-data/ads/inbox/` et lance l'ingestion
+(`docker compose --profile ads run --rm ads`, rôle `books_collector`) ; son bilan s'affiche.
+
+- **Ne pas ouvrir les rapports dans Excel avant l'envoi** : un réenregistrement change leur forme (séparateur,
+  identifiants `="…"`, encodage) ; le fichier serait refusé, ou pire, transformé.
+- **Prérequis** : l'alias SSH `atlas`, et le réglage local `scripts\envoyer-ads.local.psd1`, copié depuis
+  `envoyer-ads.exemple.psd1` (ignoré par Git).
+- **Envoyés** : les fichiers `.csv` au nom fait de lettres, chiffres, `_`, `.` et `-`, de 20 Mo au plus. Les autres
+  (par exemple le « (1) » qu'ajoute Windows à un second téléchargement) sont signalés et laissés sur place.
+- **Sur atlas**, chaque fichier reçu est déposé dans RAW (`raw.ads_report_file`, fichier compressé sous
+  `~/books-data/raw/amazon_ads/`), avec le statut `ok` ou `invalid` et son motif : RAW ne juge que la nature du fichier
+  (vide, encodage, type, dimension « Date », date d'export dans le nom). Un fichier déjà reçu (même empreinte) est
+  retiré sans nouvelle ligne. Aucune extraction vers STAGING pour l'instant (lot B).
+- **Issues** : transfert échoué (code 3) : rien n'est déplacé sur le PC, relancer ; transfert réussi : les rapports
+  passent dans `envoyes\AAAA-MM\` (mois d'envoi) dans tous les cas, et le code vaut 0 si l'ingestion est sans
+  anomalie, 1 sinon (fichier `invalid`, élément laissé en place, ingestion non effectuée, atlas pas à jour). Le code 2
+  signale un réglage invalide sur le PC, ou un nom déjà présent dans `envoyes\` (rien envoyé).
+- `envoyes\` est une archive permanente : ne jamais la vider. Elle contient les termes de recherche en clair
+  (décisions 013 et 018).
 
 ## Copie de la base sur le PC
 
@@ -339,7 +382,7 @@ perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
 5. Définir les mots de passe de `books_collector` et de `books_transformer` (section ci-dessus) et les reporter
    dans `.env` ; `books_reader` reste sans mot de passe.
 
-6. Vérifier avec les tests SQL des migrations 005 à 010 (section Tests) ; le test 008 contrôle les attributs, les
+6. Vérifier avec les tests SQL des migrations 005 à 011 (section Tests) ; le test 008 contrôle les attributs, les
    réglages et la liste blanche de `books_reader`, le test 010 les droits de la correspondance. Comparer ensuite les
    comptes de lignes à ceux de la base d'origine, par la même requête lancée sous `books_reader` des deux côtés
    (comptes seulement, aucune donnée) :
@@ -355,7 +398,14 @@ perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
    docker compose exec -T postgres sh -c 'psql -X -At -F " | " -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < sql/observations/comptes_correspondance.sql
    ```
 
-Les pages brutes se restaurent à part, depuis `~/books-backup/raw` vers `~/books-data/raw`.
+   De même pour les rapports Amazon Ads (exécutions, fichiers par type et par statut ; décision 018) :
+
+   ```bash
+   docker compose exec -T postgres sh -c 'psql -X -At -F " | " -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < sql/observations/comptes_ads.sql
+   ```
+
+Les pages brutes se restaurent à part, depuis `~/books-backup/raw` vers `~/books-data/raw` ; les rapports Amazon Ads
+bruts (`amazon_ads/`) en font partie.
 
 ## Déploiement sur atlas
 
@@ -376,6 +426,14 @@ Les pages brutes se restaurent à part, depuis `~/books-backup/raw` vers `~/book
    stat -c '%U %u %a %n' ~/books-data/captures ~/books-data/captures/*
    ```
 
+   Et pour le dossier des rapports Amazon Ads (décision 018) et ses deux sous-dossiers :
+
+   ```bash
+   mkdir -p ~/books-data/ads/attente ~/books-data/ads/inbox
+   chmod 700 ~/books-data/ads ~/books-data/ads/attente ~/books-data/ads/inbox
+   stat -c '%U %u %a %n' ~/books-data/ads ~/books-data/ads/*
+   ```
+
 2. Compléter `.env` à partir de `.env.example`, avec des chemins absolus
    (le `~` n'est pas interprété dans un `.env`) :
 
@@ -383,6 +441,7 @@ Les pages brutes se restaurent à part, depuis `~/books-backup/raw` vers `~/book
    BOOKS_ENV=prod
    BOOKS_RAW_DIR=/home/arnaud/books-data/raw
    BOOKS_CAPTURES_DIR=/home/arnaud/books-data/captures
+   BOOKS_ADS_DIR=/home/arnaud/books-data/ads
    ```
 
    Sans `BOOKS_CAPTURES_DIR`, seul le lancement du collecteur échoue ; PostgreSQL et la sauvegarde

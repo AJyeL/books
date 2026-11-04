@@ -82,6 +82,18 @@ avec le statut `invalid` et son motif. **Il n'est jamais ignoré.**
   Sont connues, et ignorées, les colonnes de taux, celles du compte et du portefeuille, ainsi que les colonnes de
   produit et les colonnes vides ou toujours nulles relevées par l'inventaire (annexe).
 
+> Note du 4 novembre 2026 (mise en œuvre, lot A) : **répartition des contrôles entre RAW et STAGING.** RAW ne juge que
+> la **nature** du fichier, jamais son contenu : un verdict gravé dans une couche immuable, dédoublonnée par empreinte,
+> ne pourrait jamais être corrigé si le validateur avait un défaut.
+> - **RAW** (lot A, migration 011) : fichier vide ; encodage UTF-8 (BOM admis) ; type détecté par les en-têtes ;
+>   rapport en « Plage de dates » ; rapport en « Jour du mois » ; colonne « Date » absente ; date et heure d'export
+>   illisibles dans le nom. `raw.ads_report_file` conserve le type, la date et l'heure d'export, le statut et le motif ;
+>   ni bornes de dates, ni nombre de lignes, ni contrainte sur la date d'export.
+> - **STAGING** (lot B), en statuts d'extraction **recalculables**, retentés à chaque version de l'extracteur comme les
+>   `parse_failed` : forme CSV, libellé en double, colonnes requises, devise, dates, mesures, doublons de grain, date
+>   d'export postérieure à la dernière date du fichier, colonnes inconnues. Un fichier sans ligne de données n'y sera
+>   pas une anomalie, mais un statut à part (« aucune activité rapportée »).
+
 ### 4. STAGING
 
 - **Une table par type de rapport**, au grain vérifié par l'inventaire, pour un fichier RAW donné :

@@ -9,6 +9,8 @@ data/
 !tests/fixtures/captures/*.html
 *.html.gz
 *.csv
+# Exception : rapports Amazon Ads de test, aux valeurs inventées (voir tests/fixtures/README.md)
+!tests/fixtures/ads/*.csv
 *.dump
 *.sql.gz
 

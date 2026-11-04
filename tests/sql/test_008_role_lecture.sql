@@ -1,6 +1,6 @@
 -- Tests de la migration 008 : rôle de lecture books_reader (décision 016, section 8)
 --
--- À exécuter EN TANT QUE PROPRIÉTAIRE de la base, depuis le dossier du dépôt (bash), toutes les migrations appliquées (001 à 010) :
+-- À exécuter EN TANT QUE PROPRIÉTAIRE de la base, depuis le dossier du dépôt (bash), toutes les migrations appliquées (001 à 011) :
 --   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_008_role_lecture.sql
 -- Même principe que test_007 : le propriétaire prépare raw, puis endosse books_reader (SET LOCAL ROLE). Les réglages du
 -- rôle ne s'appliquent qu'à une vraie connexion : ils sont vérifiés dans le catalogue (test 7) et par la recette.

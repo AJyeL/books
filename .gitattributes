@@ -3,6 +3,8 @@
 # et les fausses pages servent à les générer.
 tests/fixtures/*.html -text
 tests/fixtures/captures/** -text
+# Rapports Amazon Ads de test : BOM et fins de ligne CRLF des vrais rapports, conservés à l'octet près (décision 018)
+tests/fixtures/ads/** -text
 
 # Scripts exécutés par bash (atlas, tests) : fins de ligne Unix, quelle que soit la machine
 *.sh text eol=lf

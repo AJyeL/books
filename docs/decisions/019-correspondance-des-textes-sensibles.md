@@ -15,6 +15,10 @@ Cette décision décrit la **mise en œuvre technique**, découpée en étapes :
 - **étape 2** : les auteurs (extracteur), précédés de la liste d'exclusion (section 7) ;
 - **étape 3** : les rapports Amazon Ads (décision 018).
 
+> Note du 4 novembre 2026 : **ordre des étapes.** Les étapes 2 et 3 sont indépendantes : la liste d'exclusion protège
+> les auteurs et ne concerne pas les rapports Ads, qui ne dépendent que de l'étape 1. L'étape 3 est donc mise en œuvre
+> la première. La liste d'exclusion reste la **première tâche avant tout code d'auteur** (section 7).
+
 L'analyse juridique reste dans la décision 013 ; celle-ci ne traite que de la conception.
 
 ## Décision
