@@ -159,9 +159,12 @@ def test_verrou_occupe(pg, tmp_path):
 def test_export_recent_l_emporte_pour_les_deux_types(pg, tmp_path):
     deposit(pg, tmp_path, {n: fixture(n) for n in (AP_1205, ST_1205, AP_1220, ST_1220)})
     result, logs = run(pg)
-    # Couverture de l'export du 20 décembre : réunion des bornes de ses deux fichiers, du 15 octobre au 1er décembre
-    assert pg.query("SELECT min(day), max(day), count(*), count(DISTINCT export_date) FROM staging.ads_day_source") == [
-        (date(2026, 10, 15), date(2026, 12, 1), 48, 1)]
+    # Couverture de l'export du 20 décembre : réunion des bornes de ses deux fichiers, du 15 octobre au 1er décembre,
+    # pour chacun des deux types
+    assert pg.query("SELECT report_type, min(day), max(day), count(*) FROM staging.ads_day_source "
+                    "GROUP BY report_type ORDER BY 1") == [
+        ("advertised_product", date(2026, 10, 15), date(2026, 12, 1), 48),
+        ("search_term", date(2026, 10, 15), date(2026, 12, 1), 48)]
     assert pg.query("SELECT DISTINCT export_date FROM staging.ads_day_source") == [(date(2026, 12, 20),)]
     # Advertised product : le 4 novembre n'a pas de ligne dans l'export récent, et l'ancien n'est pas repris
     assert pg.query("SELECT day, impressions FROM staging.ads_product_day_best ORDER BY day") == [
@@ -175,6 +178,31 @@ def test_export_recent_l_emporte_pour_les_deux_types(pg, tmp_path):
     assert result.status == "partial"
     assert "export du 2026-12-20, 2026-10-15 : jour présent dans le seul Advertised product" in logs
     assert "export du 2026-12-20, 2026-11-04 : jour présent dans le seul Search term" in logs
+
+
+def test_export_recent_sans_search_term_ne_masque_pas_l_ancien(pg, tmp_path):
+    # Export du 20 décembre avec Advertised product seul : il n'observe rien des termes
+    deposit(pg, tmp_path, {n: fixture(n) for n in (AP_1205, ST_1205, AP_1220)})
+    run(pg)
+    assert pg.query("SELECT day, impressions, export_date FROM staging.ads_search_term_day_best ORDER BY day") == [
+        (date(2026, 10, 15), 1234, date(2026, 12, 5)), (date(2026, 11, 4), 87, date(2026, 12, 5)),
+        (date(2026, 12, 1), 5000, date(2026, 12, 5))]
+    assert pg.query("SELECT DISTINCT export_date FROM staging.ads_product_day_best") == [(date(2026, 12, 20),)]
+
+
+def test_search_term_recent_sans_activite_l_emporte(pg, tmp_path):
+    # Search term du 20 décembre « aucune activité rapportée » : observation d'absence, sans ligne
+    header = fixture(ST_1220).split(b"\r\n", 1)[0] + b"\r\n"
+    deposit(pg, tmp_path, {AP_1205: fixture(AP_1205), ST_1205: fixture(ST_1205), AP_1220: fixture(AP_1220),
+                           ST_1220: header})
+    result, _ = run(pg)
+    assert pg.query("SELECT status FROM staging.ads_file_extraction WHERE ads_report_file_id = %s",
+                    (file_id(pg, ST_1220),)) == [("no_activity",)]
+    assert pg.query("SELECT count(*) FROM staging.ads_search_term_day_best") == [(0,)]
+    assert pg.query("SELECT count(*), min(file_id), max(file_id) FROM staging.ads_day_source "
+                    "WHERE report_type = 'search_term'") == [(48, file_id(pg, ST_1220), file_id(pg, ST_1220))]
+    assert pg.query("SELECT count(*) FROM staging.ads_search_term_day WHERE ads_report_file_id = %s",
+                    (file_id(pg, ST_1205),)) == [(3,)]  # rien n'est écrasé
 
 
 def test_jour_hors_couverture_recente_garde_l_export_ancien(pg, tmp_path):

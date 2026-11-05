@@ -130,44 +130,45 @@ COMMENT ON COLUMN staging.ads_search_term_day.campaign_name_code IS
     'Code (mapping.text_code, nature campaign) du nom observé ce jour-là. Observation, pas identité : regrouper '
     'par campaign_id, jamais par ce code (un renommage change le code).';
 
--- Source de chaque jour couvert (décision 018, section 6, note du 5 novembre 2026). Un export, ce sont les fichiers
--- ok de même date d'export ; sa couverture est la réunion des bornes de ses fichiers. Pour chaque jour couvert,
--- l'export le plus récent l'emporte pour LES DEUX types, même si l'un n'a aucune ligne ce jour-là (l'absence est
--- alors la meilleure estimation) : un export plus ancien n'est jamais repris pour un jour couvert par un plus récent.
--- Deux fichiers du même type et de même date d'export : le plus récent par l'heure (puis par l'ordre d'ingestion).
--- Un identifiant de fichier NULL : l'export qui l'emporte n'a pas de fichier ok de ce type.
+-- Source de chaque jour, pour chaque type (décision 018, section 6, notes du 5 novembre 2026). Un export, ce sont les
+-- fichiers de même date d'export ; sa couverture est la réunion des bornes de ses fichiers extraits ok. Pour chaque
+-- jour et chaque type, l'emporte l'export le plus récent qui contient un fichier de CE type au statut ok ou
+-- no_activity, et dont la couverture inclut ce jour. Un fichier no_activity est une observation d'absence : il
+-- l'emporte, sans ligne. Un export sans fichier d'un type n'observe rien de ce type : il ne masque jamais un export
+-- plus ancien qui en avait un. Deux fichiers du même type et de même date d'export : le plus récent par l'heure
+-- (puis par l'ordre d'ingestion). Un jour sans aucune ligne pour un type n'a donc pas de source.
 CREATE VIEW staging.ads_day_source WITH (security_invoker = true) AS
-WITH ok_file AS (
-    SELECT f.id, f.report_type, f.export_date, f.export_time, e.first_day, e.last_day
+WITH observed AS (
+    SELECT f.id, f.report_type, f.export_date, f.export_time, e.status, e.first_day, e.last_day
       FROM raw.ads_report_file f
       JOIN staging.ads_file_extraction e ON e.ads_report_file_id = f.id
-     WHERE f.status = 'ok' AND e.status = 'ok'
+     WHERE f.status = 'ok' AND e.status IN ('ok', 'no_activity')
 ), covered AS (
+    -- Seuls les fichiers ok ont des bornes : un fichier no_activity ne couvre aucun jour à lui seul
     SELECT DISTINCT o.export_date, d::date AS day
-      FROM ok_file o, generate_series(o.first_day, o.last_day, interval '1 day') AS d
-), winner AS (
-    SELECT DISTINCT ON (day) day, export_date FROM covered ORDER BY day, export_date DESC
+      FROM observed o, generate_series(o.first_day, o.last_day, interval '1 day') AS d
+     WHERE o.status = 'ok'
 ), chosen AS (
     SELECT DISTINCT ON (export_date, report_type) export_date, report_type, id
-      FROM ok_file ORDER BY export_date, report_type, export_time DESC, id DESC
+      FROM observed ORDER BY export_date, report_type, export_time DESC, id DESC
 )
-SELECT w.day, w.export_date,
-       (SELECT c.id FROM chosen c WHERE c.export_date = w.export_date AND c.report_type = 'advertised_product')
-           AS advertised_product_file_id,
-       (SELECT c.id FROM chosen c WHERE c.export_date = w.export_date AND c.report_type = 'search_term')
-           AS search_term_file_id
-  FROM winner w;
+SELECT DISTINCT ON (c.day, ch.report_type) c.day, ch.report_type, ch.export_date, ch.id AS file_id
+  FROM covered c
+  JOIN chosen ch ON ch.export_date = c.export_date
+ ORDER BY c.day, ch.report_type, ch.export_date DESC;
 
--- Meilleure estimation de chaque jour : les lignes du fichier retenu pour ce jour, et seulement elles
+-- Meilleure estimation de chaque jour : les lignes du fichier retenu pour ce jour et ce type, et seulement elles
 CREATE VIEW staging.ads_product_day_best WITH (security_invoker = true) AS
 SELECT p.*, s.export_date
   FROM staging.ads_product_day p
-  JOIN staging.ads_day_source s ON s.day = p.day AND s.advertised_product_file_id = p.ads_report_file_id;
+  JOIN staging.ads_day_source s
+    ON s.day = p.day AND s.report_type = 'advertised_product' AND s.file_id = p.ads_report_file_id;
 
 CREATE VIEW staging.ads_search_term_day_best WITH (security_invoker = true) AS
 SELECT t.*, s.export_date
   FROM staging.ads_search_term_day t
-  JOIN staging.ads_day_source s ON s.day = t.day AND s.search_term_file_id = t.ads_report_file_id;
+  JOIN staging.ads_day_source s
+    ON s.day = t.day AND s.report_type = 'search_term' AND s.file_id = t.ads_report_file_id;
 
 -- books_transformer : lecture des fichiers RAW de rapports (le lot B l'accorde, décision 018) ; dans STAGING,
 -- ajout et suppression des lignes, remplacement limité de la ligne d'extraction, clôture limitée de l'exécution ;

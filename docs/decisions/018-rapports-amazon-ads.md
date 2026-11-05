@@ -139,14 +139,24 @@ avec le statut `invalid` et son motif. **Il n'est jamais ignoré.**
   - **Toutes les lignes de ce jour viennent de ce seul export.** Une ligne présente dans un export plus ancien et
     absente du plus récent n'est pas reprise : on ne mélange pas deux exports pour un même jour.
 
-> Note du 5 novembre 2026 (mise en œuvre, lot B, migration 012) : **la couverture se décide par export, pas par
-> fichier.** Un export, ce sont les fichiers extraits `ok` de même date d'export ; sa couverture est la réunion des
-> bornes (première et dernière date) de ses fichiers. Pour chaque jour couvert, l'export le plus récent l'emporte
-> **pour les deux types**, même si l'un n'a aucune ligne ce jour-là : l'absence est alors la meilleure estimation. Un
-> export plus ancien n'est jamais repris pour un jour couvert par un plus récent. Deux fichiers du même type et de
-> même date d'export : le plus récent par l'heure l'emporte, avec une information au bilan. Un fichier « aucune
-> activité rapportée » ne couvre aucun jour. Vues : `staging.ads_day_source` (export et fichier retenus pour chaque
-> jour), `staging.ads_product_day_best`, `staging.ads_search_term_day_best`.
+> Note du 5 novembre 2026 (mise en œuvre, lot B, migration 012), **corrigée le même jour après l'audit** : la
+> couverture se décide **par export**, le gagnant **par jour et par type**.
+> - Un export, ce sont les fichiers de même date d'export ; sa **couverture** est la réunion des bornes (première et
+>   dernière date) de ses fichiers extraits `ok`. Un fichier « aucune activité rapportée » n'a pas de bornes : il ne
+>   couvre aucun jour à lui seul.
+> - Pour chaque jour et chaque type, l'emporte l'**export le plus récent qui contient un fichier de ce type**, au
+>   statut `ok` ou `no_activity`, et dont la couverture inclut ce jour.
+> - Un fichier `no_activity` est une **observation d'absence** : il l'emporte, sans ligne. Un jour couvert sans ligne
+>   dans le fichier retenu a pour meilleure estimation l'absence ; un export plus ancien n'est jamais repris pour ce
+>   type et ce jour.
+> - Un export **sans fichier d'un type** n'observe rien de ce type : il ne masque jamais un export plus ancien qui en
+>   avait un. Défaut corrigé : la première version désignait un seul export gagnant par jour pour les deux types ;
+>   un export récent sans Search term effaçait alors la meilleure estimation des termes (une absence d'observation lue
+>   comme une observation d'absence).
+> - Deux fichiers du même type et de même date d'export : le plus récent par l'heure l'emporte, avec une information
+>   au bilan.
+> - Vues : `staging.ads_day_source` (une ligne par jour et par type : export et fichier retenus),
+>   `staging.ads_product_day_best`, `staging.ads_search_term_day_best`.
 
 ### 7. Contrôles dans le bilan
 

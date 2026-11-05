@@ -316,7 +316,8 @@ le résultat de l'ingestion (`docker compose --profile ads-transformer run --rm 
 - **Extraction** (lot B) : le contenu de chaque fichier `ok` est jugé (statuts recalculables `ok`, `no_activity`,
   `parse_failed`, `integrity_failed`), puis ses lignes sont écrites dans STAGING avec des identifiants, des codes
   (`mapping.code_for`) et des quantités, jamais un texte. Meilleure estimation de chaque jour : vues
-  `staging.ads_product_day_best` et `staging.ads_search_term_day_best` (export le plus récent qui couvre le jour).
+  `staging.ads_product_day_best` et `staging.ads_search_term_day_best` (pour chaque type, l'export le plus récent
+  qui contient un fichier de ce type et couvre le jour).
   Le bilan réconcilie les deux types de chaque export. La fraîcheur (« Aucun rapport Amazon Ads de moins de
   10 jours ») est signalée, en information, par le bilan de l'extraction des captures.
 - **Issues** : transfert échoué (code 3) : rien n'est déplacé sur le PC, relancer ; transfert réussi : les rapports
