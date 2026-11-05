@@ -54,7 +54,8 @@ DO $$
 DECLARE
     got text;
 BEGIN
-    -- Privilèges de table accordés à d'autres que le propriétaire : exactement ceux de books_collector
+    -- Privilèges de table accordés à d'autres que le propriétaire : ceux de books_collector, et la lecture des
+    -- fichiers par books_transformer (accordée par la migration 012, lot B)
     SELECT string_agg(g, ', ' ORDER BY g) INTO got FROM (
         SELECT c.relname || ':' || CASE WHEN a.grantee = 0 THEN 'PUBLIC' ELSE a.grantee::regrole::text END
                || ':' || a.privilege_type AS g
@@ -62,7 +63,8 @@ BEGIN
          WHERE c.oid IN ('raw.ads_ingest_run'::regclass, 'raw.ads_report_file'::regclass)
            AND a.grantee <> c.relowner) x;
     IF got IS DISTINCT FROM 'ads_ingest_run:books_collector:INSERT, ads_ingest_run:books_collector:SELECT, '
-                            'ads_report_file:books_collector:INSERT, ads_report_file:books_collector:SELECT' THEN
+                            'ads_report_file:books_collector:INSERT, ads_report_file:books_collector:SELECT, '
+                            'ads_report_file:books_transformer:SELECT' THEN
         RAISE EXCEPTION 'ÉCHEC test 1 : droits de table : %', got;
     END IF;
     -- Privilèges de colonne : UPDATE sur les seules colonnes de clôture de ads_ingest_run
@@ -197,17 +199,23 @@ BEGIN
         $q$UPDATE raw.ads_report_file SET reason = 'x' WHERE content_sha256 = 'fe' || repeat('2', 62)$q$, 'P0001', NULL);
     PERFORM pg_temp.expect_refusal(5, 'DELETE d''un fichier par le propriétaire',
         $q$DELETE FROM raw.ads_report_file WHERE content_sha256 = 'fe' || repeat('2', 62)$q$, 'P0001', NULL);
-    PERFORM pg_temp.expect_refusal(5, 'TRUNCATE par le propriétaire', 'TRUNCATE raw.ads_report_file', 'P0001', NULL);
+    -- CASCADE : depuis la migration 012, STAGING référence ces fichiers ; le déclencheur refuse quand même tout
+    PERFORM pg_temp.expect_refusal(5, 'TRUNCATE par le propriétaire', 'TRUNCATE raw.ads_report_file CASCADE', 'P0001', NULL);
 END;
 $$;
 
 -- ============================================================================================================
--- Test 6 : books_transformer et books_reader n'ont aucun droit
+-- Test 6 : books_transformer lit les fichiers (migration 012) sans jamais les écrire ; books_reader n'a aucun droit
 -- ============================================================================================================
 SET LOCAL ROLE books_transformer;
 DO $$
 BEGIN
-    PERFORM pg_temp.expect_refusal(6, 'lecture des fichiers par books_transformer', 'SELECT 1 FROM raw.ads_report_file', '42501', NULL);
+    PERFORM count(*) FROM raw.ads_report_file;
+    RAISE NOTICE 'OK test 6 : books_transformer lit raw.ads_report_file (migration 012)';
+    PERFORM pg_temp.expect_refusal(6, 'ajout d''un fichier par books_transformer',
+        $q$INSERT INTO raw.ads_report_file (run_id, lot, original_name, content_sha256, content_bytes, storage_path,
+           status, reason) SELECT run_id, lot, 'x', 'fe' || repeat('9', 62), 0, 'test/x', 'invalid', 'x'
+           FROM raw.ads_report_file LIMIT 1$q$, '42501', NULL);
     PERFORM pg_temp.expect_refusal(6, 'lecture des exécutions par books_transformer', 'SELECT 1 FROM raw.ads_ingest_run', '42501', NULL);
 END;
 $$;

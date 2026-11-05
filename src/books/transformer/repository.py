@@ -1,10 +1,11 @@
 """Lectures et écritures en base de l'extracteur, avec les seuls droits de books_transformer (migrations 005 à 007) :
 lecture de raw ; dans staging, INSERT et DELETE sur les tables de lignes (classements, catégories, fiches), INSERT et
-UPDATE limité sur page_extraction, INSERT et UPDATE des colonnes de clôture sur extract_run.
+UPDATE limité sur page_extraction, INSERT et UPDATE des colonnes de clôture sur extract_run. Depuis la migration 012,
+lecture de raw.ads_report_file pour la seule fraîcheur des rapports Amazon Ads (dates d'export).
 """
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Protocol
 
 import psycopg
@@ -77,6 +78,8 @@ class TransformerRepository(Protocol):
 
     def close_run(self, run_id: int, status: str, pages_extracted: int, pages_failed: int, pages_skipped: int,
                   notes: str) -> None: ...
+
+    def latest_ads_exports(self) -> dict[str, date | None]: ...
 
 
 class PgTransformerRepository:
@@ -244,6 +247,14 @@ class PgTransformerRepository:
             """,
             (status, pages_extracted, pages_failed, pages_skipped, notes, run_id),
         )
+
+    def latest_ads_exports(self) -> dict[str, date | None]:
+        """Date d'export du dernier rapport Amazon Ads ok de chaque type, None si aucun (fraîcheur, décision 018,
+        section 7 ; lecture de raw.ads_report_file accordée par la migration 012). Aucun nom, aucune valeur."""
+        rows = dict(self.conn.execute(
+            "SELECT report_type, max(export_date) FROM raw.ads_report_file WHERE status = 'ok' GROUP BY report_type"
+        ).fetchall())
+        return {kind: rows.get(kind) for kind in ("advertised_product", "search_term")}
 
     def _delete_page_rows(self, raw_page_id: int) -> None:
         """Supprime toutes les lignes d'une page (classement, catégorie, fiche), avant la mise à jour de

@@ -1,6 +1,7 @@
 ﻿<#
 .SYNOPSIS
-    Envoie les rapports Amazon Ads téléchargés vers atlas et lance leur ingestion dans RAW (décision 018, lot A).
+    Envoie les rapports Amazon Ads téléchargés vers atlas, et lance leur ingestion dans RAW puis leur extraction vers
+    STAGING (décision 018, lots A et B).
 
 .DESCRIPTION
     Calqué sur envoyer-captures.ps1 (décision 008). Les rapports sont téléchargés à la main, par le lien de l'e-mail
@@ -14,14 +15,15 @@
        les originaux, archive tar. Aucun outil ne lit les rapports comme du texte.
     3. Une seule connexion SSH (alias « atlas », mot de passe saisi à l'invite) : l'archive est transmise par une
        redirection de cmd.exe, qui copie les octets tels quels. Sur atlas, scripts/recevoir-ads.sh déballe, vérifie,
-       place le lot dans ~/books-data/ads/inbox/ et lance l'ingestion.
+       place le lot dans ~/books-data/ads/inbox/, lance l'ingestion, puis l'extraction vers STAGING quel que soit le
+       résultat de l'ingestion (décision 012).
     4. Si le transfert a réussi, les rapports sont déplacés dans envoyes\AAAA-MM\ (mois d'envoi, en UTC), quel que
        soit le résultat de l'ingestion : envoyes\ est une archive permanente, jamais vidée.
 
-    Codes de sortie :
-      0  transfert réussi, ingestion sans anomalie (ou aucun rapport à envoyer)
-      1  transfert réussi, mais ingestion avec anomalies, non effectuée ou en échec (les rapports non ingérés
-         attendent dans inbox/ sur atlas)
+    Codes de sortie (le plus grave l'emporte) :
+      0  transfert réussi, ingestion et extraction sans anomalie (ou aucun rapport à envoyer)
+      1  transfert réussi, mais ingestion ou extraction avec anomalies, non effectuée ou en échec, configuration
+         invalide sur atlas, ou repère d'extraction absent (les rapports non ingérés attendent dans inbox/)
       2  réglage local, dossier ou outil invalide sur le PC, ou nom déjà présent dans envoyes\ : rien n'a été envoyé
       3  transfert échoué : rien n'a été déplacé sur le PC
 
@@ -186,6 +188,8 @@ try {
         }
         $ingestion = [regex]::Match($texte, '(?m)^BOOKS:INGESTION:CODE ([0-9]+)\r?$')
         $codeIngestion = if ($ingestion.Success) { [int]$ingestion.Groups[1].Value } else { -1 }
+        $extraction = [regex]::Match($texte, '(?m)^BOOKS:EXTRACTION:CODE ([0-9]+)\r?$')
+        $codeExtraction = if ($extraction.Success) { [int]$extraction.Groups[1].Value } else { -1 }
 
         Write-Section 'Résultat'
         Write-Host "Transfert réussi : $($rapports.Count) rapport(s) déposé(s) sur atlas et rangé(s) dans envoyes\."
@@ -200,7 +204,19 @@ try {
             Write-Host "Ingestion non effectuée (code $codeIngestion) : les rapports attendent dans inbox/ sur atlas,"
             Write-Host 'et seront ingérés à la prochaine ingestion.'
         }
-        $code = if ($codeIngestion -eq 0) { 0 } else { 1 }
+        if ($codeExtraction -eq 0) {
+            Write-Host 'Extraction sans anomalie.'
+        } elseif ($codeExtraction -eq 1) {
+            Write-Host 'Extraction avec anomalies, déjà en cours ou interrompue : voir le bilan ci-dessus.'
+        } elseif ($codeExtraction -eq 2) {
+            Write-Host 'Extraction non lancée : configuration invalide sur atlas (voir le message ci-dessus).'
+        } elseif ($codeExtraction -lt 0) {
+            Write-Host 'Extraction non signalée par atlas : atlas est-il à jour (git pull, image reconstruite) ?'
+        } else {
+            Write-Host "Extraction en erreur (code $codeExtraction) : voir le message ci-dessus."
+        }
+        # Le plus grave l'emporte : 0 seulement si l'ingestion et l'extraction sont toutes deux sans anomalie
+        $code = if ($codeIngestion -eq 0 -and $codeExtraction -eq 0) { 0 } else { 1 }
     }
 }
 catch {

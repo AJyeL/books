@@ -253,6 +253,9 @@ def test_pg_ajout_seul_et_droits(pg, dirs):
             conn.execute(sql)
         with pytest.raises(psycopg.errors.RaiseException, match="ajout seul"):
             pg.owner.execute(sql)
-    # books_transformer : aucun droit (le lot B les accordera)
-    with pytest.raises(psycopg.errors.InsufficientPrivilege):
-        pg.transformer.execute("SELECT 1 FROM raw.ads_report_file")
+    # books_transformer : lecture seulement (accordée par la migration 12, lot B), jamais d'écriture
+    assert pg.transformer.execute("SELECT count(*) FROM raw.ads_report_file").fetchone() == (1,)
+    for sql in ("UPDATE raw.ads_report_file SET reason = 'x'", "DELETE FROM raw.ads_report_file",
+                "SELECT 1 FROM raw.ads_ingest_run"):
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            pg.transformer.execute(sql)

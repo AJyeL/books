@@ -1,5 +1,5 @@
 ﻿<#
-Tests de scripts/envoyer-ads.ps1 (décision 018, lot A) contre un faux atlas (conteneur SSH), autovérifiés
+Tests de scripts/envoyer-ads.ps1 (décision 018, lots A et B) contre un faux atlas (conteneur SSH), autovérifiés
 (code 0 = tout est conforme).
 
 Lancement, depuis le dossier du dépôt, Docker Desktop démarré :
@@ -45,13 +45,13 @@ function Invoke-Atlas([string]$commande) {
     return ($sortie -join "`n")
 }
 
-function Reset-Scenario([int]$codeIngestion) {
-    # PC : dossier des rapports avec les rapports de test ; atlas : dossiers vides, code d'ingestion
+function Reset-Scenario([int]$codeIngestion, [int]$codeExtraction = 0) {
+    # PC : dossier des rapports avec les rapports de test ; atlas : dossiers vides, codes d'ingestion et d'extraction
     if (Test-Path -LiteralPath $rapports) { Remove-Item -LiteralPath $rapports -Recurse -Force }
     New-Item -ItemType Directory -Path $rapports | Out-Null
     Copy-Item -Path (Join-Path $fixtures '*.csv') -Destination $rapports
     Invoke-Atlas ("rm -rf ~/recues ~/appels ~/books-data/ads/inbox/* ~/books-data/ads/attente/*; " +
-                  "echo $codeIngestion > ~/code-ingestion") | Out-Null
+                  "echo $codeIngestion > ~/code-ingestion; echo $codeExtraction > ~/code-extraction") | Out-Null
 }
 
 function Invoke-Envoi([string]$fichierReglage = $reglage, [string]$depotDistant = 'books') {
@@ -128,9 +128,10 @@ try {
     Test-Condition "sans anomalie : octets reçus sur atlas identiques aux originaux ($nbFichiers fichiers, BOM et CRLF)" $identiques
     Test-Condition 'sans anomalie : attente/ vide sur atlas' ((Invoke-Atlas 'ls -A ~/books-data/ads/attente') -eq '')
     Test-Condition 'sans anomalie : dossier de travail supprimé' (@(Get-ChildItem -LiteralPath $travail).Count -eq 0)
-    Test-Condition 'sans anomalie : ingestion des rapports seulement sur atlas' ((Get-Appels) -eq 'ingestion-ads')
-    Test-Condition 'sans anomalie : bilan affiché, « Ingestion sans anomalie »' (
-        $sortieEnvoi -match 'Bilan factice de l.ingestion des rapports Ads' -and $sortieEnvoi -match 'Ingestion sans anomalie')
+    Test-Condition 'sans anomalie : ingestion puis extraction des rapports sur atlas' ((Get-Appels) -eq "ingestion-ads`nextraction-ads")
+    Test-Condition 'sans anomalie : bilans affichés, « Ingestion sans anomalie », « Extraction sans anomalie »' (
+        $sortieEnvoi -match 'Bilan factice de l.ingestion des rapports Ads' -and $sortieEnvoi -match 'Ingestion sans anomalie' -and
+        $sortieEnvoi -match 'Bilan factice de l.extraction des rapports Ads' -and $sortieEnvoi -match 'Extraction sans anomalie')
     Test-Condition 'sans anomalie : captures non touchées sur atlas' ((Invoke-Atlas 'ls -A ~/books-data/captures/inbox') -eq '')
 
     # 2. Transfert réussi, ingestion avec anomalies (fichier invalid par exemple)
@@ -146,6 +147,28 @@ try {
     Test-Condition 'ingestion non effectuée : code 1' ($code -eq 1)
     Test-Condition 'ingestion non effectuée : rapports rangés, message' (
         @(Get-Ranges).Count -eq $nbFichiers -and $sortieEnvoi -match 'Ingestion non effectuée \(code 2\)')
+    Test-Condition 'ingestion non effectuée : extraction lancée quand même' (
+        (Get-Appels) -eq "ingestion-ads`nextraction-ads" -and $sortieEnvoi -match 'Extraction sans anomalie')
+
+    # 3 bis. Ingestion sans anomalie, extraction en échec : le code final remonte
+    Reset-Scenario 0 1
+    $code = Invoke-Envoi
+    Test-Condition 'extraction en échec : code 1, messages' (
+        $code -eq 1 -and $sortieEnvoi -match 'Ingestion sans anomalie' -and $sortieEnvoi -match 'Extraction avec anomalies')
+
+    # 3 ter. Extraction mal configurée sur atlas (code 2) : code 1 sur le PC, le code 2 restant réservé au PC
+    Reset-Scenario 0 2
+    $code = Invoke-Envoi
+    Test-Condition 'extraction mal configurée sur atlas : code 1, message' (
+        $code -eq 1 -and $sortieEnvoi -match 'configuration invalide sur atlas')
+
+    # 3 quater. Repère d'extraction absent (atlas pas à jour) : code 1, jamais lu comme un succès
+    Reset-Scenario 0
+    Invoke-Atlas ('mkdir -p ~/sansextraction/scripts && grep -v "BOOKS:EXTRACTION:CODE" ~/books/scripts/recevoir-ads.sh ' +
+                  '> ~/sansextraction/scripts/recevoir-ads.sh') | Out-Null
+    $code = Invoke-Envoi $reglage 'sansextraction'
+    Test-Condition 'repère d''extraction absent : code 1, message' (
+        $sortieEnvoi -notmatch 'BOOKS:EXTRACTION' -and $code -eq 1 -and $sortieEnvoi -match 'Extraction non signalée par atlas')
 
     # 4. Repère d'ingestion absent : code 1, jamais lu comme un succès
     Reset-Scenario 0

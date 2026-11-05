@@ -139,6 +139,15 @@ avec le statut `invalid` et son motif. **Il n'est jamais ignoré.**
   - **Toutes les lignes de ce jour viennent de ce seul export.** Une ligne présente dans un export plus ancien et
     absente du plus récent n'est pas reprise : on ne mélange pas deux exports pour un même jour.
 
+> Note du 5 novembre 2026 (mise en œuvre, lot B, migration 012) : **la couverture se décide par export, pas par
+> fichier.** Un export, ce sont les fichiers extraits `ok` de même date d'export ; sa couverture est la réunion des
+> bornes (première et dernière date) de ses fichiers. Pour chaque jour couvert, l'export le plus récent l'emporte
+> **pour les deux types**, même si l'un n'a aucune ligne ce jour-là : l'absence est alors la meilleure estimation. Un
+> export plus ancien n'est jamais repris pour un jour couvert par un plus récent. Deux fichiers du même type et de
+> même date d'export : le plus récent par l'heure l'emporte, avec une information au bilan. Un fichier « aucune
+> activité rapportée » ne couvre aucun jour. Vues : `staging.ads_day_source` (export et fichier retenus pour chaque
+> jour), `staging.ads_product_day_best`, `staging.ads_search_term_day_best`.
+
 ### 7. Contrôles dans le bilan
 
 - **Réconciliation Advertised product / Search term**, jour par jour, pour un même export.
@@ -152,6 +161,23 @@ avec le statut `invalid` et son motif. **Il n'est jamais ignoré.**
 - **Colonnes jamais vues non nulles** : « Emprunts éligibles à l'abonnement Kindle » et « Estimation des redevances
   liées à l'abonnement Kindle » sont signalées tant qu'aucune valeur non nulle n'a été observée dans un fichier `ok`.
 - **Colonne inconnue** : signalée (section 3).
+
+> Note du 5 novembre 2026 (mise en œuvre, lot B) :
+> - **Fraîcheur** : l'extraction des rapports ne tourne que lorsqu'un rapport arrive ; elle ne peut donc pas dire
+>   qu'aucun n'est arrivé. Le contrôle vit dans le **bilan de l'extraction des captures**, qui tourne après chaque
+>   envoi de captures, en **information**, sans effet sur le code de sortie ; d'après la date d'export du dernier
+>   rapport RAW `ok` de chaque type.
+> - **Réconciliation** : les deux fichiers retenus d'un export (même date d'export seulement), comparés jour par jour
+>   sur la réunion de leurs jours ; un jour présent d'un seul côté est un écart (anomalie) ; une mesure dont une
+>   cellule est vide n'est pas comparée (information). Seuls les exports dont un fichier vient d'être extrait sont
+>   réconciliés ; `--force` les réconcilie tous.
+> - **Statuts d'extraction** : `ok`, `no_activity` (ni succès ni anomalie), `parse_failed`, `integrity_failed`. Un
+>   fichier déjà extrait par la même version n'est pas réextrait ; ses échecs restent signalés au bilan (anomalie)
+>   jusqu'à la version suivante, qui les retente. Deux cas de contenu s'ajoutent aux motifs de la section 3 : une
+>   cellule vide dans une colonne du grain (« clé du grain incomplète ») et un texte de plus de 2 000 octets (refusé
+>   par `mapping.code_for`).
+> - **Version propre** : `ADS_EXTRACTOR_VERSION`, distincte de celle de l'extracteur des pages ; toute modification
+>   des règles d'analyse des rapports l'incrémente, dans le même commit.
 
 ### 8. Tests
 

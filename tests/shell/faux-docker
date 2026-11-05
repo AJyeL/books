@@ -11,6 +11,10 @@
 # « docker compose --profile transformer run … » (extraction de scripts/recevoir-captures.sh, décision 012) :
 #   note « extraction » dans ~/appels, affiche un faux bilan et rend le code écrit dans ~/code-extraction (0 par défaut).
 #
+# « docker compose --profile ads-transformer run … » (extraction de scripts/recevoir-ads.sh, décision 018, lot B) :
+#   note « extraction-ads » dans ~/appels, affiche un faux bilan et rend le code écrit dans ~/code-extraction
+#   (0 si le fichier est absent).
+#
 # « docker compose --profile ads run … » (ingestion de scripts/recevoir-ads.sh, décision 018) :
 #   note « ingestion-ads » dans ~/appels, déplace les lots de ~/books-data/ads/inbox/ dans ~/recues/, affiche un faux
 #   bilan et rend le code écrit dans ~/code-ingestion (0 si le fichier est absent).
@@ -22,6 +26,12 @@ if [ "${1:-}" = compose ] && [ "${2:-}" = --profile ] && [ "${3:-}" = transforme
     echo extraction >> "$HOME/appels"
     code=$(cat "$HOME/code-extraction" 2>/dev/null || echo 0)
     echo "Bilan factice de l'extraction — code de sortie $code"
+    exit "$code"
+fi
+if [ "${1:-}" = compose ] && [ "${2:-}" = --profile ] && [ "${3:-}" = ads-transformer ]; then
+    echo extraction-ads >> "$HOME/appels"
+    if [ -f "$HOME/code-extraction" ]; then code=$(cat "$HOME/code-extraction"); else code=0; fi
+    echo "Bilan factice de l'extraction des rapports Ads — code de sortie $code"
     exit "$code"
 fi
 if [ "${1:-}" = compose ] && [ "${2:-}" = --profile ] && [ "${3:-}" = ads ]; then

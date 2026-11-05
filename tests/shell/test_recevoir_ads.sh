@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Tests de scripts/recevoir-ads.sh (décision 018, lot A), autovérifiés (code de sortie 0 = tout est conforme).
+# Tests de scripts/recevoir-ads.sh (décision 018, lots A et B), autovérifiés (code de sortie 0 = tout est conforme).
 # À lancer dans un conteneur Linux jetable, le dépôt monté en lecture seule sur /src :
 #   docker run --rm -v "<dépôt>:/src:ro" debian:bookworm-slim bash /src/tests/shell/test_recevoir_ads.sh
-# L'ingestion est remplacée par tests/shell/faux-docker ; aucune base de données n'est utilisée.
+# L'ingestion et l'extraction sont remplacées par tests/shell/faux-docker ; aucune base de données n'est utilisée.
 set -uo pipefail
 
 SCRIPT=/src/scripts/recevoir-ads.sh
@@ -46,26 +46,40 @@ check "lot valide : manifeste retiré" '[[ ! -e "$HOME/recues/$LOT/MANIFEST.sha2
 check "lot valide : attente/ vide" '[[ -z "$(ls -A "$HOME/books-data/ads/attente")" ]]'
 check "lot valide : droits 700 sur le lot, 600 sur les fichiers" \
     '[[ "$(stat -c %a "$HOME/recues/$LOT")" == 700 && "$(stat -c %a "$HOME/recues/$LOT/$AP")" == 600 ]]'
-check "lot valide : ingestion des rapports seulement, sans extraction (lot B)" '[[ "$(cat "$HOME/appels")" == ingestion-ads ]]'
-check "lot valide : aucun repère d'extraction" '! grep -q "BOOKS:EXTRACTION" <<<"$OUT"'
-check "lot valide : bilan de l'ingestion transmis" 'grep -q "Bilan factice de l.ingestion des rapports Ads : 2 fichier" <<<"$OUT"'
+check "lot valide : ingestion puis extraction des rapports (lot B, décision 012)" \
+    '[[ "$(cat "$HOME/appels")" == $'"'"'ingestion-ads\nextraction-ads'"'"' ]]'
+check "lot valide : repère EXTRACTION:CODE 0, après celui de l'ingestion" \
+    '[[ "$(grep -o "^BOOKS:[A-Z]*:CODE [0-9]*$" <<<"$OUT" | tr "\n" ";")" == "BOOKS:INGESTION:CODE 0;BOOKS:EXTRACTION:CODE 0;" ]]'
+check "lot valide : bilans de l'ingestion et de l'extraction transmis" \
+    'grep -q "Bilan factice de l.ingestion des rapports Ads : 2 fichier" <<<"$OUT" && grep -q "Bilan factice de l.extraction des rapports Ads" <<<"$OUT"'
 
-# 2. Ingestion avec anomalies, puis en échec : le code remonte, le transfert reste réussi
+# 2. Ingestion avec anomalies, puis mal configurée : extraction lancée quand même, le plus grave l'emporte
 new_home; new_payload; echo 1 > "$HOME/code-ingestion"
 OUT="$(archive MANIFEST.sha256 "$AP" "$ST" | bash "$SCRIPT" "$LOT" 2>&1)"; RC=$?
 check "anomalies : code 1, transfert réussi, repère INGESTION:CODE 1" \
     '[[ $RC -eq 1 ]] && grep -q "^BOOKS:TRANSFERT:OK $LOT 2$" <<<"$OUT" && grep -q "^BOOKS:INGESTION:CODE 1$" <<<"$OUT"'
+check "anomalies : extraction lancée quand même" 'grep -q "^BOOKS:EXTRACTION:CODE 0$" <<<"$OUT" && grep -qx extraction-ads "$HOME/appels"'
 new_home; new_payload; echo 2 > "$HOME/code-ingestion"
 OUT="$(archive MANIFEST.sha256 "$AP" "$ST" | bash "$SCRIPT" "$LOT" 2>&1)"; RC=$?
-check "ingestion mal configurée : code 2, repère INGESTION:CODE 2" '[[ $RC -eq 2 ]] && grep -q "^BOOKS:INGESTION:CODE 2$" <<<"$OUT"'
+check "ingestion mal configurée : code 2, repère INGESTION:CODE 2, extraction lancée" \
+    '[[ $RC -eq 2 ]] && grep -q "^BOOKS:INGESTION:CODE 2$" <<<"$OUT" && grep -q "^BOOKS:EXTRACTION:CODE 0$" <<<"$OUT"'
+
+# 3. Extraction en échec ou mal configurée après une ingestion sans anomalie : le code remonte
+new_home; new_payload; echo 1 > "$HOME/code-extraction"
+OUT="$(archive MANIFEST.sha256 "$AP" "$ST" | bash "$SCRIPT" "$LOT" 2>&1)"; RC=$?
+check "extraction en échec : repères INGESTION 0 et EXTRACTION 1, code 1" \
+    'grep -q "^BOOKS:INGESTION:CODE 0$" <<<"$OUT" && grep -q "^BOOKS:EXTRACTION:CODE 1$" <<<"$OUT" && [[ $RC -eq 1 ]]'
+new_home; new_payload; echo 2 > "$HOME/code-extraction"
+OUT="$(archive MANIFEST.sha256 "$AP" "$ST" | bash "$SCRIPT" "$LOT" 2>&1)"; RC=$?
+check "extraction mal configurée : repère EXTRACTION 2, code 2" 'grep -q "^BOOKS:EXTRACTION:CODE 2$" <<<"$OUT" && [[ $RC -eq 2 ]]'
 
 # Échecs de transfert : code 3, jamais de repère TRANSFERT:OK, rien dans inbox/, ingestion non lancée
 failure() {  # $1 = libellé, $2 = message attendu, $3 = lot laissé dans attente/ (oui/non)
     EXPECTED="$2"
     check "$1 : code 3" '[[ $RC -eq 3 ]]'
     check "$1 : message" 'grep -q "^BOOKS:TRANSFERT:ECHEC .*$EXPECTED" <<<"$OUT"'
-    check "$1 : aucun repère TRANSFERT:OK ni ingestion" \
-        '! grep -q "BOOKS:TRANSFERT:OK\|BOOKS:INGESTION" <<<"$OUT" && [[ ! -e "$HOME/recues" && ! -e "$HOME/appels" ]]'
+    check "$1 : aucun repère TRANSFERT:OK, ni ingestion, ni extraction" \
+        '! grep -q "BOOKS:TRANSFERT:OK\|BOOKS:INGESTION\|BOOKS:EXTRACTION" <<<"$OUT" && [[ ! -e "$HOME/recues" && ! -e "$HOME/appels" ]]'
     check "$1 : inbox/ vide" '[[ -z "$(ls -A "$HOME/books-data/ads/inbox")" ]]'
     if [[ "$3" == oui ]]; then
         check "$1 : lot laissé dans attente/" '[[ -d "$HOME/books-data/ads/attente/$LOT" ]]'

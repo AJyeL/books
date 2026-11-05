@@ -12,11 +12,16 @@ Statuts et codes de sortie, comme l'ingestion (décision 008) : success (0) aucu
 page en échec ; failed (1) erreur d'exécution. Une fiche mise à part n'est ni un succès ni une anomalie : elle est
 comptée à part et n'a aucun effet sur le statut (décision 015, note du 11 octobre 2026).
 Verrou occupé : ExtractionBusy, aucune exécution enregistrée (1).
+
+Le bilan porte aussi la fraîcheur des rapports Amazon Ads (décision 018, section 7, note du 5 novembre 2026), en
+information sans effet sur le statut : cette extraction tourne après chaque envoi de captures, même quand aucun
+rapport n'arrive.
 """
 
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from books.transformer.integrity import RawIntegrityError, read_raw_page
@@ -25,6 +30,9 @@ from books.transformer.product_parsing import PageSkipped, ParsedProduct, parse_
 from books.transformer.repository import TransformerRepository
 
 EXIT_CODES = {"success": 0, "partial": 1, "failed": 1}
+# Fraîcheur des rapports Amazon Ads : un rapport de moins de 10 jours attendu pour chaque type (décision 018)
+ADS_FRESHNESS_DAYS = 10
+ADS_TYPE_LABELS = {"advertised_product": "Advertised product", "search_term": "Search term"}
 # Champs d'une fiche dont l'absence est comptée au bilan (information)
 PRODUCT_FIELDS = {
     "série": "series_form", "date de publication": "publication_date", "langue": "language",
@@ -61,6 +69,7 @@ class ExtractionReport:
     parse_failures: list[str] = field(default_factory=list)
     integrity_failures: list[str] = field(default_factory=list)
     out_of_scope: dict[str, int] = field(default_factory=dict)
+    ads_freshness: list[str] = field(default_factory=list)  # information seulement, jamais une anomalie
     error: str | None = None
 
     @property
@@ -114,6 +123,7 @@ class ExtractionReport:
         if self.removed_tags:
             info.append("balises retirées des descriptions : "
                         + ", ".join(f"{k} : {n}" for k, n in sorted(self.removed_tags.items())))
+        info.extend(self.ads_freshness)
         if info:
             out.append("Informations :")
             out.extend(f"  - {item}" for item in info)
@@ -135,8 +145,19 @@ class ExtractionResult:
     notes: str
 
 
+def ads_freshness(latest: dict[str, date | None], today: date) -> list[str]:
+    """Informations de fraîcheur : un type sans rapport ok de moins de ADS_FRESHNESS_DAYS jours (date d'export)."""
+    out = []
+    for kind, label in ADS_TYPE_LABELS.items():
+        last = latest.get(kind)
+        if last is None or (today - last).days >= ADS_FRESHNESS_DAYS:
+            seen = f"dernier : export du {last.isoformat()}" if last else "aucun reçu"
+            out.append(f"Aucun rapport Amazon Ads {label} de moins de {ADS_FRESHNESS_DAYS} jours ({seen})")
+    return out
+
+
 def extract(repo: TransformerRepository, raw_dir: Path, *, extractor_version: str = EXTRACTOR_VERSION,
-            force: bool = False, log: Callable[[str], None] = print) -> ExtractionResult:
+            force: bool = False, log: Callable[[str], None] = print, today: date | None = None) -> ExtractionResult:
     """Extrait les pages à faire ; lève ExtractionBusy si une autre extraction tient le verrou."""
     if not repo.try_lock():
         raise ExtractionBusy("extraction déjà en cours (verrou consultatif occupé)")
@@ -179,6 +200,7 @@ def extract(repo: TransformerRepository, raw_dir: Path, *, extractor_version: st
             report.rows_with_card += sum(e.has_card for e in parsed.entries)
             report.without_display_name += parsed.display_name is None
             report.without_short_name += parsed.short_name is None
+        report.ads_freshness = ads_freshness(repo.latest_ads_exports(), today or datetime.now(UTC).date())
     except BaseException as exc:
         report.error = f"{type(exc).__name__} : {exc}"
         raise

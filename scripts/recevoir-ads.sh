@@ -10,7 +10,8 @@
 #    attente/.
 # 2. Déplacement atomique (renommage) vers inbox/{lot}/, puis repère « BOOKS:TRANSFERT:OK {lot} {n} ».
 # 3. Ingestion dans la même connexion (service ads), puis repère « BOOKS:INGESTION:CODE {code} ».
-#    Pas d'extraction vers STAGING : elle viendra avec le lot B.
+# 4. Extraction vers STAGING (service ads-transformer, lot B), quel que soit le résultat de l'ingestion
+#    (décision 012), puis repère « BOOKS:EXTRACTION:CODE {code} ». Rien de tout cela si le lot n'a pas été reçu.
 set -euo pipefail
 umask 077
 
@@ -59,10 +60,15 @@ cd "$ADS_DIR"
 mv -T "attente/$LOT" "inbox/$LOT"
 echo "BOOKS:TRANSFERT:OK $LOT $count"
 
-# Ingestion ; son code est rapporté au PC sans changer le sort du transfert
+# Ingestion, puis extraction, quel que soit le résultat de l'ingestion (décision 012) : l'extracteur est idempotent,
+# verrouillé, ne lit que ce qui est enregistré dans raw.ads_report_file et signale lui-même ses erreurs.
+# Leurs codes sont rapportés au PC, sans changer le sort du transfert ; le plus élevé devient le code de sortie.
 set +e
 cd "$PROJECT_DIR" && docker compose --profile ads run --rm -T ads < /dev/null
 code=$?
 echo "BOOKS:INGESTION:CODE $code"
+cd "$PROJECT_DIR" && docker compose --profile ads-transformer run --rm -T ads-transformer < /dev/null
+extraction=$?
+echo "BOOKS:EXTRACTION:CODE $extraction"
 set -e
-exit "$code"
+exit $(( code > extraction ? code : extraction ))

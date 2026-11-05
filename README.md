@@ -215,6 +215,12 @@ Tests SQL de la migration 011 (rapports Amazon Ads dans RAW, décision 018), mê
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_011_rapports_ads.sql
 ```
 
+Tests SQL de la migration 012 (rapports Amazon Ads dans STAGING, meilleure estimation, décision 018), même principe :
+
+```bash
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_012_staging_ads.sql
+```
+
 Les appels concurrents de `mapping.code_for` sont vérifiés par la suite Python
 (`tests/python/test_correspondance_concurrence.py`, PostgreSQL jetable).
 
@@ -292,8 +298,10 @@ résultat de l'ingestion) ; les deux bilans s'affichent.
 
 Décision 018, lot A. Télécharger chaque rapport à la main, par le lien de l'e-mail d'Amazon (aucun programme ne suit
 ce lien), dans le dossier des rapports ; puis double-cliquer sur `scripts\envoyer-ads.cmd` et saisir le mot de passe
-d'atlas quand `ssh` le demande. Atlas vérifie le lot, le place dans `~/books-data/ads/inbox/` et lance l'ingestion
-(`docker compose --profile ads run --rm ads`, rôle `books_collector`) ; son bilan s'affiche.
+d'atlas quand `ssh` le demande. Atlas vérifie le lot, le place dans `~/books-data/ads/inbox/`, lance l'ingestion
+(`docker compose --profile ads run --rm ads`, rôle `books_collector`), puis l'extraction vers STAGING quel que soit
+le résultat de l'ingestion (`docker compose --profile ads-transformer run --rm ads-transformer`, rôle
+`books_transformer`, RAW en lecture seule ; réextraction complète : ajouter `--force`) ; les deux bilans s'affichent.
 
 - **Ne pas ouvrir les rapports dans Excel avant l'envoi** : un réenregistrement change leur forme (séparateur,
   identifiants `="…"`, encodage) ; le fichier serait refusé, ou pire, transformé.
@@ -304,10 +312,17 @@ d'atlas quand `ssh` le demande. Atlas vérifie le lot, le place dans `~/books-da
 - **Sur atlas**, chaque fichier reçu est déposé dans RAW (`raw.ads_report_file`, fichier compressé sous
   `~/books-data/raw/amazon_ads/`), avec le statut `ok` ou `invalid` et son motif : RAW ne juge que la nature du fichier
   (vide, encodage, type, dimension « Date », date d'export dans le nom). Un fichier déjà reçu (même empreinte) est
-  retiré sans nouvelle ligne. Aucune extraction vers STAGING pour l'instant (lot B).
+  retiré sans nouvelle ligne.
+- **Extraction** (lot B) : le contenu de chaque fichier `ok` est jugé (statuts recalculables `ok`, `no_activity`,
+  `parse_failed`, `integrity_failed`), puis ses lignes sont écrites dans STAGING avec des identifiants, des codes
+  (`mapping.code_for`) et des quantités, jamais un texte. Meilleure estimation de chaque jour : vues
+  `staging.ads_product_day_best` et `staging.ads_search_term_day_best` (export le plus récent qui couvre le jour).
+  Le bilan réconcilie les deux types de chaque export. La fraîcheur (« Aucun rapport Amazon Ads de moins de
+  10 jours ») est signalée, en information, par le bilan de l'extraction des captures.
 - **Issues** : transfert échoué (code 3) : rien n'est déplacé sur le PC, relancer ; transfert réussi : les rapports
-  passent dans `envoyes\AAAA-MM\` (mois d'envoi) dans tous les cas, et le code vaut 0 si l'ingestion est sans
-  anomalie, 1 sinon (fichier `invalid`, élément laissé en place, ingestion non effectuée, atlas pas à jour). Le code 2
+  passent dans `envoyes\AAAA-MM\` (mois d'envoi) dans tous les cas, et le code vaut 0 si l'ingestion **et**
+  l'extraction sont sans anomalie, 1 sinon (fichier `invalid` ou en échec, écart de réconciliation, élément laissé en
+  place, étape non effectuée, configuration invalide ou atlas pas à jour). Le code 2
   signale un réglage invalide sur le PC, ou un nom déjà présent dans `envoyes\` (rien envoyé).
 - `envoyes\` est une archive permanente : ne jamais la vider. Elle contient les termes de recherche en clair
   (décisions 013 et 018).
@@ -382,7 +397,7 @@ perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
 5. Définir les mots de passe de `books_collector` et de `books_transformer` (section ci-dessus) et les reporter
    dans `.env` ; `books_reader` reste sans mot de passe.
 
-6. Vérifier avec les tests SQL des migrations 005 à 011 (section Tests) ; le test 008 contrôle les attributs, les
+6. Vérifier avec les tests SQL des migrations 005 à 012 (section Tests) ; le test 008 contrôle les attributs, les
    réglages et la liste blanche de `books_reader`, le test 010 les droits de la correspondance. Comparer ensuite les
    comptes de lignes à ceux de la base d'origine, par la même requête lancée sous `books_reader` des deux côtés
    (comptes seulement, aucune donnée) :
@@ -398,7 +413,7 @@ perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
    docker compose exec -T postgres sh -c 'psql -X -At -F " | " -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < sql/observations/comptes_correspondance.sql
    ```
 
-   De même pour les rapports Amazon Ads (exécutions, fichiers par type et par statut ; décision 018) :
+   De même pour les rapports Amazon Ads (RAW et STAGING : exécutions, fichiers par statut, lignes ; décision 018) :
 
    ```bash
    docker compose exec -T postgres sh -c 'psql -X -At -F " | " -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < sql/observations/comptes_ads.sql

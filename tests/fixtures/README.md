@@ -191,7 +191,11 @@ inventées. `.gitignore` exclut tous les `*.csv`, sauf ceux de ce dossier.
 |---|---|
 | `Advertised_product_-_12_05_2026T19_59_56.csv` | Advertised product, dimension « Date » : 3 lignes, 2 campagnes, 2 produits |
 | `Search_term_-_12_05_2026T20_05_45.csv` | Search term, dimension « Date » : 3 lignes, ciblages produit et catégorie |
+| `Advertised_product_-_12_20_2026T09_00_00.csv` | export plus récent (20 décembre) : chevauche celui du 5 décembre, sans ligne le 4 novembre |
+| `Search_term_-_12_20_2026T09_00_00.csv` | export du 20 décembre : campagne 1 renommée, campagne 2 au nom ancien de la campagne 1, aucune ligne le 15 octobre |
 
 Utilisés par `tests/python/test_ads_validation.py` (nature du fichier : chaque motif `invalid` du lot A est produit par
-mutation de ces deux fichiers) et `tests/python/test_ads_ingestion.py` (dépôt dans RAW), ainsi que par
-`tests/powershell/Test-EnvoyerAds.ps1` (envoi vers un faux atlas).
+mutation des fichiers du 5 décembre), `tests/python/test_ads_ingestion.py` (dépôt dans RAW),
+`tests/python/test_ads_parsing.py` (contenu : chaque motif `parse_failed` du lot B, par mutation),
+`tests/python/test_ads_extraction.py` (STAGING : couverture par export, renommage, aucun texte hors de `mapping`),
+ainsi que par `tests/powershell/Test-EnvoyerAds.ps1` (envoi vers un faux atlas).
