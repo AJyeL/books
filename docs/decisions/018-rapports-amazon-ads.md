@@ -240,6 +240,9 @@ avec le statut `invalid` et son motif. **Il n'est jamais ignoré.**
   rendrait le fichier `invalid`, ce qui est une erreur visible.
 - **Rapports non inventoriés** : la forme exacte d'un rapport en « Jour du mois » n'a pas été relevée ; il est refusé
   par la seule absence de la colonne « Date ».
+- **Export sans aucune ligne** : un export dont tous les fichiers sont `no_activity` ne couvre aucun jour, faute de
+  dates : l'export précédent reste alors la meilleure estimation. La période demandée à Amazon n'est écrite nulle part
+  dans le fichier.
 
 ## Hors périmètre
 
