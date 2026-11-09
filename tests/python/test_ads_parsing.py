@@ -17,7 +17,6 @@ from conftest import FIXTURES
 ADS = FIXTURES / "ads"
 AP = (ADS / "Advertised_product_-_12_05_2026T19_59_56.csv").read_bytes()
 ST = (ADS / "Search_term_-_12_05_2026T20_05_45.csv").read_bytes()
-EXPORT = date(2026, 12, 5)
 BOM = b"\xef\xbb\xbf"
 
 
@@ -38,9 +37,9 @@ def mutate(content: bytes, row: int, label: str, value: str) -> bytes:
     return rebuild(rows)
 
 
-def assert_refused(content: bytes, report_type: str, fragment: str, *forbidden: str, export=EXPORT) -> str:
+def assert_refused(content: bytes, report_type: str, fragment: str, *forbidden: str) -> str:
     with pytest.raises(AdsParseError) as caught:
-        parse_report(content, report_type, export)
+        parse_report(content, report_type)
     message = str(caught.value)
     assert fragment in message
     for value in ("sentinelle", *forbidden):
@@ -51,7 +50,7 @@ def assert_refused(content: bytes, report_type: str, fragment: str, *forbidden: 
 # --- Fichiers conformes ----------------------------------------------------------------------
 
 def test_advertised_product():
-    report = parse_report(AP, "advertised_product", EXPORT)
+    report = parse_report(AP, "advertised_product")
     assert (report.first_day, report.last_day, report.unknown_columns) == (date(2026, 10, 15), date(2026, 12, 1), [])
     assert len(report.rows) == 3
     first = report.rows[0]
@@ -64,7 +63,7 @@ def test_advertised_product():
 
 
 def test_search_term_textes_tels_quels():
-    report = parse_report(ST, "search_term", EXPORT)
+    report = parse_report(ST, "search_term")
     assert [r.search_term for r in report.rows] == ["terme d'exemple", "terme Sentinelle, avec virgule", "b0faux0003"]
     assert report.rows[0].targeting == 'asin="B0FAUX0002"'  # aucune normalisation, guillemets compris
     assert (report.rows[0].target_id, report.rows[0].target_type, report.rows[0].match_type) == (
@@ -76,17 +75,17 @@ def test_colonne_inconnue_signalee():
     rows[0].append("Colonne nouvelle")
     for row in rows[1:]:
         row.append("x")
-    assert parse_report(rebuild(rows), "advertised_product", EXPORT).unknown_columns == ["Colonne nouvelle"]
+    assert parse_report(rebuild(rows), "advertised_product").unknown_columns == ["Colonne nouvelle"]
 
 
 def test_aucune_activite_rapportee():
     with pytest.raises(NoActivity) as caught:
-        parse_report(AP.split(b"\r\n", 1)[0] + b"\r\n", "advertised_product", EXPORT)
+        parse_report(AP.split(b"\r\n", 1)[0] + b"\r\n", "advertised_product")
     assert caught.value.unknown_columns == []
 
 
 def test_nom_vide_donne_none():
-    report = parse_report(mutate(AP, 1, "Nom de la campagne", "  "), "advertised_product", EXPORT)
+    report = parse_report(mutate(AP, 1, "Nom de la campagne", "  "), "advertised_product")
     assert report.rows[0].campaign_name is None
 
 
@@ -161,10 +160,11 @@ def test_texte_trop_long():
                    "texte de plus de 2000 octets (ligne 2, colonne « Terme de recherche »)")
 
 
-@pytest.mark.parametrize("export", [date(2026, 12, 1), date(2026, 11, 30)], ids=["egale", "anterieure"])
-def test_motif_16_date_export(export):
-    assert_refused(AP, "advertised_product", f"date d'export ({export.isoformat()}) antérieure ou égale à la "
-                   "dernière date du fichier (2026-12-01)", export=export)
+def test_motif_16_supprime_le_nom_n_intervient_plus():
+    # Version 2 : la date du nom n'est pas une date d'export (décision 018, note du 9 novembre 2026) ; l'analyse ne
+    # la reçoit plus, et un fichier dont les données dépassent l'horodatage de son nom est extrait normalement
+    report = parse_report(AP, "advertised_product")
+    assert report.last_day == date(2026, 12, 1)
 
 
 def test_ordre_des_motifs():
@@ -172,7 +172,7 @@ def test_ordre_des_motifs():
     rows = rows_of(mutate(AP, 1, "Date", "jamais"))
     rows[0][rows[0].index("Taux de clics")] = "Clics"
     assert_refused(rebuild(rows), "advertised_product", "libellé de colonne en double")
-    # Doublon ET date d'export trop ancienne : le motif 15 passe avant le motif 16
-    rows = rows_of(AP)
+    # Mesure invalide ET doublon : le motif 14 (ligne par ligne) passe avant le motif 15
+    rows = rows_of(mutate(AP, 1, "Clics", "x"))
     rows.append(list(rows[1]))
-    assert_refused(rebuild(rows), "advertised_product", "doublon", export=date(2026, 11, 1))
+    assert_refused(rebuild(rows), "advertised_product", "mesure invalide")

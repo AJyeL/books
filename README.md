@@ -215,10 +215,16 @@ Tests SQL de la migration 011 (rapports Amazon Ads dans RAW, décision 018), mê
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_011_rapports_ads.sql
 ```
 
-Tests SQL de la migration 012 (rapports Amazon Ads dans STAGING, meilleure estimation, décision 018), même principe :
+Tests SQL de la migration 012 (rapports Amazon Ads dans STAGING, décision 018), même principe :
 
 ```bash
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_012_staging_ads.sql
+```
+
+Tests SQL de la migration 013 (ordre des rapports par leurs données, nom non jugé, meilleure estimation), même principe :
+
+```bash
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_013_ordre_des_rapports.sql
 ```
 
 Les appels concurrents de `mapping.code_for` sont vérifiés par la suite Python
@@ -307,21 +313,24 @@ le résultat de l'ingestion (`docker compose --profile ads-transformer run --rm 
   identifiants `="…"`, encodage) ; le fichier serait refusé, ou pire, transformé.
 - **Prérequis** : l'alias SSH `atlas`, et le réglage local `scripts\envoyer-ads.local.psd1`, copié depuis
   `envoyer-ads.exemple.psd1` (ignoré par Git).
-- **Envoyés** : les fichiers `.csv` au nom fait de lettres, chiffres, `_`, `.` et `-`, de 20 Mo au plus. Les autres
-  (par exemple le « (1) » qu'ajoute Windows à un second téléchargement) sont signalés et laissés sur place.
+- **Envoyés** : les fichiers `.csv` au nom fait de lettres, chiffres, `_`, `.` et `-`, suivi au plus du suffixe
+  « (n) » qu'ajoute le navigateur à un second téléchargement de même nom (un rapport programmé garde le même nom à chaque
+  livraison), de 20 Mo au plus. Les autres sont signalés et laissés sur place.
 - **Sur atlas**, chaque fichier reçu est déposé dans RAW (`raw.ads_report_file`, fichier compressé sous
   `~/books-data/raw/amazon_ads/`), avec le statut `ok` ou `invalid` et son motif : RAW ne juge que la nature du fichier
-  (vide, encodage, type, dimension « Date », date d'export dans le nom). Un fichier déjà reçu (même empreinte) est
-  retiré sans nouvelle ligne.
+  (vide, encodage, type, dimension « Date »), jamais son nom. L'horodatage du nom n'est pas une date d'export : c'est le
+  nom proposé par Amazon Ads, modifiable (décision 018, note du 9 novembre 2026). Un fichier déjà reçu (même empreinte)
+  est retiré sans nouvelle ligne.
 - **Extraction** (lot B) : le contenu de chaque fichier `ok` est jugé (statuts recalculables `ok`, `no_activity`,
   `parse_failed`, `integrity_failed`), puis ses lignes sont écrites dans STAGING avec des identifiants, des codes
   (`mapping.code_for`) et des quantités, jamais un texte. Meilleure estimation de chaque jour : vues
   `staging.ads_product_day_best` et `staging.ads_search_term_day_best` (pour chaque type, l'export le plus récent
-  qui contient un fichier de ce type et couvre le jour).
-  Le bilan réconcilie les deux types de chaque export. La fraîcheur (« Aucun rapport Amazon Ads de moins de
-  10 jours ») est signalée, en information, par le bilan de l'extraction des captures.
+  par dernière date des données, puis par ingestion, qui contient un fichier de ce type et couvre le jour).
+  Le bilan réconcilie les deux types de chaque export (même dernière date, sur l'intersection de leurs bornes). La
+  fraîcheur (« Aucun rapport Amazon Ads de moins de 10 jours », d'après la dernière date des données) est signalée, en
+  information, par le bilan de l'extraction des captures.
 - **Issues** : transfert échoué (code 3) : rien n'est déplacé sur le PC, relancer ; transfert réussi : les rapports
-  passent dans `envoyes\AAAA-MM\` (mois d'envoi) dans tous les cas, et le code vaut 0 si l'ingestion **et**
+  passent dans `envoyes\AAAA-MM\{lot}\` (mois d'envoi, puis lot) dans tous les cas, et le code vaut 0 si l'ingestion **et**
   l'extraction sont sans anomalie, 1 sinon (fichier `invalid` ou en échec, écart de réconciliation, élément laissé en
   place, étape non effectuée, configuration invalide ou atlas pas à jour). Le code 2
   signale un réglage invalide sur le PC, ou un nom déjà présent dans `envoyes\` (rien envoyé).
@@ -398,7 +407,7 @@ perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
 5. Définir les mots de passe de `books_collector` et de `books_transformer` (section ci-dessus) et les reporter
    dans `.env` ; `books_reader` reste sans mot de passe.
 
-6. Vérifier avec les tests SQL des migrations 005 à 012 (section Tests) ; le test 008 contrôle les attributs, les
+6. Vérifier avec les tests SQL des migrations 005 à 013 (section Tests) ; le test 008 contrôle les attributs, les
    réglages et la liste blanche de `books_reader`, le test 010 les droits de la correspondance. Comparer ensuite les
    comptes de lignes à ceux de la base d'origine, par la même requête lancée sous `books_reader` des deux côtés
    (comptes seulement, aucune donnée) :

@@ -114,10 +114,13 @@ try {
     Reset-Scenario 0
     $code = Invoke-Envoi
     Test-Condition 'sans anomalie : code 0' ($code -eq 0)
-    $mois = (Get-Date).ToUniversalTime().ToString('yyyy-MM', [Globalization.CultureInfo]::InvariantCulture)
-    Test-Condition "sans anomalie : rapports rangés dans envoyes\AAAA-MM (mois d'envoi)" (
+    $envoyes = Join-Path $rapports 'envoyes'
+    $dossiersMois = @(Get-ChildItem -LiteralPath $envoyes -Directory)
+    $dossiersLot = @(Get-ChildItem -LiteralPath $envoyes -Directory -Recurse | Where-Object { $_.Parent.FullName -ne $envoyes })
+    Test-Condition "sans anomalie : rapports rangés dans envoyes\AAAA-MM\{lot}\ (mois d'envoi, puis lot)" (
         ((Get-Ranges) -join ',') -eq ($nomsOriginaux -join ',') -and
-        (@(Get-ChildItem -LiteralPath (Join-Path $rapports 'envoyes') -Directory | ForEach-Object Name) -join ',') -match '^[0-9]{4}-[0-9]{2}$')
+        $dossiersMois.Count -eq 1 -and $dossiersMois[0].Name -match '^[0-9]{4}-[0-9]{2}$' -and
+        $dossiersLot.Count -eq 1 -and $dossiersLot[0].Name -match '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z$')
     Test-Condition 'sans anomalie : plus rien au premier niveau' (@(Get-Restants).Count -eq 0)
     $recues = @{}
     foreach ($ligne in (Invoke-Atlas 'cd ~/recues && sha256sum */*') -split "`n") {
@@ -195,23 +198,28 @@ try {
     Test-Condition 'mauvais mot de passe : code 3, rien déplacé' ($code -eq 3 -and @(Get-Restants).Count -eq $nbFichiers -and @(Get-Ranges).Count -eq 0)
     [IO.File]::WriteAllText($askpass, "@echo mot-de-passe-de-test`r`n")
 
-    # 7. Noms hors format et fichier trop gros : signalés et laissés sur place, les autres partent
+    # 7. Second téléchargement de même nom (« (1) ») : envoyé ; noms hors format et fichier trop gros : signalés et
+    #    laissés sur place, les autres partent
     Reset-Scenario 0
     $premier = $nomsOriginaux[0]
     $doublon = $premier -replace '\.csv$', ' (1).csv'
+    $malForme = $premier -replace '\.csv$', ' (1a).csv'
     Copy-Item -LiteralPath (Join-Path $rapports $premier) -Destination (Join-Path $rapports $doublon)
+    Copy-Item -LiteralPath (Join-Path $rapports $premier) -Destination (Join-Path $rapports $malForme)
     Copy-Item -LiteralPath (Join-Path $rapports $premier) -Destination (Join-Path $rapports 'rapport.txt')
     $gros = Join-Path $rapports 'gros_12_05_2026T19_59_56.csv'
     $flux = [IO.File]::Create($gros); try { $flux.SetLength(20MB + 1) } finally { $flux.Close() }
     $code = Invoke-Envoi
-    Test-Condition 'hors format et trop gros : code 0' ($code -eq 0)
-    $attendus = (@($doublon, 'rapport.txt', 'gros_12_05_2026T19_59_56.csv') | Sort-Object) -join ','
-    Test-Condition 'hors format et trop gros : laissés sur place' ((@(Get-Restants) -join ',') -eq $attendus)
-    Test-Condition 'hors format et trop gros : signalés' (
-        $sortieEnvoi -match [regex]::Escape("$doublon : nom hors format") -and $sortieEnvoi -match 'rapport\.txt : nom hors format' -and
-        $sortieEnvoi -match 'gros_12_05_2026T19_59_56\.csv : plus de 20 Mo')
-    Test-Condition 'hors format et trop gros : rapports conformes envoyés et rangés' (
-        ((Get-Ranges) -join ',') -eq ($nomsOriginaux -join ','))
+    Test-Condition 'suffixe et hors format : code 0' ($code -eq 0)
+    $attendus = (@($malForme, 'rapport.txt', 'gros_12_05_2026T19_59_56.csv') | Sort-Object) -join ','
+    Test-Condition 'suffixe et hors format : seuls les hors format restent sur place' ((@(Get-Restants) -join ',') -eq $attendus)
+    Test-Condition 'suffixe et hors format : signalés' (
+        $sortieEnvoi -match [regex]::Escape("$malForme : nom hors format") -and $sortieEnvoi -match 'rapport\.txt : nom hors format' -and
+        $sortieEnvoi -match 'gros_12_05_2026T19_59_56\.csv : plus de 20 Mo' -and $sortieEnvoi -notmatch [regex]::Escape("$doublon : "))
+    Test-Condition 'suffixe et hors format : « (1) » envoyé et rangé avec les rapports conformes' (
+        ((Get-Ranges) -join ',') -eq ((@($nomsOriginaux) + $doublon | Sort-Object) -join ','))
+    $recuDoublon = Invoke-Atlas "cd ~/recues && sha256sum */'$doublon' | cut -c1-64"
+    Test-Condition 'suffixe et hors format : octets du « (1) » identiques sur atlas' ($recuDoublon -eq $originaux[$premier])
 
     # 8. Rien à envoyer : aucune connexion
     Reset-Scenario 0
@@ -221,15 +229,21 @@ try {
         (Invoke-Atlas 'ls -A ~/books-data/ads/inbox ~/books-data/ads/attente') -notmatch '20')
     Test-Condition 'rien à envoyer : message' ($sortieEnvoi -match 'Aucun rapport à envoyer')
 
-    # 9. Collision dans envoyes\ : rien envoyé, rien déplacé, fichier existant intact
+    # 9. Deux livraisons de même nom, envoyées l'une après l'autre : rangées dans deux lots, sans blocage
+    #    (un rapport programmé garde le même nom à chaque livraison)
     Reset-Scenario 0
-    $dossierMois = Join-Path $rapports "envoyes\$mois"
-    New-Item -ItemType Directory -Path $dossierMois | Out-Null
-    [IO.File]::WriteAllText((Join-Path $dossierMois $premier), 'deja la')
-    $code = Invoke-Envoi
-    Test-Condition 'collision dans envoyes : code 2, rien envoyé' ($code -eq 2 -and (Get-Recues) -eq '')
-    Test-Condition 'collision dans envoyes : rien déplacé, fichier existant intact' (
-        @(Get-Restants).Count -eq $nbFichiers -and [IO.File]::ReadAllText((Join-Path $dossierMois $premier)) -eq 'deja la')
+    $code1 = Invoke-Envoi
+    Copy-Item -Path (Join-Path $fixtures '*.csv') -Destination $rapports
+    # Le nom de lot est à la seconde près : deux envois dans la même seconde auraient le même lot, et le second serait
+    # refusé par le contrôle « déjà présent » (code 2, rien envoyé). On attend donc la seconde suivante.
+    $lotPrecedent = (Get-Date).ToUniversalTime().ToString('yyyyMMddHHmmss')
+    while ((Get-Date).ToUniversalTime().ToString('yyyyMMddHHmmss') -eq $lotPrecedent) { Start-Sleep -Milliseconds 100 }
+    $code2 = Invoke-Envoi
+    $lots = @(Get-ChildItem -LiteralPath (Join-Path $rapports 'envoyes') -Directory -Recurse |
+              Where-Object { $_.Name -match '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z$' })
+    Test-Condition 'deux livraisons de même nom : codes 0 et 0, deux lots, aucun fichier restant' (
+        $code1 -eq 0 -and $code2 -eq 0 -and $lots.Count -eq 2 -and @(Get-Ranges).Count -eq 2 * $nbFichiers -and
+        @(Get-Restants).Count -eq 0)
 
     # 10. Réglage local absent ; clé inconnue (faute de frappe) refusée, pas ignorée
     $code = Invoke-Envoi (Join-Path $racine 'absent.psd1')

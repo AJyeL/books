@@ -152,7 +152,9 @@ def ingest_reports(
             # Fichier écrit et synchronisé, ligne validée (autocommit) : il peut quitter inbox/
             os.remove(path)
             kind = TYPE_LABELS.get(verdict.report_type, "type inconnu")
-            exported = f"export du {verdict.export_date.isoformat()}" if verdict.export_date else "date d'export illisible"
+            # Horodatage du nom, pour mémoire : ce n'est pas une date d'export (décision 018, note du 9 novembre 2026)
+            exported = (f"horodatage du nom {verdict.export_date.isoformat()}" if verdict.export_date
+                        else "sans horodatage dans le nom")
             if verdict.status == "ok":
                 report.deposited_ok.append(f"{label} : {kind}, {exported}")
             else:

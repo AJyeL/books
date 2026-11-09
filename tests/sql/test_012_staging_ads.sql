@@ -5,6 +5,7 @@
 -- Même principe que test_008 : le propriétaire relève le catalogue et prépare RAW (fichiers de test, lot
 -- 2026-12-21T080000Z, empreintes en « fd… »), puis endosse books_transformer, books_collector et books_reader.
 -- Les lignes déjà présentes dans la base ne gênent pas : chaque contrôle se limite aux fichiers de test.
+-- Les vues de meilleure estimation, remplacées par la migration 013, sont testées par test_013.
 -- Tout se déroule dans une transaction annulée par ROLLBACK : aucune donnée n'est conservée.
 
 BEGIN;
@@ -185,59 +186,7 @@ BEGIN
         format(base, format('extract_run_id = %s', run2)),
         '23503', 'ads_search_term_day_extraction_fk');
 
-    -- Test 3 : couverture par export et meilleure estimation
-    IF (SELECT count(*) FROM staging.ads_day_source WHERE export_date = '2026-12-20' AND report_type = 'advertised_product') <> 48
-       OR (SELECT count(*) FROM staging.ads_day_source WHERE export_date = '2026-12-20' AND report_type = 'search_term') <> 48
-       OR EXISTS (SELECT 1 FROM staging.ads_day_source WHERE day BETWEEN '2026-10-15' AND '2026-12-01'
-                    AND export_date <> '2026-12-20') THEN
-        RAISE EXCEPTION 'ÉCHEC test 3 : la couverture de l''export du 20 décembre n''est pas la réunion de ses bornes';
-    END IF;
-    IF (SELECT string_agg(day::text || '=' || impressions, ', ' ORDER BY day) FROM staging.ads_product_day_best
-         WHERE ads_report_file_id IN (SELECT id FROM test_files)) IS DISTINCT FROM '2026-10-15=200, 2026-12-01=210' THEN
-        RAISE EXCEPTION 'ÉCHEC test 3 : Advertised product : l''export récent ne l''emporte pas seul';
-    END IF;
-    IF (SELECT string_agg(day::text || '=' || impressions, ', ' ORDER BY day) FROM staging.ads_search_term_day_best
-         WHERE ads_report_file_id IN (SELECT id FROM test_files)) IS DISTINCT FROM '2026-11-04=220' THEN
-        RAISE EXCEPTION 'ÉCHEC test 3 : Search term : un jour couvert par l''export récent revient de l''export ancien';
-    END IF;
-    RAISE NOTICE 'OK test 3 : l''export du 20 décembre couvre ses 48 jours pour les deux types ; le 15 octobre sans ligne Search term récente reste absent';
-
-    -- Test 3 bis : export récent avec Advertised product seul (son Search term est en échec, donc n'observe rien) :
-    -- le Search term de l'export précédent reste la meilleure estimation pour ces jours
-    DELETE FROM staging.ads_search_term_day WHERE ads_report_file_id = (SELECT id FROM test_files WHERE name = 'st2');
-    UPDATE staging.ads_file_extraction
-       SET status = 'parse_failed', error_message = 'test', row_count = 0, first_day = NULL, last_day = NULL
-     WHERE ads_report_file_id = (SELECT id FROM test_files WHERE name = 'st2');
-    IF (SELECT string_agg(day::text || '=' || impressions, ', ' ORDER BY day) FROM staging.ads_search_term_day_best
-         WHERE ads_report_file_id IN (SELECT id FROM test_files)) IS DISTINCT FROM '2026-10-15=100, 2026-11-04=110' THEN
-        RAISE EXCEPTION 'ÉCHEC test 3 bis : un export sans Search term efface le Search term de l''export précédent';
-    END IF;
-    IF (SELECT string_agg(day::text || '=' || impressions, ', ' ORDER BY day) FROM staging.ads_product_day_best
-         WHERE ads_report_file_id IN (SELECT id FROM test_files)) IS DISTINCT FROM '2026-10-15=200, 2026-12-01=210' THEN
-        RAISE EXCEPTION 'ÉCHEC test 3 bis : l''Advertised product récent ne l''emporte plus';
-    END IF;
-    RAISE NOTICE 'OK test 3 bis : export récent avec Advertised product seul : le Search term de l''export précédent reste la meilleure estimation';
-
-    -- Test 3 ter : Search term récent « aucune activité rapportée » : observation d'absence, il l'emporte, sans ligne
-    UPDATE staging.ads_file_extraction SET status = 'no_activity', error_message = NULL
-     WHERE ads_report_file_id = (SELECT id FROM test_files WHERE name = 'st2');
-    IF EXISTS (SELECT 1 FROM staging.ads_search_term_day_best WHERE ads_report_file_id IN (SELECT id FROM test_files))
-       OR (SELECT count(*) FROM staging.ads_day_source
-            WHERE report_type = 'search_term' AND file_id = (SELECT id FROM test_files WHERE name = 'st2')) <> 48 THEN
-        RAISE EXCEPTION 'ÉCHEC test 3 ter : un Search term récent sans activité ne l''emporte pas sur l''export précédent';
-    END IF;
-    RAISE NOTICE 'OK test 3 ter : Search term récent sans activité : il l''emporte sur ses 48 jours, avec zéro ligne de terme';
-
-    -- Test 4 : deux fichiers du même type et de même date d'export : le plus récent par l'heure
-    DELETE FROM staging.ads_product_day WHERE ads_report_file_id = (SELECT id FROM test_files WHERE name = 'ap2');
-    DELETE FROM staging.ads_search_term_day WHERE ads_report_file_id = (SELECT id FROM test_files WHERE name = 'st2');
-    UPDATE staging.ads_file_extraction SET status = 'no_activity', row_count = 0, first_day = NULL, last_day = NULL
-     WHERE ads_report_file_id IN (SELECT id FROM test_files WHERE name IN ('ap2', 'st2'));
-    IF (SELECT string_agg(day::text || '=' || impressions, ', ' ORDER BY day) FROM staging.ads_product_day_best
-         WHERE ads_report_file_id IN (SELECT id FROM test_files)) IS DISTINCT FROM '2026-10-15=101, 2026-11-04=111' THEN
-        RAISE EXCEPTION 'ÉCHEC test 4 : le fichier le plus récent par l''heure n''est pas retenu';
-    END IF;
-    RAISE NOTICE 'OK test 4 : deux fichiers de même date d''export : le plus récent par l''heure est retenu ; un fichier sans activité ne couvre rien';
+    -- Tests 3 et 4 (vues de meilleure estimation) : remplacées par la migration 013, testées par test_013
 
     -- Test 5 : books_transformer ne modifie ni l'identité d'une extraction, ni RAW, ni mapping
     PERFORM pg_temp.expect_refusal(5, 'changement du fichier d''une extraction',

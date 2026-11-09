@@ -71,7 +71,7 @@ def test_extraction_des_deux_types(pg, tmp_path):
                     "FROM staging.ads_search_term_day") == [(3, 3, 3)]
     # Réconciliation sans écart ; une mesure non comparée (cellule vide d'un côté) ; emprunts jamais non nuls
     assert "Écarts de réconciliation  : 0" in logs
-    assert "export du 2026-12-05, 2026-11-04 : « Lecture KENP » non comparée (cellule vide)" in logs
+    assert "données jusqu'au 2026-12-01, 2026-11-04 : « Lecture KENP » non comparée (cellule vide)" in logs
     assert "jamais vues non nulles" in logs
     assert pg.query("SELECT status, files_ok, files_no_activity, files_failed FROM staging.ads_extract_run") == [
         ("success", 2, 0, 0)]
@@ -98,10 +98,10 @@ def test_nouvelle_version_reextrait_tout_et_retente_les_echecs(pg, tmp_path):
     assert again.report.to_extract == 0 and again.status == "partial"
     assert "Échecs connus (version)   : 1" in logs and "devise autre que EUR (ligne 2 : USD)" in logs
     # Nouvelle version : tout est réextrait, l'échec est retenté, aucune version mélangée
-    second, _ = run(pg, extractor_version="2")
+    second, _ = run(pg, extractor_version="3")  # version suivante de la version courante (2)
     assert second.report.to_extract == 2 and len(second.report.failures) == 1
     assert pg.query("SELECT DISTINCT r.extractor_version FROM staging.ads_file_extraction e "
-                    "JOIN staging.ads_extract_run r ON r.id = e.extract_run_id") == [("2",)]
+                    "JOIN staging.ads_extract_run r ON r.id = e.extract_run_id") == [("3",)]
     assert pg.query("SELECT count(DISTINCT extract_run_id) FROM staging.ads_search_term_day") == [(1,)]
 
 
@@ -155,75 +155,131 @@ def test_verrou_occupe(pg, tmp_path):
 
 
 # --- Couverture par export et meilleure estimation ------------------------------------------------
+# Un export : les fichiers extraits ok de même dernière date de données ; ordre par dernière date, puis par ingestion.
+# Le nom du fichier n'intervient pas (décision 018, note du 9 novembre 2026). Fichiers inventés :
+#   5 décembre  : AP 15 oct., 4 nov., 1er déc. ; ST 15 oct., 4 nov., 1er déc.        (dernière date : 1er déc.)
+#   20 décembre : AP 15 oct., 1er déc., 15 déc. ; ST 4 nov., 1er déc., 15 déc.       (dernière date : 15 déc.)
+
+def rows_of(content: bytes, *keep: int) -> bytes:
+    """En-tête et lignes de données choisies (1 = première ligne de données)."""
+    lines = content.split(b"\r\n")
+    return b"\r\n".join([lines[0], *(lines[i] for i in keep), b""])
+
 
 def test_export_recent_l_emporte_pour_les_deux_types(pg, tmp_path):
     deposit(pg, tmp_path, {n: fixture(n) for n in (AP_1205, ST_1205, AP_1220, ST_1220)})
     result, logs = run(pg)
-    # Couverture de l'export du 20 décembre : réunion des bornes de ses deux fichiers, du 15 octobre au 1er décembre,
-    # pour chacun des deux types
+    # Couverture de l'export qui finit le 15 décembre : réunion des bornes de ses deux fichiers (15 oct. au 15 déc.)
     assert pg.query("SELECT report_type, min(day), max(day), count(*) FROM staging.ads_day_source "
                     "GROUP BY report_type ORDER BY 1") == [
-        ("advertised_product", date(2026, 10, 15), date(2026, 12, 1), 48),
-        ("search_term", date(2026, 10, 15), date(2026, 12, 1), 48)]
-    assert pg.query("SELECT DISTINCT export_date FROM staging.ads_day_source") == [(date(2026, 12, 20),)]
+        ("advertised_product", date(2026, 10, 15), date(2026, 12, 15), 62),
+        ("search_term", date(2026, 10, 15), date(2026, 12, 15), 62)]
+    assert pg.query("SELECT DISTINCT last_day FROM staging.ads_day_source") == [(date(2026, 12, 15),)]
     # Advertised product : le 4 novembre n'a pas de ligne dans l'export récent, et l'ancien n'est pas repris
     assert pg.query("SELECT day, impressions FROM staging.ads_product_day_best ORDER BY day") == [
-        (date(2026, 10, 15), 1300), (date(2026, 12, 1), 5000)]
-    # Search term récent sans ligne le 15 octobre : ce jour ne réapparaît pas depuis l'export du 5 décembre
+        (date(2026, 10, 15), 1300), (date(2026, 12, 1), 5000), (date(2026, 12, 15), 4000)]
+    # Search term récent sans ligne le 15 octobre : ce jour ne réapparaît pas depuis l'export précédent
     assert pg.query("SELECT day FROM staging.ads_search_term_day_best ORDER BY day") == [
-        (date(2026, 11, 4),), (date(2026, 12, 1),)]
+        (date(2026, 11, 4),), (date(2026, 12, 1),), (date(2026, 12, 15),)]
     # Rien n'est écrasé : les lignes de l'export ancien restent dans les tables
     assert pg.query("SELECT count(*) FROM staging.ads_search_term_day WHERE day = '2026-10-15'") == [(1,)]
-    # Réconciliation de l'export du 20 décembre : un jour présent d'un seul côté est un écart
+    # Réconciliation sur l'intersection des bornes (4 nov. au 15 déc.) : le 4 novembre manque côté Advertised product ;
+    # le 15 octobre, hors de l'intersection, n'est pas un écart
     assert result.status == "partial"
-    assert "export du 2026-12-20, 2026-10-15 : jour présent dans le seul Advertised product" in logs
-    assert "export du 2026-12-20, 2026-11-04 : jour présent dans le seul Search term" in logs
+    assert result.report.reconciliation_gaps == [
+        "données jusqu'au 2026-12-15, 2026-11-04 : jour présent dans le seul Search term"]
 
 
 def test_export_recent_sans_search_term_ne_masque_pas_l_ancien(pg, tmp_path):
-    # Export du 20 décembre avec Advertised product seul : il n'observe rien des termes
+    # Export qui finit le 15 décembre avec Advertised product seul : il n'observe rien des termes
     deposit(pg, tmp_path, {n: fixture(n) for n in (AP_1205, ST_1205, AP_1220)})
     run(pg)
-    assert pg.query("SELECT day, impressions, export_date FROM staging.ads_search_term_day_best ORDER BY day") == [
-        (date(2026, 10, 15), 1234, date(2026, 12, 5)), (date(2026, 11, 4), 87, date(2026, 12, 5)),
-        (date(2026, 12, 1), 5000, date(2026, 12, 5))]
-    assert pg.query("SELECT DISTINCT export_date FROM staging.ads_product_day_best") == [(date(2026, 12, 20),)]
+    assert pg.query("SELECT day, impressions, last_day FROM staging.ads_search_term_day_best ORDER BY day") == [
+        (date(2026, 10, 15), 1234, date(2026, 12, 1)), (date(2026, 11, 4), 87, date(2026, 12, 1)),
+        (date(2026, 12, 1), 5000, date(2026, 12, 1))]
+    assert pg.query("SELECT DISTINCT last_day FROM staging.ads_product_day_best") == [(date(2026, 12, 15),)]
 
 
-def test_search_term_recent_sans_activite_l_emporte(pg, tmp_path):
-    # Search term du 20 décembre « aucune activité rapportée » : observation d'absence, sans ligne
+def test_fichier_sans_activite_ne_l_emporte_jamais(pg, tmp_path):
+    # Sans ligne, un fichier n'a pas de dates : il ne peut être placé dans le temps (note du 9 novembre 2026)
     header = fixture(ST_1220).split(b"\r\n", 1)[0] + b"\r\n"
     deposit(pg, tmp_path, {AP_1205: fixture(AP_1205), ST_1205: fixture(ST_1205), AP_1220: fixture(AP_1220),
                            ST_1220: header})
-    result, _ = run(pg)
+    _, logs = run(pg)
     assert pg.query("SELECT status FROM staging.ads_file_extraction WHERE ads_report_file_id = %s",
                     (file_id(pg, ST_1220),)) == [("no_activity",)]
-    assert pg.query("SELECT count(*) FROM staging.ads_search_term_day_best") == [(0,)]
-    assert pg.query("SELECT count(*), min(file_id), max(file_id) FROM staging.ads_day_source "
-                    "WHERE report_type = 'search_term'") == [(48, file_id(pg, ST_1220), file_id(pg, ST_1220))]
-    assert pg.query("SELECT count(*) FROM staging.ads_search_term_day WHERE ads_report_file_id = %s",
-                    (file_id(pg, ST_1205),)) == [(3,)]  # rien n'est écrasé
+    assert pg.query("SELECT count(*), min(last_day), max(last_day) FROM staging.ads_search_term_day_best") == [
+        (3, date(2026, 12, 1), date(2026, 12, 1))]
+    assert "sans date (ne l'emporte jamais dans la meilleure estimation)" in logs
 
 
 def test_jour_hors_couverture_recente_garde_l_export_ancien(pg, tmp_path):
-    # Un export récent qui ne couvre que le 1er décembre : le 15 octobre reste à l'export du 5 décembre
-    rows = fixture(AP_1220).split(b"\r\n")
-    recent = b"\r\n".join([rows[0], rows[2], b""])  # seule la ligne du 1er décembre
-    deposit(pg, tmp_path, {AP_1205: fixture(AP_1205), "Advertised_product_-_12_20_2026T09_00_00.csv": recent})
+    # Un export récent qui ne couvre que le 15 décembre : les jours d'avant restent à l'export précédent
+    deposit(pg, tmp_path, {AP_1205: fixture(AP_1205), AP_1220: rows_of(fixture(AP_1220), 3)})
     run(pg)
-    assert pg.query("SELECT day, export_date FROM staging.ads_product_day_best ORDER BY day") == [
-        (date(2026, 10, 15), date(2026, 12, 5)), (date(2026, 11, 4), date(2026, 12, 5)),
-        (date(2026, 12, 1), date(2026, 12, 20))]
+    assert pg.query("SELECT day, last_day FROM staging.ads_product_day_best ORDER BY day") == [
+        (date(2026, 10, 15), date(2026, 12, 1)), (date(2026, 11, 4), date(2026, 12, 1)),
+        (date(2026, 12, 1), date(2026, 12, 1)), (date(2026, 12, 15), date(2026, 12, 15))]
 
 
-def test_deux_fichiers_meme_type_meme_date(pg, tmp_path):
+def test_deux_fichiers_meme_type_meme_derniere_date(pg, tmp_path):
     later = fixture(AP_1205).replace(b",1234,", b",1250,", 1)
     deposit(pg, tmp_path, {AP_1205: fixture(AP_1205), "Advertised_product_-_12_05_2026T21_00_00.csv": later})
     _, logs = run(pg)
-    assert "deux fichiers Advertised product ; retenu" in logs and "Advertised_product_-_12_05_2026T21_00_00.csv" in logs
+    assert ("données jusqu'au 2026-12-01 : deux fichiers Advertised product ; retenu "
+            f"{LOT}/Advertised_product_-_12_05_2026T21_00_00.csv (le dernier ingéré)") in logs
     best = pg.query("SELECT f.original_name, p.impressions FROM staging.ads_product_day_best p "
                     "JOIN raw.ads_report_file f ON f.id = p.ads_report_file_id WHERE p.day = '2026-10-15'")
     assert best == [("Advertised_product_-_12_05_2026T21_00_00.csv", 1250)]
+
+
+def test_dernier_ingere_l_emporte_quel_que_soit_le_nom(pg, tmp_path):
+    # Même dernière date : le fichier ingéré en second l'emporte, même si l'horodatage de son nom est plus ancien
+    deposit(pg, tmp_path, {"Termes_sans_horodatage.csv": fixture(AP_1205).replace(b",1234,", b",1250,", 1)})
+    deposit(pg, tmp_path, {"Advertised_product_-_01_01_2020T00_00_00.csv": fixture(AP_1205)})
+    run(pg)
+    assert pg.query("SELECT impressions FROM staging.ads_product_day_best WHERE day = '2026-10-15'") == [(1234,)]
+
+
+@pytest.mark.parametrize("order", ["fenetre_ancienne_d_abord", "fenetre_recente_d_abord"])
+def test_rapports_programmes_meme_nom_fenetres_differentes(pg, tmp_path, order):
+    # Un rapport programmé garde le même nom à chaque livraison : le plus récent par fin de fenêtre l'emporte sur la
+    # partie commune, quel que soit l'ordre d'ingestion
+    name = "Search_term_-_11_04_2026T21_16_00.csv"
+    ancienne = rows_of(fixture(ST_1205), 1, 2)                                   # 15 oct. et 4 nov.
+    recente = rows_of(fixture(ST_1205), 2, 3).replace(b",87,0,", b",90,0,", 1)   # 4 nov. (révisé) et 1er déc.
+    first, second = (ancienne, recente) if order == "fenetre_ancienne_d_abord" else (recente, ancienne)
+    deposit(pg, tmp_path, {name: first})
+    deposit(pg, tmp_path, {name: second})
+    run(pg)
+    assert pg.query("SELECT count(*) FROM raw.ads_report_file WHERE original_name = %s", (name,)) == [(2,)]
+    assert pg.query("SELECT day, impressions, last_day FROM staging.ads_search_term_day_best ORDER BY day") == [
+        (date(2026, 10, 15), 1234, date(2026, 11, 4)), (date(2026, 11, 4), 90, date(2026, 12, 1)),
+        (date(2026, 12, 1), 5000, date(2026, 12, 1))]
+
+
+def test_appariement_fenetres_differentes_sur_l_intersection(pg, tmp_path):
+    # Advertised product du 15 oct. au 1er déc., Search term du 4 nov. au 1er déc. : même dernière date, comparaison sur
+    # l'intersection (4 nov. au 1er déc.) ; le 15 octobre n'est pas un écart
+    deposit(pg, tmp_path, {AP_1205: fixture(AP_1205), "Termes_courts.csv": rows_of(fixture(ST_1205), 2, 3)})
+    result, logs = run(pg)
+    assert result.report.reconciliation_gaps == [] and result.status == "success", logs
+
+
+def test_appariement_jour_manquant_dans_l_intersection(pg, tmp_path):
+    # Search term du 15 oct. au 1er déc. sans le 4 novembre : écart dans l'intersection
+    deposit(pg, tmp_path, {AP_1205: fixture(AP_1205), "Termes_troues.csv": rows_of(fixture(ST_1205), 1, 3)})
+    result, _ = run(pg)
+    assert result.report.reconciliation_gaps == [
+        "données jusqu'au 2026-12-01, 2026-11-04 : jour présent dans le seul Advertised product"]
+
+
+def test_nom_libre_ok_en_raw_et_extrait(pg, tmp_path):
+    deposit(pg, tmp_path, {"Termes_hebdo.csv": fixture(ST_1205)})
+    result, _ = run(pg)
+    assert pg.query("SELECT status, export_date, export_time FROM raw.ads_report_file") == [("ok", None, None)]
+    assert pg.query("SELECT status, row_count FROM staging.ads_file_extraction") == [("ok", 3)]
+    assert result.status == "success"
 
 
 # --- Renommage de campagne --------------------------------------------------------------------------
@@ -246,8 +302,8 @@ def test_renommage_ne_fusionne_ni_ne_separe(pg, tmp_path):
     assert pg.query("SELECT count(DISTINCT campaign_id) FROM staging.ads_search_term_day") == [(2,)]
     by_id = dict(pg.query("SELECT campaign_id, sum(impressions) FROM staging.ads_search_term_day_best "
                           "GROUP BY campaign_id"))
-    # 15 octobre : export du 5 décembre (hors couverture du 20) ; 4 novembre et 1er décembre : export du 20
-    assert by_id == {"100000000000001": 1234 + 87, "100000000000002": 5000}
+    # 15 octobre : export précédent (hors couverture du Search term récent) ; ensuite : export récent
+    assert by_id == {"100000000000001": 1234 + 87, "100000000000002": 5000 + 4000}
 
 
 # --- Aucun texte hors de mapping ----------------------------------------------------------------------
@@ -342,19 +398,22 @@ def test_textes_en_parametres_lies(pg, tmp_path):
 def test_fraicheur_regle():
     latest = {"advertised_product": date(2026, 12, 5), "search_term": None}
     assert ads_freshness(latest, date(2026, 12, 14)) == [
-        "Aucun rapport Amazon Ads Search term de moins de 10 jours (aucun reçu)"]
+        "Aucun rapport Amazon Ads Search term de moins de 10 jours (aucun extrait)"]
     assert ads_freshness(latest, date(2026, 12, 15))[0] == (
-        "Aucun rapport Amazon Ads Advertised product de moins de 10 jours (dernier : export du 2026-12-05)")
+        "Aucun rapport Amazon Ads Advertised product de moins de 10 jours (données jusqu'au 2026-12-05)")
 
 
 def test_fraicheur_dans_le_bilan_des_captures(pg, tmp_path):
-    deposit(pg, tmp_path, {AP_1205: fixture(AP_1205), ST_1205: fixture(ST_1205)})
+    # Fraîcheur fondée sur la dernière date des données extraites (1er décembre), jamais sur le nom
+    deposit(pg, tmp_path, {AP_1205: fixture(AP_1205), "Search_term_-_01_01_2020T00_00_00.csv": fixture(ST_1205)})
+    run(pg)
     logs = []
     result = extract(PgTransformerRepository(pg.transformer), pg.raw_dir, log=logs.append, today=date(2026, 12, 20))
     assert result.status == "success"  # information seulement, sans effet sur le code
     text = "\n".join(logs)
-    assert "Aucun rapport Amazon Ads Advertised product de moins de 10 jours (dernier : export du 2026-12-05)" in text
+    assert "Aucun rapport Amazon Ads Advertised product de moins de 10 jours (données jusqu'au 2026-12-01)" in text
     logs.clear()
+    # Données de 9 jours, nom d'un rapport défini en 2020 : aucune information
     extract(PgTransformerRepository(pg.transformer), pg.raw_dir, log=logs.append, today=date(2026, 12, 10))
     assert "Aucun rapport Amazon Ads" not in "\n".join(logs)
 

@@ -6,8 +6,8 @@
 # L'archive tar arrive sur l'entrée standard ; elle contient les rapports (.csv) et MANIFEST.sha256.
 #
 # 1. Déballage dans ~/books-data/ads/attente/{lot}/ ; contrôles : fichiers ordinaires seulement, noms .csv au jeu de
-#    caractères strict, exactement ceux du manifeste, empreintes SHA-256 exactes. En cas d'échec, le lot reste dans
-#    attente/.
+#    caractères strict (suffixe « (n) » admis), exactement ceux du manifeste, empreintes SHA-256 exactes. En cas
+#    d'échec, le lot reste dans attente/.
 # 2. Déplacement atomique (renommage) vers inbox/{lot}/, puis repère « BOOKS:TRANSFERT:OK {lot} {n} ».
 # 3. Ingestion dans la même connexion (service ads), puis repère « BOOKS:INGESTION:CODE {code} ».
 # 4. Extraction vers STAGING (service ads-transformer, lot B), quel que soit le résultat de l'ingestion
@@ -41,8 +41,9 @@ cd "$WAIT"
 if [[ -n "$(find . -mindepth 1 ! -type f -print -quit)" ]]; then
     fail "élément qui n'est pas un fichier ordinaire ; lot laissé dans attente/$LOT"
 fi
-# Rapports seulement : noms en .csv, au jeu de caractères strict (le « (1) » de Windows n'en fait pas partie)
-if grep -qvE '^[0-9a-f]{64}  [A-Za-z0-9_.-]+\.csv$' MANIFEST.sha256; then
+# Rapports seulement : noms en .csv, au jeu de caractères strict, avec au plus le suffixe « (n) » d'un second
+# téléchargement de même nom (un rapport programmé garde le même nom à chaque livraison)
+if grep -qvE '^[0-9a-f]{64}  [A-Za-z0-9_.-]+( \([0-9]+\))?\.csv$' MANIFEST.sha256; then
     fail "MANIFEST.sha256 mal formé ou nom de rapport hors format ; lot laissé dans attente/$LOT"
 fi
 expected="$(sed -E 's/^[0-9a-f]{64}  //' MANIFEST.sha256 | LC_ALL=C sort)"

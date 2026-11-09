@@ -1,7 +1,8 @@
 """Tests de books.ads.validation : nature d'un rapport Amazon Ads avant son dépôt dans RAW (décision 018, lot A).
 
-Chaque motif invalid du lot A (1, 2, 5, 6, 7, 8, 10) est produit par mutation des deux rapports inventés de
-tests/fixtures/ads/ ; aucun motif ne doit recopier une cellule (mot « Sentinelle » des fichiers de test).
+Chaque motif invalid du lot A (1, 2, 5, 6, 7, 8) est produit par mutation des deux rapports inventés de
+tests/fixtures/ads/ ; aucun motif ne doit recopier une cellule (mot « Sentinelle » des fichiers de test). Le nom n'est
+jamais jugé : le motif 10 est supprimé depuis la note du 9 novembre 2026 de la décision 018.
 Les défauts de contenu (forme CSV, colonnes requises, valeurs, doublons) ne sont PAS jugés ici : un fichier qui n'a
 que ceux-là est ok pour RAW, et sera jugé à l'extraction (lot B).
 """
@@ -136,17 +137,24 @@ def test_motif_8_colonne_date_absente():
 
 
 @pytest.mark.parametrize("name", [
-    "Search_term.csv",                                # aucun horodatage
+    "Termes_hebdo.csv",                               # nom choisi par l'utilisateur dans le formulaire d'Amazon Ads
     "Search_term_-_13_05_2026T20_05_45.csv",          # mois 13
     "Search_term_-_04_31_2026T20_05_45.csv",          # 31 avril
     "Search_term_-_12_05_2026T25_05_45.csv",          # 25 h
     "Search_term_-_2026-12-05T20_05_45.csv",          # autre ordre, autres séparateurs
     "Search_term_-_12_05_2026T20_05_45.csv.txt",      # horodatage qui n'est pas en fin de nom
-], ids=["sans-horodatage", "mois-13", "31-avril", "25-h", "autre-format", "pas-en-fin"])
-def test_motif_10_nom_hors_format(name):
+], ids=["nom-libre", "mois-13", "31-avril", "25-h", "autre-format", "pas-en-fin"])
+def test_nom_jamais_juge(name):
+    # Motif 10 supprimé (décision 018, note du 9 novembre 2026) : l'horodatage du nom est le nom proposé par Amazon Ads,
+    # modifiable ; absent ou illisible, il laisse la date et l'heure à NULL, et le fichier reste ok
     verdict = classify(name, ST)
-    assert_invalid(verdict, "nom hors format")
-    assert (verdict.report_type, verdict.export_date, verdict.export_time) == ("search_term", None, None)
+    assert (verdict.status, verdict.reason, verdict.report_type) == ("ok", None, "search_term")
+    assert (verdict.export_date, verdict.export_time) == (None, None)
+
+
+def test_horodatage_lu_avec_le_suffixe_d_un_second_telechargement():
+    verdict = classify("Search_term_-_11_04_2026T21_16_00 (1).csv", ST)
+    assert (verdict.status, verdict.export_date, verdict.export_time) == ("ok", date(2026, 11, 4), time(21, 16, 0))
 
 
 def test_mois_puis_jour():
@@ -155,9 +163,10 @@ def test_mois_puis_jour():
 
 
 def test_ordre_des_motifs_le_premier_l_emporte():
-    # Encodage invalide ET nom hors format : le motif 2 passe avant le motif 10
-    content = AP.removeprefix(BOM).decode("utf-8").encode("cp1252")
-    assert_invalid(classify("sans-horodatage.csv", content), "encodage")
-    # Plage de dates ET nom hors format : le motif 6 passe avant le motif 10
-    assert_invalid(classify("sans-horodatage.csv", replace_header_label(AP, "Date", "Plage de dates")),
-                   "Plage de dates")
+    # Encodage invalide ET colonne « Date » remplacée : le motif 2 passe avant le motif 6
+    content = replace_header_label(AP, "Date", "Plage de dates").removeprefix(BOM).decode("utf-8").encode("cp1252")
+    assert_invalid(classify(AP_NAME, content), "encodage")
+    # Type indétectable ET « Plage de dates » : le motif 5 passe avant le motif 6
+    content = replace_header_label(replace_header_label(AP, "Date", "Plage de dates"),
+                                   "Identifiant du produit promu", "Identifiant du produit")
+    assert_invalid(classify(AP_NAME, content), "type indétectable")

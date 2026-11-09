@@ -131,9 +131,10 @@ BEGIN
     PERFORM pg_temp.expect_refusal(3, 'ok sans type',
         base || $q$'2026-12-05T201500Z', 'a.csv', 'fe' || repeat('3', 62), 1, 'test/a', NULL, '2026-12-05', '20:05:45', 'ok', NULL)$q$,
         '23514', 'ads_report_file_verdict_ck');
-    PERFORM pg_temp.expect_refusal(3, 'ok sans date d''export',
-        base || $q$'2026-12-05T201500Z', 'a.csv', 'fe' || repeat('3', 62), 1, 'test/a', 'search_term', NULL, NULL, 'ok', NULL)$q$,
-        '23514', 'ads_report_file_verdict_ck');
+    -- Depuis la migration 013, un fichier ok n'exige plus de date d'export : le nom n'est plus jugé (décision 018,
+    -- note du 9 novembre 2026) ; le contrôle d'avant est vérifié par test_013
+    EXECUTE base || $q$'2026-12-05T201500Z', 'a.csv', 'fe' || repeat('5', 62), 1, 'test/c', 'search_term', NULL, NULL, 'ok', NULL)$q$;
+    RAISE NOTICE 'OK test 3 : fichier ok sans date d''export admis (migration 013)';
     PERFORM pg_temp.expect_refusal(3, 'invalid sans motif',
         base || $q$'2026-12-05T201500Z', 'a.csv', 'fe' || repeat('3', 62), 1, 'test/a', NULL, NULL, NULL, 'invalid', NULL)$q$,
         '23514', 'ads_report_file_verdict_ck');

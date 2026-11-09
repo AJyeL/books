@@ -56,6 +56,16 @@ par des internautes**, qui peuvent contenir n'importe quel texte, y compris un n
   - Seul le **jour** est comparé, car le fuseau de l'heure du nom est inconnu (section « Inconnus »).
 - La couche RAW n'est jamais modifiée après écriture (décision 001).
 
+> Note du 9 novembre 2026 (migration 013, extracteur des rapports version 2) : **hypothèse réfutée, l'horodatage du nom
+> n'est pas une date d'export.** Vérifié dans la console d'Amazon Ads le 9 novembre : l'horodatage du fichier est en fait
+> le nom du rapport, proposé par défaut à l'ouverture du formulaire (nom à 21 h 16, création enregistrée à 21 h 19,
+> heure de Paris), et modifiable par l'utilisateur. Un rapport programmé garde ce nom à chaque livraison : le premier
+> rapport programmé portait un nom du 4 novembre et des données jusqu'au 8 novembre. Le motif 16 l'a détecté.
+> - L'horodatage est **lu s'il est présent**, pour mémoire, dans `export_date` et `export_time` (colonnes commentées par la
+>   migration 013) ; sinon, elles restent NULL. Il n'intervient dans **aucun** calcul, contrôle ni ordre.
+> - Le contrôle « date d'export postérieure à la dernière date du fichier » est supprimé (motif 16, section 3).
+> - Un fichier nommé librement (par exemple « Termes_hebdo.csv ») est `ok` dans RAW et extrait normalement.
+
 ### 3. Acceptation
 
 Un fichier n'est accepté (`ok`) que si toutes les conditions ci-dessous sont remplies. Sinon, il est conservé dans RAW
@@ -93,6 +103,20 @@ avec le statut `invalid` et son motif. **Il n'est jamais ignoré.**
 >   `parse_failed` : forme CSV, libellé en double, colonnes requises, devise, dates, mesures, doublons de grain, date
 >   d'export postérieure à la dernière date du fichier, colonnes inconnues. Un fichier sans ligne de données n'y sera
 >   pas une anomalie, mais un statut à part (« aucune activité rapportée »).
+
+> Note du 9 novembre 2026 (migration 013, extracteur des rapports version 2) : **le nom n'est plus jugé.** L'horodatage
+> du nom est le nom du rapport proposé par Amazon Ads, modifiable (section 2, note du même jour) : un rapport renommé
+> aurait été `invalid` dans RAW pour toujours.
+> - **Motif 10 supprimé** de la validation RAW. RAW juge désormais six contrôles : fichier vide, encodage, type,
+>   « Plage de dates », « Jour du mois », colonne « Date » absente.
+> - **Contrainte assouplie** (`ads_report_file_verdict_ck`) : un fichier `ok` n'exige plus de date d'export. Aucune donnée
+>   RAW n'est modifiée ; les verdicts déjà gravés restent tels quels.
+> - **Motif 16 supprimé** de l'extraction : `ADS_EXTRACTOR_VERSION` passe à 2, et les fichiers en échec pour ce motif sont
+>   réextraits.
+> - Le suffixe « (n) » d'un second téléchargement de même nom reste contrôlé à l'envoi et à la réception (jeu de
+>   caractères des noms : lettres, chiffres, `_`, `.`, `-`, puis au plus « (n) » avant `.csv`), mais n'a plus de règle
+>   propre dans RAW. Le PC range les fichiers envoyés par lot (`envoyes\AAAA-MM\{lot}\`) : deux livraisons de même nom ne
+>   se bloquent plus.
 
 ### 4. STAGING
 
@@ -158,6 +182,21 @@ avec le statut `invalid` et son motif. **Il n'est jamais ignoré.**
 > - Vues : `staging.ads_day_source` (une ligne par jour et par type : export et fichier retenus),
 >   `staging.ads_product_day_best`, `staging.ads_search_term_day_best`.
 
+> Note du 9 novembre 2026 (migration 013, qui remplace les vues ; la migration 012, déployée, n'est pas modifiée) :
+> **l'ordre des rapports se décide par leurs données, jamais par leur nom.** L'horodatage du nom n'est pas une date
+> d'export (section 2, note du même jour) ; la note du 5 novembre reposait sur lui.
+> - **Ordre** : par dernière date des données du fichier, puis par horodatage d'ingestion (puis par ordre d'ingestion).
+> - **Export** : les fichiers extraits `ok` de **même dernière date** ; sa couverture reste la réunion de leurs bornes.
+>   Pour chaque jour et chaque type, l'emporte l'export le plus récent qui contient un fichier de ce type et dont la
+>   couverture inclut ce jour ; dans l'export, le dernier ingéré de ce type. Le choix par jour et par type est inchangé
+>   sur le fond.
+> - **Rapports programmés de même nom** : deux livraisons de fenêtres différentes portent le même nom ; la plus récente
+>   par fin de fenêtre l'emporte sur leur partie commune, quel que soit l'ordre d'ingestion.
+> - **Fichier « aucune activité rapportée »** : sans ligne ni dates, il ne peut plus être placé dans le temps, et
+>   **ne l'emporte jamais** (régression assumée de la note du 5 novembre ; section « Inconnus »).
+> - Vues : `staging.ads_day_source` (colonnes `day`, `report_type`, `last_day`, `file_id`) ; dans les vues de meilleure
+>   estimation, `last_day` remplace `export_date`.
+
 ### 7. Contrôles dans le bilan
 
 - **Réconciliation Advertised product / Search term**, jour par jour, pour un même export.
@@ -188,6 +227,18 @@ avec le statut `invalid` et son motif. **Il n'est jamais ignoré.**
 >   par `mapping.code_for`).
 > - **Version propre** : `ADS_EXTRACTOR_VERSION`, distincte de celle de l'extracteur des pages ; toute modification
 >   des règles d'analyse des rapports l'incrémente, dans le même commit.
+
+> Note du 9 novembre 2026 (extracteur des rapports version 2) : le nom n'intervient plus dans aucun contrôle.
+> - **Appariement** : les fichiers de **même dernière date** (le dernier ingéré de chaque type) ; la comparaison porte sur
+>   l'**intersection de leurs bornes** : deux fenêtres qui finissent le même jour peuvent commencer à des dates
+>   différentes (7 et 30 jours), et un jour hors de l'intersection n'est pas un écart. Dans l'intersection, un jour
+>   présent d'un seul côté reste un écart. Un fichier sans partenaire reste une information.
+> - **Fraîcheur** : d'après la **dernière date des données** des rapports extraits `ok` de chaque type, jamais d'après le
+>   nom (un rapport programmé garde le même nom à chaque livraison : la fraîcheur fondée sur le nom aurait signalé un
+>   rapport ancien malgré des livraisons quotidiennes). Toujours en information, dans le bilan de l'extraction des
+>   captures.
+> - **Bilan** : « export du … » devient « données jusqu'au … » ; un fichier sans activité est signalé « sans date (ne
+>   l'emporte jamais dans la meilleure estimation) ».
 
 ### 8. Tests
 
@@ -243,6 +294,12 @@ avec le statut `invalid` et son motif. **Il n'est jamais ignoré.**
 - **Export sans aucune ligne** : un export dont tous les fichiers sont `no_activity` ne couvre aucun jour, faute de
   dates : l'export précédent reste alors la meilleure estimation. La période demandée à Amazon n'est écrite nulle part
   dans le fichier.
+- **Fichier sans activité, non datable** (note du 9 novembre 2026) : depuis que l'horodatage du nom n'est plus une date
+  d'export, un fichier `no_activity` ne peut être rattaché à aucun export ; il ne l'emporte jamais, même face à un
+  export plus ancien qui avait des lignes pour les mêmes jours. Une absence réelle d'activité n'est donc pas visible
+  dans la meilleure estimation ; elle n'apparaît qu'au bilan.
+- **Horodatage du nom** : c'est le nom proposé par défaut à l'ouverture du formulaire d'Amazon Ads, modifiable par
+  l'utilisateur ; il ne dit rien de la livraison ni de la période des données.
 
 ## Hors périmètre
 

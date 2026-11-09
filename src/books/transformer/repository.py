@@ -1,7 +1,7 @@
 """Lectures et écritures en base de l'extracteur, avec les seuls droits de books_transformer (migrations 005 à 007) :
 lecture de raw ; dans staging, INSERT et DELETE sur les tables de lignes (classements, catégories, fiches), INSERT et
 UPDATE limité sur page_extraction, INSERT et UPDATE des colonnes de clôture sur extract_run. Depuis la migration 012,
-lecture de raw.ads_report_file pour la seule fraîcheur des rapports Amazon Ads (dates d'export).
+lecture des rapports Amazon Ads extraits pour leur seule fraîcheur (dernière date de leurs données).
 """
 
 from dataclasses import dataclass
@@ -79,7 +79,7 @@ class TransformerRepository(Protocol):
     def close_run(self, run_id: int, status: str, pages_extracted: int, pages_failed: int, pages_skipped: int,
                   notes: str) -> None: ...
 
-    def latest_ads_exports(self) -> dict[str, date | None]: ...
+    def latest_ads_data_days(self) -> dict[str, date | None]: ...
 
 
 class PgTransformerRepository:
@@ -248,11 +248,18 @@ class PgTransformerRepository:
             (status, pages_extracted, pages_failed, pages_skipped, notes, run_id),
         )
 
-    def latest_ads_exports(self) -> dict[str, date | None]:
-        """Date d'export du dernier rapport Amazon Ads ok de chaque type, None si aucun (fraîcheur, décision 018,
-        section 7 ; lecture de raw.ads_report_file accordée par la migration 012). Aucun nom, aucune valeur."""
+    def latest_ads_data_days(self) -> dict[str, date | None]:
+        """Dernière date de données des rapports Amazon Ads extraits ok, pour chaque type ; None si aucun (fraîcheur,
+        décision 018, section 7, note du 9 novembre 2026 : l'horodatage du nom n'est pas une date d'export, et reste
+        le même à chaque livraison d'un rapport programmé). Aucun nom, aucune valeur."""
         rows = dict(self.conn.execute(
-            "SELECT report_type, max(export_date) FROM raw.ads_report_file WHERE status = 'ok' GROUP BY report_type"
+            """
+            SELECT f.report_type, max(e.last_day)
+              FROM raw.ads_report_file f
+              JOIN staging.ads_file_extraction e ON e.ads_report_file_id = f.id
+             WHERE e.status = 'ok'
+             GROUP BY f.report_type
+            """
         ).fetchall())
         return {kind: rows.get(kind) for kind in ("advertised_product", "search_term")}
 

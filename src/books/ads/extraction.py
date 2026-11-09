@@ -8,10 +8,12 @@ Pour chaque fichier RAW ok à extraire, dans l'ordre de raw.ads_report_file :
 Un fichier déjà extrait par la même version n'est pas réextrait ; un échec est retenté à la version suivante, et
 reste signalé au bilan (anomalie) tant qu'il dure.
 
-Contrôles du bilan (décision 018, section 7) : réconciliation Advertised product / Search term, jour par jour, pour
-chaque export dont un fichier vient d'être extrait (même date d'export ; réunion des jours ; un jour présent d'un
-seul côté est un écart) ; deux fichiers du même type et de même date d'export (information) ; emprunts et
-redevances jamais vus non nuls (information) ; colonnes inconnues (information). La fraîcheur est contrôlée par
+Contrôles du bilan (décision 018, section 7, notes des 5 et 9 novembre 2026) : réconciliation Advertised product /
+Search term, jour par jour, pour chaque export dont un fichier vient d'être extrait (un export : les fichiers de même
+dernière date de données ; comparaison sur l'intersection des bornes des deux fichiers, où un jour présent d'un seul
+côté est un écart) ; deux fichiers du même type dans un même export (information : le dernier ingéré est retenu) ;
+fichier sans activité, impossible à dater (information) ; emprunts et redevances jamais vus non nuls (information) ;
+colonnes inconnues (information). Le nom du fichier n'intervient dans aucun contrôle. La fraîcheur est contrôlée par
 l'extraction des captures, qui tourne même quand aucun rapport n'arrive.
 
 Statuts et codes de sortie, comme l'extracteur des pages : success (0) ; partial (1) au moins un fichier en échec ou
@@ -28,7 +30,8 @@ from books.ads.transformer_repository import AdsTransformerRepository
 from books.transformer.integrity import RawIntegrityError, read_raw_page
 
 # Toute modification des règles d'analyse (books.ads.parsing) incrémente cette version, dans le même commit
-ADS_EXTRACTOR_VERSION = "1"
+# Version 2 (9 novembre 2026) : motif 16 supprimé, l'horodatage du nom n'étant pas une date d'export
+ADS_EXTRACTOR_VERSION = "2"
 EXIT_CODES = {"success": 0, "partial": 1, "failed": 1}
 MEASURE_LABELS = {name: label for label, (name, _) in MEASURES.items()}
 # Mesures comparées entre les deux types d'un même export (décision 018, section 7)
@@ -98,31 +101,34 @@ class AdsExtractionResult:
     report: AdsExtractionReport
 
 
-def _reconcile(repo: AdsTransformerRepository, report: AdsExtractionReport, export_dates: list) -> None:
-    """Réconciliation des exports touchés : le fichier retenu de chaque type (le plus récent par l'heure)."""
+def _reconcile(repo: AdsTransformerRepository, report: AdsExtractionReport, last_days: list) -> None:
+    """Réconciliation des exports touchés (un export : les fichiers de même dernière date de données). Pour chaque
+    type, le fichier ingéré en dernier ; comparaison sur l'intersection des bornes des deux fichiers retenus."""
     chosen: dict = {}
-    for export_date, report_type, file_id, label, export_time in repo.export_files(export_dates):
-        key = (export_date, report_type)
+    for last_day, report_type, file_id, label, first_day in repo.export_files(last_days):
+        key = (last_day, report_type)
         if key in chosen:
             report.information.append(
-                f"export du {export_date.isoformat()} : deux fichiers {TYPE_LABELS[report_type]} ; retenu "
-                f"{chosen[key][1]} (le plus récent par l'heure), écarté {label}")
+                f"données jusqu'au {last_day.isoformat()} : deux fichiers {TYPE_LABELS[report_type]} ; retenu "
+                f"{chosen[key][1]} (le dernier ingéré), écarté {label}")
             continue
-        chosen[key] = (file_id, label)
-    for export_date in export_dates:
-        ap = chosen.get((export_date, "advertised_product"))
-        st = chosen.get((export_date, "search_term"))
+        chosen[key] = (file_id, label, first_day)
+    for last_day in last_days:
+        ap = chosen.get((last_day, "advertised_product"))
+        st = chosen.get((last_day, "search_term"))
+        prefix = f"données jusqu'au {last_day.isoformat()}"
         if ap is None or st is None:
             present = TYPE_LABELS["advertised_product" if ap else "search_term"]
             absent = TYPE_LABELS["search_term" if ap else "advertised_product"]
             if ap or st:
-                report.information.append(f"export du {export_date.isoformat()} : {present} sans {absent} "
-                                          f"(aucune réconciliation)")
+                report.information.append(f"{prefix} : {present} sans {absent} (aucune réconciliation)")
             continue
+        # Deux fenêtres qui finissent le même jour peuvent commencer à des dates différentes (7 et 30 jours) : seule
+        # leur partie commune est comparable ; un jour hors de l'intersection n'est pas un écart
+        start = max(ap[2], st[2])
         totals_ap = repo.day_totals(ap[0], "advertised_product")
         totals_st = repo.day_totals(st[0], "search_term")
-        prefix = f"export du {export_date.isoformat()}"
-        for day in sorted(set(totals_ap) | set(totals_st)):
+        for day in sorted(d for d in set(totals_ap) | set(totals_st) if d >= start):
             if day not in totals_st or day not in totals_ap:
                 side = "Advertised product" if day in totals_ap else "Search term"
                 report.reconciliation_gaps.append(f"{prefix}, {day.isoformat()} : jour présent dans le seul {side}")
@@ -162,10 +168,12 @@ def extract_reports(repo: AdsTransformerRepository, raw_dir: Path, *, extractor_
                 report.failures.append(f"{ref.label} : integrity_failed : {exc}")
                 continue
             try:
-                parsed = parse_report(content, ref.report_type, ref.export_date)
+                parsed = parse_report(content, ref.report_type)
             except NoActivity as exc:
                 repo.save_no_activity(run_id, ref.id, exc.unknown_columns)
-                report.no_activity.append(f"{ref.label} : {kind}, export du {ref.export_date.isoformat()}")
+                # Sans ligne, le fichier n'a pas de dates : il ne peut être placé dans le temps (note du 9 novembre)
+                report.no_activity.append(f"{ref.label} : {kind}, sans date (ne l'emporte jamais dans la meilleure "
+                                          f"estimation)")
                 if exc.unknown_columns:
                     report.information.append(f"{ref.label} : colonnes inconnues : "
                                               + ", ".join(f"« {c} »" for c in exc.unknown_columns))
@@ -175,11 +183,10 @@ def extract_reports(repo: AdsTransformerRepository, raw_dir: Path, *, extractor_
                 report.failures.append(f"{ref.label} : parse_failed : {exc}")
                 continue
             repo.save_report(run_id, ref.id, parsed)
-            touched.add(ref.export_date)
+            touched.add(parsed.last_day)
             report.rows[ref.report_type] += len(parsed.rows)
-            report.extracted.append(f"{ref.label} : {kind}, export du {ref.export_date.isoformat()}, "
-                                    f"{len(parsed.rows)} lignes du {parsed.first_day.isoformat()} "
-                                    f"au {parsed.last_day.isoformat()}")
+            report.extracted.append(f"{ref.label} : {kind}, {len(parsed.rows)} lignes du "
+                                    f"{parsed.first_day.isoformat()} au {parsed.last_day.isoformat()}")
             if parsed.unknown_columns:
                 report.information.append(f"{ref.label} : colonnes inconnues : "
                                           + ", ".join(f"« {c} »" for c in parsed.unknown_columns))

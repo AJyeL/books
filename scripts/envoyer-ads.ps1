@@ -8,17 +8,19 @@
     d'Amazon (décision 018, section 1) ; ce script n'ouvre ni la boîte mail ni aucun lien.
 
     1. Inventaire du dossier des rapports (premier niveau seulement) : partent les fichiers .csv au nom fait de
-       lettres, chiffres, « _ », « . » et « - », de 20 Mo au plus. Tout autre fichier est signalé et laissé sur
-       place (par exemple le « (1) » qu'ajoute Windows à un second téléchargement). Le contenu n'est pas examiné ici :
-       atlas juge la nature de chaque fichier, et le dépose dans RAW avec son statut.
+       lettres, chiffres, « _ », « . » et « - », suivi au plus du suffixe « (n) » qu'ajoute le navigateur à un second
+       téléchargement de même nom (un rapport programmé garde le même nom à chaque livraison), de 20 Mo au plus.
+       Tout autre fichier est signalé et laissé sur place. Le contenu n'est pas examiné ici : atlas juge la nature de
+       chaque fichier, et le dépose dans RAW avec son statut.
     2. Préparation : copie des rapports dans un dossier de travail, liste d'empreintes MANIFEST.sha256 calculée sur
        les originaux, archive tar. Aucun outil ne lit les rapports comme du texte.
     3. Une seule connexion SSH (alias « atlas », mot de passe saisi à l'invite) : l'archive est transmise par une
        redirection de cmd.exe, qui copie les octets tels quels. Sur atlas, scripts/recevoir-ads.sh déballe, vérifie,
        place le lot dans ~/books-data/ads/inbox/, lance l'ingestion, puis l'extraction vers STAGING quel que soit le
        résultat de l'ingestion (décision 012).
-    4. Si le transfert a réussi, les rapports sont déplacés dans envoyes\AAAA-MM\ (mois d'envoi, en UTC), quel que
-       soit le résultat de l'ingestion : envoyes\ est une archive permanente, jamais vidée.
+    4. Si le transfert a réussi, les rapports sont déplacés dans envoyes\AAAA-MM\{lot}\ (mois d'envoi, en UTC, puis
+       lot), quel que soit le résultat de l'ingestion : deux livraisons de même nom ne se bloquent pas. envoyes\ est
+       une archive permanente, jamais vidée.
 
     Codes de sortie (le plus grave l'emporte) :
       0  transfert réussi, ingestion et extraction sans anomalie (ou aucun rapport à envoyer)
@@ -61,7 +63,7 @@ if (-not $DossierTravail) { $DossierTravail = [IO.Path]::GetTempPath() }
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
 
 # Nom d'un rapport envoyable : même règle que scripts/recevoir-ads.sh
-$NomRapport = '^[A-Za-z0-9_.-]+\.csv$'
+$NomRapport = '^[A-Za-z0-9_.-]+( \([0-9]+\))?\.csv$'
 $TailleMax = 20MB
 # Outils fournis avec Windows, appelés par leur chemin complet (et non ceux d'autres logiciels installés)
 $Ssh = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
@@ -103,7 +105,7 @@ $rapports = New-Object System.Collections.Generic.List[object]
 $signales = New-Object System.Collections.Generic.List[string]
 foreach ($f in @(Get-ChildItem -LiteralPath $dossier -File | Sort-Object Name)) {
     if ($f.Name -cnotmatch $NomRapport) {
-        $signales.Add("$($f.Name) : nom hors format (.csv, lettres, chiffres, « _ », « . », « - »), laissé sur place")
+        $signales.Add("$($f.Name) : nom hors format (.csv, lettres, chiffres, « _ », « . », « - », suffixe « (n) »), laissé sur place")
     } elseif ($f.Length -gt $TailleMax) {
         $signales.Add("$($f.Name) : plus de 20 Mo, laissé sur place")
     } else {
@@ -117,9 +119,11 @@ if ($rapports.Count -eq 0) {
 }
 Write-Host "  $($rapports.Count) rapport(s) à envoyer."
 
-# --- 3. Destination dans envoyes\AAAA-MM\ (mois d'envoi) : aucun écrasement possible ------
+# --- 3. Destination dans envoyes\AAAA-MM\{lot}\ (mois d'envoi, lot) : aucun écrasement possible
 $maintenant = (Get-Date).ToUniversalTime()
-$mois = Join-Path $dossier ('envoyes\' + $maintenant.ToString('yyyy-MM', [Globalization.CultureInfo]::InvariantCulture))
+$lot = $maintenant.ToString("yyyy-MM-dd'T'HHmmss'Z'", [Globalization.CultureInfo]::InvariantCulture)
+$mois = Join-Path $dossier ('envoyes\' + $maintenant.ToString('yyyy-MM', [Globalization.CultureInfo]::InvariantCulture) + '\' + $lot)
+# Par prudence : un dossier de lot unique ne peut contenir un nom que si ce même lot a déjà été rangé
 $occupes = @($rapports | Where-Object { Test-Path -LiteralPath (Join-Path $mois $_.Name) } | ForEach-Object Name)
 if ($occupes.Count -gt 0) {
     Write-Host "Déjà présent dans envoyes\ : $($occupes -join ', ')"
@@ -128,7 +132,6 @@ if ($occupes.Count -gt 0) {
 }
 
 # --- 4. Préparation du lot ------------------------------------------------------------------
-$lot = $maintenant.ToString("yyyy-MM-dd'T'HHmmss'Z'", [Globalization.CultureInfo]::InvariantCulture)
 $travail = Join-Path $DossierTravail "books-envoi-ads-$lot"
 $preparation = Join-Path $travail 'lot'
 $archive = Join-Path $travail 'lot.tar'
@@ -180,7 +183,7 @@ try {
         Write-Host "Si atlas a reçu le lot, il est resté dans ~/books-data/ads/attente/$lot pour examen."
         $code = 3
     } else {
-        # --- 6. Transfert réussi : les rapports rejoignent envoyes\AAAA-MM\ -----------------------
+        # --- 6. Transfert réussi : les rapports rejoignent envoyes\AAAA-MM\{lot}\ -----------------
         $transfertReussi = $true
         New-Item -ItemType Directory -Force -Path $mois | Out-Null
         foreach ($f in $rapports) {

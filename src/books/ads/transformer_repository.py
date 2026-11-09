@@ -33,8 +33,8 @@ class ReportFileRef:
     content_sha256: str
     content_bytes: int
     report_type: str
-    export_date: date
-    export_time: time
+    export_date: date | None  # horodatage du nom, pour mémoire : jamais utilisé dans un calcul
+    export_time: time | None
 
     @property
     def label(self) -> str:
@@ -63,7 +63,7 @@ class AdsTransformerRepository(Protocol):
     def close_run(self, run_id: int, status: str, files_ok: int, files_no_activity: int, files_failed: int,
                   notes: str) -> None: ...
 
-    def export_files(self, export_dates: list[date]) -> list[tuple]: ...
+    def export_files(self, last_days: list[date]) -> list[tuple]: ...
 
     def day_totals(self, file_id: int, report_type: str) -> dict: ...
 
@@ -200,18 +200,19 @@ class PgAdsTransformerRepository:
             (status, files_ok, files_no_activity, files_failed, notes, run_id),
         )
 
-    def export_files(self, export_dates: list[date]) -> list[tuple]:
-        """Fichiers extraits ok de ces dates d'export : (date d'export, type, identifiant, lot/nom, heure), du plus
-        récent au plus ancien par l'heure, pour chaque date et chaque type."""
+    def export_files(self, last_days: list[date]) -> list[tuple]:
+        """Fichiers extraits ok des exports de ces dernières dates de données : (dernière date, type, identifiant,
+        lot/nom, première date), pour chaque export et chaque type du dernier ingéré au premier (décision 018,
+        note du 9 novembre 2026 : le nom n'intervient pas)."""
         return self.conn.execute(
             """
-            SELECT f.export_date, f.report_type, f.id, f.lot || '/' || f.original_name, f.export_time
+            SELECT e.last_day, f.report_type, f.id, f.lot || '/' || f.original_name, e.first_day
               FROM raw.ads_report_file f
               JOIN staging.ads_file_extraction e ON e.ads_report_file_id = f.id
-             WHERE e.status = 'ok' AND f.export_date = ANY (%s::date[])
-             ORDER BY f.export_date, f.report_type, f.export_time DESC, f.id DESC
+             WHERE e.status = 'ok' AND e.last_day = ANY (%s::date[])
+             ORDER BY e.last_day, f.report_type, f.ingested_at DESC, f.id DESC
             """,
-            (export_dates,),
+            (last_days,),
         ).fetchall()
 
     def day_totals(self, file_id: int, report_type: str) -> dict:

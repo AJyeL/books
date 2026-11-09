@@ -77,7 +77,9 @@ def test_depot_ok_et_invalid(dirs):
     ads, raw = dirs
     ap = (ADS / AP_NAME).read_bytes()
     put(ads, AP_NAME, ap)
-    put(ads, "rapport_sans_horodatage.csv", (ADS / ST_NAME).read_bytes())
+    put(ads, "Termes_hebdo.csv", (ADS / ST_NAME).read_bytes())  # nom choisi librement : jamais jugé
+    put(ads, "Search_term_-_11_03_2026T19_21_35.csv",
+        (ADS / ST_NAME).read_bytes().replace(b",Date,", b",Plage de dates,"))
     repo = FakeRepo()
     result = run(ads, raw, repo)
     assert result.status == "partial"  # un fichier invalid est une anomalie
@@ -85,9 +87,11 @@ def test_depot_ok_et_invalid(dirs):
     assert records[AP_NAME].status == "ok"
     assert (records[AP_NAME].report_type, records[AP_NAME].export_date, records[AP_NAME].export_time) == (
         "advertised_product", date(2026, 12, 5), time(19, 59, 56))
-    invalid = records["rapport_sans_horodatage.csv"]
-    assert (invalid.status, invalid.report_type, invalid.export_date) == ("invalid", "search_term", None)
-    assert "nom hors format" in invalid.reason
+    libre = records["Termes_hebdo.csv"]
+    assert (libre.status, libre.report_type, libre.export_date, libre.export_time) == ("ok", "search_term", None, None)
+    invalid = records["Search_term_-_11_03_2026T19_21_35.csv"]
+    assert (invalid.status, invalid.report_type) == ("invalid", "search_term")
+    assert "Plage de dates" in invalid.reason
     # Fichier déposé intact (octet pour octet une fois décompressé), empreinte de l'original, rangé par exécution
     stored = records[AP_NAME].stored
     sha = hashlib.sha256(ap).hexdigest()
@@ -96,9 +100,10 @@ def test_depot_ok_et_invalid(dirs):
     assert gzip.decompress((raw / stored.relative_path).read_bytes()) == ap
     # inbox/ vidée, lot supprimé ; bilan et compteurs
     assert not any((ads / "inbox").iterdir())
-    assert repo.runs[7]["files_ok"] == 1 and repo.runs[7]["files_invalid"] == 1
+    assert repo.runs[7]["files_ok"] == 2 and repo.runs[7]["files_invalid"] == 1
     assert "Déposés invalid    : 1" in repo.runs[7]["notes"]
-    assert f"{LOT}/{AP_NAME} : Advertised product, export du 2026-12-05" in repo.runs[7]["notes"]
+    assert f"{LOT}/{AP_NAME} : Advertised product, horodatage du nom 2026-12-05" in repo.runs[7]["notes"]
+    assert f"{LOT}/Termes_hebdo.csv : Search term, sans horodatage dans le nom" in repo.runs[7]["notes"]
 
 
 def test_tout_ok_code_0(dirs):

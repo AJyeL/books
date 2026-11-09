@@ -102,11 +102,20 @@ new_home; new_payload
 OUT="$(archive "$AP" "$ST" | bash "$SCRIPT" "$LOT" 2>&1)"; RC=$?
 failure "manifeste absent" "MANIFEST.sha256 absent" oui
 
-# Nom hors format : « (1) » de Windows, et autre extension que .csv
-new_home; new_payload; mv "$PAYLOAD/$ST" "$PAYLOAD/Search_term (1).csv"
-(cd "$PAYLOAD" && sha256sum "$AP" "Search_term (1).csv" > MANIFEST.sha256)
-OUT="$(archive MANIFEST.sha256 "$AP" "Search_term (1).csv" | bash "$SCRIPT" "$LOT" 2>&1)"; RC=$?
-failure "nom avec « (1) »" "nom de rapport hors format" oui
+# Suffixe « (n) » d'un second téléchargement de même nom : admis (un rapport programmé garde son nom), octets intacts
+new_home; new_payload; cp "$PAYLOAD/$ST" "$PAYLOAD/${ST%.csv} (1).csv"
+(cd "$PAYLOAD" && sha256sum "$AP" "$ST" "${ST%.csv} (1).csv" > MANIFEST.sha256)
+OUT="$(archive MANIFEST.sha256 "$AP" "$ST" "${ST%.csv} (1).csv" | bash "$SCRIPT" "$LOT" 2>&1)"; RC=$?
+check "suffixe « (1) » : admis, 3 fichiers transférés" '[[ $RC -eq 0 ]] && grep -q "^BOOKS:TRANSFERT:OK $LOT 3$" <<<"$OUT"'
+check "suffixe « (1) » : octets reçus identiques" 'cmp -s "$PAYLOAD/${ST%.csv} (1).csv" "$HOME/recues/$LOT/${ST%.csv} (1).csv"'
+
+# Noms hors format : suffixe mal formé, espace ailleurs, autre extension que .csv
+for nom in "Search_term (1a).csv" "Search_term (1)(2).csv" "Search term.csv" "Search_term (1) b.csv"; do
+    new_home; new_payload; mv "$PAYLOAD/$ST" "$PAYLOAD/$nom"
+    (cd "$PAYLOAD" && sha256sum "$AP" "$nom" > MANIFEST.sha256)
+    OUT="$(archive MANIFEST.sha256 "$AP" "$nom" | bash "$SCRIPT" "$LOT" 2>&1)"; RC=$?
+    failure "nom « $nom »" "nom de rapport hors format" oui
+done
 
 new_home; new_payload; mv "$PAYLOAD/$ST" "$PAYLOAD/rapport.txt"
 (cd "$PAYLOAD" && sha256sum "$AP" rapport.txt > MANIFEST.sha256)

@@ -146,12 +146,13 @@ class ExtractionResult:
 
 
 def ads_freshness(latest: dict[str, date | None], today: date) -> list[str]:
-    """Informations de fraîcheur : un type sans rapport ok de moins de ADS_FRESHNESS_DAYS jours (date d'export)."""
+    """Informations de fraîcheur : un type dont les données extraites les plus récentes ont ADS_FRESHNESS_DAYS jours
+    ou plus (dernière date des données, jamais l'horodatage du nom)."""
     out = []
     for kind, label in ADS_TYPE_LABELS.items():
         last = latest.get(kind)
         if last is None or (today - last).days >= ADS_FRESHNESS_DAYS:
-            seen = f"dernier : export du {last.isoformat()}" if last else "aucun reçu"
+            seen = f"données jusqu'au {last.isoformat()}" if last else "aucun extrait"
             out.append(f"Aucun rapport Amazon Ads {label} de moins de {ADS_FRESHNESS_DAYS} jours ({seen})")
     return out
 
@@ -200,7 +201,7 @@ def extract(repo: TransformerRepository, raw_dir: Path, *, extractor_version: st
             report.rows_with_card += sum(e.has_card for e in parsed.entries)
             report.without_display_name += parsed.display_name is None
             report.without_short_name += parsed.short_name is None
-        report.ads_freshness = ads_freshness(repo.latest_ads_exports(), today or datetime.now(UTC).date())
+        report.ads_freshness = ads_freshness(repo.latest_ads_data_days(), today or datetime.now(UTC).date())
     except BaseException as exc:
         report.error = f"{type(exc).__name__} : {exc}"
         raise

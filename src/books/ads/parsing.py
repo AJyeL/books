@@ -8,10 +8,11 @@ statuts recalculables à chaque version de l'extracteur. Le premier défaut renc
   (aucune ligne de données : NoActivity, « aucune activité rapportée », qui n'est pas une anomalie) ;
   puis ligne par ligne : 12. devise autre que EUR ; 13. date illisible ; 14. mesure invalide ;
      15. clé du grain incomplète ; texte de plus de 2 000 octets (refusé par mapping.code_for) ;
-  15. doublon sur la clé du grain ;
-  16. date d'export antérieure ou égale à la dernière date du fichier.
-Les numéros sont ceux de la décision 018. Aucun motif ne recopie une cellule : seulement des libellés de colonne,
-des numéros de ligne, des nombres de colonnes, des dates, et la devise si elle a la forme d'un code ISO.
+  15. doublon sur la clé du grain.
+Les numéros sont ceux de la décision 018 (le motif 16, « date d'export », est supprimé depuis la version 2 de
+l'extracteur : l'horodatage du nom n'est pas une date d'export, note du 9 novembre 2026). Aucun motif ne recopie une
+cellule : seulement des libellés de colonne, des numéros de ligne, des nombres de colonnes, et la devise si elle a la
+forme d'un code ISO.
 
 Les textes (noms de campagne et de groupe, titre, terme, ciblage) sont rendus tels qu'Amazon les écrit, sans
 normalisation, pour mapping.code_for ; seule la forme Excel « ="…" » des identifiants est retirée.
@@ -146,7 +147,7 @@ def _day(value: str) -> date | None:
         return None
 
 
-def parse_report(content: bytes, report_type: str, export_date: date) -> ParsedReport:
+def parse_report(content: bytes, report_type: str) -> ParsedReport:
     """Lignes d'un rapport ; lève AdsParseError (motif) ou NoActivity."""
     text = content.decode("utf-8").removeprefix(BOM)
     reader = csv.reader(io.StringIO(text, newline=""), strict=True)
@@ -223,9 +224,4 @@ def parse_report(content: bytes, report_type: str, export_date: date) -> ParsedR
                                match_type=cell(MATCH_TYPE), search_term=cell(SEARCH_TERM),
                                targeting=_text(cell(TARGETING))))
 
-    first_day = min(r.day for r in rows)
-    last_day = max(r.day for r in rows)
-    if export_date <= last_day:
-        raise AdsParseError(f"date d'export ({export_date.isoformat()}) antérieure ou égale à la dernière date du "
-                            f"fichier ({last_day.isoformat()})")
-    return ParsedReport(report_type, rows, first_day, last_day, unknown)
+    return ParsedReport(report_type, rows, min(r.day for r in rows), max(r.day for r in rows), unknown)

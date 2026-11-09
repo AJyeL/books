@@ -1,15 +1,18 @@
 """Nature d'un fichier de rapport Amazon Ads, jugée avant le dépôt dans RAW (décision 018, lot A).
 
 RAW ne juge que la nature du fichier, jamais son contenu : un verdict gravé dans une couche immuable, dédoublonnée
-par empreinte, ne pourrait pas être corrigé si ce validateur avait un défaut. Sept contrôles seulement, dans cet ordre
+par empreinte, ne pourrait pas être corrigé si ce validateur avait un défaut. Six contrôles seulement, dans cet ordre
 (le premier qui échoue donne le motif) :
   1. fichier vide ;
   2. encodage UTF-8 (BOM admis) ;
   5. type, détecté par les en-têtes, jamais par le nom ;
-  6. rapport en « Plage de dates » ; 7. rapport en « Jour du mois » ; 8. colonne « Date » absente ;
-  10. date et heure d'export lisibles dans le nom (…_MM_JJ_AAAAThh_mm_ss.csv, mois puis jour).
-Les numéros sont ceux de la décision 018 ; les autres contrôles (forme CSV, colonnes requises, valeurs, doublons,
-date d'export postérieure aux données) sont des statuts d'extraction recalculables (lot B, STAGING).
+  6. rapport en « Plage de dates » ; 7. rapport en « Jour du mois » ; 8. colonne « Date » absente.
+Les numéros sont ceux de la décision 018 ; les autres contrôles (forme CSV, colonnes requises, valeurs, doublons) sont
+des statuts d'extraction recalculables (lot B, STAGING).
+
+Le nom n'est jamais jugé (motif 10 supprimé, note du 9 novembre 2026 de la décision 018) : l'horodatage qu'il porte est
+le nom du rapport proposé par défaut dans le formulaire d'Amazon Ads, modifiable par l'utilisateur. Il est lu s'il est
+présent, pour mémoire, et n'intervient dans aucun calcul ; sinon la date et l'heure restent NULL.
 
 Seule la ligne d'en-tête est lue ; aucun motif ne recopie une cellule.
 """
@@ -28,9 +31,9 @@ TYPE_MARKERS = {
 DAILY = "Date"
 RANGE = "Plage de dates"
 DAY_OF_MONTH = "Jour du mois"
-# Date et heure d'export en fin de nom : mois, jour, année, puis heure, minute, seconde
-EXPORT_STAMP = re.compile(r"_([0-9]{2})_([0-9]{2})_([0-9]{4})T([0-9]{2})_([0-9]{2})_([0-9]{2})\.csv\Z")
-NAME_FORMAT = "…_MM_JJ_AAAAThh_mm_ss.csv"
+# Horodatage du nom proposé par Amazon Ads, en fin de nom : mois, jour, année, puis heure, minute, seconde ; le suffixe
+# « (n) » d'un second téléchargement est toléré à la lecture
+EXPORT_STAMP = re.compile(r"_([0-9]{2})_([0-9]{2})_([0-9]{4})T([0-9]{2})_([0-9]{2})_([0-9]{2})(?: \([0-9]+\))?\.csv\Z")
 
 
 @dataclass(frozen=True)
@@ -38,12 +41,12 @@ class Verdict:
     status: str  # ok ou invalid
     reason: str | None
     report_type: str | None  # renseigné dès qu'il est détecté, même si le fichier est invalid
-    export_date: date | None  # renseignée dès que le nom est lisible, même si le fichier est invalid
+    export_date: date | None  # horodatage du nom, s'il est présent ; pour mémoire, jamais utilisé dans un calcul
     export_time: time | None
 
 
 def read_export_stamp(name: str) -> tuple[date, time] | None:
-    """Date et heure d'export lues dans le nom, mois puis jour ; None si le nom est hors format ou impossible."""
+    """Horodatage lu dans le nom, mois puis jour ; None s'il est absent ou impossible (ce n'est jamais un motif)."""
     match = EXPORT_STAMP.search(name)
     if not match:
         return None
@@ -105,6 +108,4 @@ def classify(name: str, content: bytes) -> Verdict:
                        report_type)
     if DAILY not in labels:
         return verdict(f"colonne « {DAILY} » absente : rapport journalier attendu", report_type)
-    if stamp is None:
-        return verdict(f"nom hors format : date et heure d'export illisibles ({NAME_FORMAT} attendu)", report_type)
     return verdict(None, report_type)
