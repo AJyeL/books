@@ -232,3 +232,9 @@ Recette en développement :
 > la correspondance simulée est remplacée par la vraie ; la liste des 114 colonnes lisibles et celle des schémas
 > visibles sont inchangées. Les comptes de la correspondance, que `books_reader` ne voit pas, se relèvent par le
 > propriétaire (`sql/observations/comptes_correspondance.sql`).
+
+> Note du 9 novembre 2026 (décision 020, couche CORE) : `books_reader` reçoit `USAGE` sur le schéma `core` et `SELECT`
+> sur ses six tables ; aucune exécution de `core.rebuild` ni de `core.eligible_page`, fermées à `PUBLIC`. La liste
+> attendue du test de liste blanche passe à 174 colonnes (60 de plus) et les schémas visibles à `core, guide, public,
+> raw, staging`, dans le même commit que la migration 014. Contre-épreuves : une fonction de `core` laissée à `PUBLIC`
+> et une colonne ajoutée à une table de `core` font échouer le test 6.

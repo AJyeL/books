@@ -382,3 +382,8 @@ détaillée.
 > `product` (`ok`, `extension-dom`). Les fiches Kindle sont extraites dans quatre tables (migration 007) ; les fiches
 > papier reçoivent le statut `skipped` (motif « format papier »), ni succès ni anomalie. Les règles de lecture des pages
 > de classement sont inchangées ; toutes les pages sont réextraites à la première exécution de la version 3.
+
+> Note du 9 novembre 2026 (décision 020, couche CORE) : le choix d'une observation, laissé aux couches suivantes
+> (section 1), est fait par CORE : dernière capture du jour de chaque page de liste, jour de Paris. L'extracteur
+> reconstruit CORE à la fin de chaque exécution (`core.rebuild(EXTRACTOR_VERSION)`), à partir des seules pages extraites
+> par sa version ; une construction refusée est une anomalie (code 1), CORE gardant son contenu précédent.

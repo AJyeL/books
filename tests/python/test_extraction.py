@@ -354,3 +354,74 @@ def test_comptes_des_classements_inchanges_par_la_version_3(pg):
     run(pg)
     assert pg.query(query) == before
     assert pg.query("SELECT display_name, short_name FROM staging.category_observation ORDER BY raw_page_id") == names
+
+
+# --- CORE reconstruite après l'extraction (décision 020) -------------------------------------------------
+
+CORE_ROWS = ("SELECT asin, category_node, list_type, day, rank, raw_page_id, day_observations, price_amount, rating "
+             "FROM core.ranking_day ORDER BY asin, category_node, list_type, day")
+
+
+def test_core_reconstruite_apres_l_extraction(pg):
+    page_id = pg.add_page(COMPLETE)
+    result, logs = run(pg)
+    assert result.status == "success"
+    core = result.report.core
+    assert (core.core_version, core.extractor_version) == ("1", EXTRACTOR_VERSION)
+    assert (core.pages_eligible, core.pages_used, core.list_days, core.list_days_incomplete, core.ranking_rows,
+            core.books, core.categories) == (1, 1, 1, 1, 50, 50, 1)
+    assert pg.query("SELECT count(*), min(rank), max(rank), min(raw_page_id), max(raw_page_id) "
+                    "FROM core.ranking_day") == [(50, 1, 50, page_id, page_id)]
+    # p1 de 50 rangs sans p2 : liste du jour incomplète
+    assert pg.query("SELECT p1_raw_page_id, p1_ranks, p2_raw_page_id, complete FROM core.list_day") == [
+        (page_id, 50, None, False)]
+    assert ("  CORE version 1       : 1 page(s) retenue(s) sur 1, 1 liste(s) du jour (dont 1 incomplète(s)), "
+            "50 ligne(s), 50 livre(s), 1 catégorie(s), 2 version(s) de nom") in logs  # nom d'affichage et nom court
+
+
+def test_core_reconstruite_meme_sans_page_a_extraire(pg):
+    pg.add_page(COMPLETE)
+    run(pg)
+    before = pg.query(CORE_ROWS)
+    result, _ = run(pg)
+    assert result.report.to_extract == 0 and result.report.core is not None
+    assert pg.query("SELECT count(*) FROM core.build_run") == [(2,)]
+    assert pg.query(CORE_ROWS) == before  # même contenu : reconstructible à l'identique
+
+
+def test_core_en_echec_contenu_precedent_conserve(pg):
+    pg.add_page(COMPLETE)
+    run(pg)
+    before = pg.query(CORE_ROWS)
+    # Construction refusée par la base (déclencheur posé par le propriétaire de cette base jetable)
+    pg.owner.execute("CREATE FUNCTION core.test_echec() RETURNS trigger LANGUAGE plpgsql AS "
+                     "$$BEGIN RAISE EXCEPTION 'échec simulé'; END$$")
+    pg.owner.execute("CREATE TRIGGER test_echec BEFORE INSERT ON core.ranking_day "
+                     "FOR EACH ROW EXECUTE FUNCTION core.test_echec()")
+    pg.add_page(THIRTY, node="10000000002")
+    result, logs = run(pg)
+    assert result.report.extracted == 1  # la page est extraite dans STAGING
+    assert result.status == "partial" and EXIT_CODES[result.status] == 1
+    assert result.report.core is None and "échec simulé" in result.report.core_error
+    assert any(line.startswith("CORE non reconstruite : ") and line.endswith("contenu précédent conservé")
+               for line in logs)
+    assert "Résultat : partial, 1 anomalie(s)" in logs
+    assert pg.query(CORE_ROWS) == before  # nouvelle catégorie absente : rien n'a changé
+    assert pg.query("SELECT count(*) FROM core.build_run") == [(1,)]
+
+
+def test_core_ne_lit_que_la_version_demandee(pg):
+    pg.add_page(COMPLETE)
+    run(pg)
+    core = PgTransformerRepository(pg.transformer).rebuild_core("autre")
+    assert (core.pages_eligible, core.pages_other_version, core.ranking_rows) == (0, 1, 0)
+    assert pg.query("SELECT count(*) FROM core.ranking_day") == [(0,)]
+
+
+def test_core_non_reconstruite_si_le_verrou_est_occupe(pg):
+    pg.add_page(COMPLETE)
+    with pg.connect_transformer() as other:
+        assert PgTransformerRepository(other).try_lock()
+        with pytest.raises(ExtractionBusy):
+            run(pg)
+    assert pg.query("SELECT count(*) FROM core.build_run") == [(0,)]

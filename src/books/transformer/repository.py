@@ -1,7 +1,8 @@
 """Lectures et écritures en base de l'extracteur, avec les seuls droits de books_transformer (migrations 005 à 007) :
 lecture de raw ; dans staging, INSERT et DELETE sur les tables de lignes (classements, catégories, fiches), INSERT et
 UPDATE limité sur page_extraction, INSERT et UPDATE des colonnes de clôture sur extract_run. Depuis la migration 012,
-lecture des rapports Amazon Ads extraits pour leur seule fraîcheur (dernière date de leurs données).
+lecture des rapports Amazon Ads extraits pour leur seule fraîcheur (dernière date de leurs données). Depuis la
+migration 014, reconstruction de CORE par core.rebuild() (décision 020).
 """
 
 from dataclasses import dataclass
@@ -57,6 +58,32 @@ class RawPageRef:
         return f"{self.category_node} {self.list_type} p{self.page_number} {stamp} (page RAW {self.id})"
 
 
+class CoreBuildError(Exception):
+    """Construction de CORE annulée par la base : CORE garde son contenu précédent (décision 020, section 8)."""
+
+
+@dataclass(frozen=True)
+class CoreBuild:
+    """Ligne de core.build_run d'une construction réussie (décision 020, section 5)."""
+
+    id: int
+    core_version: str
+    extractor_version: str
+    pages_eligible: int
+    pages_other_version: int
+    pages_used: int
+    books: int
+    categories: int
+    category_name_versions: int
+    list_days: int
+    list_days_incomplete: int
+    ranking_rows: int
+    cross_page_duplicates: int
+
+
+CORE_BUILD_COLUMNS = ", ".join(CoreBuild.__dataclass_fields__)
+
+
 class TransformerRepository(Protocol):
     def try_lock(self) -> bool: ...
 
@@ -80,6 +107,8 @@ class TransformerRepository(Protocol):
                   notes: str) -> None: ...
 
     def latest_ads_data_days(self) -> dict[str, date | None]: ...
+
+    def rebuild_core(self, extractor_version: str) -> CoreBuild: ...
 
 
 class PgTransformerRepository:
@@ -262,6 +291,18 @@ class PgTransformerRepository:
             """
         ).fetchall())
         return {kind: rows.get(kind) for kind in ("advertised_product", "search_term")}
+
+    def rebuild_core(self, extractor_version: str) -> CoreBuild:
+        """Reconstruit CORE à partir des pages extraites par cette version (décision 020). Une seule instruction en
+        autocommit, donc une seule transaction : en cas d'échec, tout est annulé et CORE garde son contenu précédent."""
+        try:
+            row = self.conn.execute(
+                f"SELECT {CORE_BUILD_COLUMNS} FROM core.rebuild(%s)", (extractor_version,)
+            ).fetchone()
+        except psycopg.Error as exc:
+            message = " / ".join(line.strip() for line in str(exc).splitlines() if line.strip())
+            raise CoreBuildError(f"{type(exc).__name__} : {message}") from exc
+        return CoreBuild(*row)
 
     def _delete_page_rows(self, raw_page_id: int) -> None:
         """Supprime toutes les lignes d'une page (classement, catégorie, fiche), avant la mise à jour de

@@ -1,7 +1,7 @@
 -- Comptes de lignes par table, pour comparer deux bases (décision 009 : restauration d'essai d'une sauvegarde).
 -- Lecture seule, à lancer sous books_reader (décision 016), sur atlas comme sur une base restaurée :
 --   docker compose exec -T postgres sh -c 'psql -X -At -F " | " -U books_reader -d "$POSTGRES_DB"' < sql/observations/comptes_par_table.sql
--- Ne rend que des comptes : aucune donnée, aucun ASIN, aucun nom. Toutes les migrations supposées appliquées (1 à 9).
+-- Ne rend que des comptes : aucune donnée, aucun ASIN, aucun nom. Toutes les migrations supposées appliquées (1 à 14).
 -- guide.export_document est exclu : sa date d'export change à chaque lecture.
 
 SELECT '01 migrations (nombre | versions)', count(*) || ' | ' || string_agg(version::text, ' ' ORDER BY version)
@@ -21,4 +21,10 @@ UNION ALL SELECT '12 staging.product_sales_rank', count(*)::text FROM staging.pr
 UNION ALL SELECT '13 staging.product_rating_share', count(*)::text FROM staging.product_rating_share
 UNION ALL SELECT '14 guide.reference_entry', count(*)::text FROM guide.reference_entry
 UNION ALL SELECT '15 guide.kindle_product', count(*)::text FROM guide.kindle_product
+UNION ALL SELECT '16 core.build_run', count(*)::text FROM core.build_run
+UNION ALL SELECT '17 core.book', count(*)::text FROM core.book
+UNION ALL SELECT '18 core.category', count(*)::text FROM core.category
+UNION ALL SELECT '19 core.category_name', count(*)::text FROM core.category_name
+UNION ALL SELECT '20 core.list_day', count(*)::text FROM core.list_day
+UNION ALL SELECT '21 core.ranking_day', count(*)::text FROM core.ranking_day
 ORDER BY 1;

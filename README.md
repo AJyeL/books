@@ -61,10 +61,18 @@ docker compose --profile transformer run --rm transformer
 - **Sécurité** : rôle `books_transformer` seulement (tout autre rôle est refusé) ; RAW monté en **lecture seule** ;
   aucun accès au dossier des captures.
 - **Codes de sortie** : 0 aucune anomalie (ou rien à extraire) ; 1 au moins une page en échec (intégrité du fichier
-  RAW ou forme inconnue), extraction déjà en cours, ou erreur d'exécution ; 2 configuration invalide.
+  RAW ou forme inconnue), CORE non reconstruite, extraction déjà en cours, ou erreur d'exécution ; 2 configuration
+  invalide.
   Une page en échec est reprise à chaque exécution : le code 1 se répète tant que son problème n'est pas traité.
 - **Bilan** affiché et enregistré dans `staging.extract_run.notes` : pages extraites, à jour, en échec (avec le
-  motif), hors périmètre par motif.
+  motif), hors périmètre par motif, résultat de la construction de CORE.
+- **CORE** (décision 020) : après les pages, à chaque exécution (même sans page à extraire), l'extracteur reconstruit
+  en entier le schéma `core` par `core.rebuild()`, dans une seule transaction, à partir des seules pages extraites par
+  sa version. Une ligne par (livre, catégorie, type de liste, jour de Paris) dans `core.ranking_day`, issue de la
+  dernière capture du jour de chaque page de liste ; listes du jour et leur complétude (`core.list_day`) ; versions
+  des noms de catégorie (`core.category_name`) ; livres et catégories ; journal des constructions (`core.build_run`,
+  avec `core_version`). Construction refusée par la base : CORE garde son contenu précédent, et le code vaut 1.
+  Les lecteurs voient l'ancien contenu jusqu'à la fin de la construction.
 
 ## Migrations
 
@@ -117,7 +125,7 @@ cd ~/books && docker compose exec postgres sh -c 'psql -U books_reader -d "$POST
 - **Aucun mot de passe demandé** : dans le conteneur, la connexion locale (et même `-h 127.0.0.1`) est en `trust`
   (image officielle `postgres:17`). Le rôle protège contre les **erreurs humaines**, pas contre un intrus ; la barrière
   contre un intrus reste l'accès SSH à atlas (décision 016, section 1).
-- **Ce qu'il lit** : toutes les tables de `staging`, `raw.collect_run`, `raw.raw_page` sans ses adresses
+- **Ce qu'il lit** : toutes les tables de `staging` et de `core`, `raw.collect_run`, `raw.raw_page` sans ses adresses
   (`requested_url` et `final_url` : identifiant de session possible dans `ref=`), `public.schema_migration`.
   Un `SELECT *` sur `raw.raw_page` est refusé : nommer les colonnes. Il ne lira jamais la correspondance des
   auteurs (décision 013).
@@ -225,6 +233,15 @@ Tests SQL de la migration 013 (ordre des rapports par leurs données, nom non ju
 
 ```bash
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_013_ordre_des_rapports.sql
+```
+
+Tests SQL de la migration 014 (couche CORE, classements : déterminisme, jour de Paris, dernière capture du jour, p1 et
+p2, versions des noms, absence de ligne, atomicité, droits, lignage ; décision 020), même principe. Les pages de test
+sont extraites avec la version « test » : seules elles entrent dans CORE pendant le test, qui vérifie ensuite que CORE
+a retrouvé son contenu d'avant :
+
+```bash
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_014_core_classements.sql
 ```
 
 Les appels concurrents de `mapping.code_for` sont vérifiés par la suite Python
@@ -407,7 +424,7 @@ perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
 5. Définir les mots de passe de `books_collector` et de `books_transformer` (section ci-dessus) et les reporter
    dans `.env` ; `books_reader` reste sans mot de passe.
 
-6. Vérifier avec les tests SQL des migrations 005 à 013 (section Tests) ; le test 008 contrôle les attributs, les
+6. Vérifier avec les tests SQL des migrations 005 à 014 (section Tests) ; le test 008 contrôle les attributs, les
    réglages et la liste blanche de `books_reader`, le test 010 les droits de la correspondance. Comparer ensuite les
    comptes de lignes à ceux de la base d'origine, par la même requête lancée sous `books_reader` des deux côtés
    (comptes seulement, aucune donnée) :
@@ -427,6 +444,21 @@ perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
 
    ```bash
    docker compose exec -T postgres sh -c 'psql -X -At -F " | " -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < sql/observations/comptes_ads.sql
+   ```
+
+   CORE (décision 020) : empreintes de ses tables (comptes et md5, aucune donnée lisible), sous `books_reader`, des deux
+   côtés ; elles doivent être égales :
+
+   ```bash
+   docker compose exec -T postgres sh -c 'psql -X -At -F " | " -U books_reader -d "$POSTGRES_DB"' < sql/observations/empreinte_core.sql
+   ```
+
+   Puis, sur la base restaurée seulement, les mêmes empreintes après une reconstruction de CORE faite par le
+   propriétaire **dans une transaction annulée** (rien n'est conservé) : elles doivent être égales aux précédentes,
+   ce qui prouve que CORE se reconstruit à l'identique à partir de STAGING :
+
+   ```bash
+   { echo 'BEGIN;'; echo 'SELECT ranking_rows FROM core.rebuild((SELECT extractor_version FROM core.build_run ORDER BY id DESC LIMIT 1));'; cat sql/observations/empreinte_core.sql; echo 'ROLLBACK;'; } | docker compose exec -T postgres sh -c 'psql -X -At -F " | " -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
    ```
 
 Les pages brutes se restaurent à part, depuis `~/books-backup/raw` vers `~/books-data/raw` ; les rapports Amazon Ads

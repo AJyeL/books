@@ -194,3 +194,7 @@ personne, au moment de la navigation. La liste de `targets.toml` ne fait que le 
 > - **5 catégories** observées ; aucune n'a plusieurs noms (un seul nom d'affichage et un seul nom court par catégorie
 >   sur toutes ses pages).
 > - Sauvegarde rapatriée sur le PC (décision 009).
+
+> Note du 9 novembre 2026 (décision 020) : le « nom courant » et l'historique des noms sont tenus par
+> `core.category_name` : versions successives par sorte de nom (affichage, court), bornes observées, un nom non lu
+> n'étant pas un changement. Une catégorie y est identifiée par (source, numéro de nœud).

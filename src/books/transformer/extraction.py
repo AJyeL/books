@@ -8,8 +8,12 @@ Pour chaque page à extraire, dans l'ordre de raw.raw_page :
 Une page en échec n'arrête pas les suivantes ; ses anciennes lignes sont supprimées. Seule une erreur d'exécution
 (base de données, disque) arrête l'extraction : l'exécution est alors close en « failed ».
 
+Après les pages, CORE est reconstruite en entier à partir des pages extraites par cette version (décision 020),
+même s'il n'y avait aucune page à extraire. Construction refusée par la base : CORE garde son contenu précédent, et
+c'est une anomalie.
+
 Statuts et codes de sortie, comme l'ingestion (décision 008) : success (0) aucune anomalie ; partial (1) au moins une
-page en échec ; failed (1) erreur d'exécution. Une fiche mise à part n'est ni un succès ni une anomalie : elle est
+page en échec, ou CORE non reconstruite ; failed (1) erreur d'exécution. Une fiche mise à part n'est ni un succès ni une anomalie : elle est
 comptée à part et n'a aucun effet sur le statut (décision 015, note du 11 octobre 2026).
 Verrou occupé : ExtractionBusy, aucune exécution enregistrée (1).
 
@@ -27,7 +31,7 @@ from pathlib import Path
 from books.transformer.integrity import RawIntegrityError, read_raw_page
 from books.transformer.parsing import EXTRACTOR_VERSION, ParseError, parse_ranking_page
 from books.transformer.product_parsing import PageSkipped, ParsedProduct, parse_product_page
-from books.transformer.repository import TransformerRepository
+from books.transformer.repository import CoreBuild, CoreBuildError, TransformerRepository
 
 EXIT_CODES = {"success": 0, "partial": 1, "failed": 1}
 # Fraîcheur des rapports Amazon Ads : un rapport de moins de 10 jours attendu pour chaque type (décision 018)
@@ -70,6 +74,8 @@ class ExtractionReport:
     integrity_failures: list[str] = field(default_factory=list)
     out_of_scope: dict[str, int] = field(default_factory=dict)
     ads_freshness: list[str] = field(default_factory=list)  # information seulement, jamais une anomalie
+    core: CoreBuild | None = None  # construction de CORE réussie (décision 020)
+    core_error: str | None = None  # construction de CORE annulée : une anomalie
     error: str | None = None
 
     @property
@@ -82,7 +88,7 @@ class ExtractionReport:
 
     @property
     def anomalies(self) -> int:
-        return self.pages_failed
+        return self.pages_failed + (self.core_error is not None)
 
     @property
     def status(self) -> str:
@@ -113,7 +119,19 @@ class ExtractionReport:
         hors = sum(self.out_of_scope.values())
         out.append(f"  Hors périmètre       : {hors}"
                    + (" (" + ", ".join(f"{m} : {n}" for m, n in self.out_of_scope.items()) + ")" if hors else ""))
+        c = self.core
+        if c is not None:
+            out.append(f"  CORE version {c.core_version}       : {c.pages_used} page(s) retenue(s) sur {c.pages_eligible}, "
+                       f"{c.list_days} liste(s) du jour (dont {c.list_days_incomplete} incomplète(s)), "
+                       f"{c.ranking_rows} ligne(s), {c.books} livre(s), {c.categories} catégorie(s), "
+                       f"{c.category_name_versions} version(s) de nom")
         info = []
+        if c is not None and c.cross_page_duplicates:
+            info.append(f"CORE : {c.cross_page_duplicates} livre(s) présent(s) sur la p1 et la p2 retenues d'une liste "
+                        "du jour (ligne de la capture la plus récente gardée)")
+        if c is not None and c.pages_other_version:
+            info.append(f"CORE : {c.pages_other_version} page(s) extraite(s) par une autre version de l'extracteur, "
+                        "exclue(s) (jamais deux versions mélangées)")
         if self.product_missing:
             info.append("champs absents des fiches extraites : "
                         + ", ".join(f"{k} : {n}" for k, n in sorted(self.product_missing.items())))
@@ -131,6 +149,8 @@ class ExtractionReport:
             if items:
                 out.append(f"{title} :")
                 out.extend(f"  - {item}" for item in items)
+        if self.core_error:
+            out.append(f"CORE non reconstruite : {self.core_error} ; contenu précédent conservé")
         if self.error:
             out.append(f"Erreur d'exécution : {self.error}")
         out.append(f"Résultat : {self.status}, {self.anomalies} anomalie(s)")
@@ -202,6 +222,11 @@ def extract(repo: TransformerRepository, raw_dir: Path, *, extractor_version: st
             report.without_display_name += parsed.display_name is None
             report.without_short_name += parsed.short_name is None
         report.ads_freshness = ads_freshness(repo.latest_ads_data_days(), today or datetime.now(UTC).date())
+        # CORE : reconstruite après chaque exécution, sous le verrou de l'extracteur (décision 020, section 8)
+        try:
+            report.core = repo.rebuild_core(extractor_version)
+        except CoreBuildError as exc:
+            report.core_error = str(exc)
     except BaseException as exc:
         report.error = f"{type(exc).__name__} : {exc}"
         raise

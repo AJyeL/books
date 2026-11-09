@@ -1,6 +1,6 @@
 -- Tests de la migration 008 : rôle de lecture books_reader (décision 016, section 8)
 --
--- À exécuter EN TANT QUE PROPRIÉTAIRE de la base, depuis le dossier du dépôt (bash), toutes les migrations appliquées (001 à 013) :
+-- À exécuter EN TANT QUE PROPRIÉTAIRE de la base, depuis le dossier du dépôt (bash), toutes les migrations appliquées (001 à 014) :
 --   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_008_role_lecture.sql
 -- Même principe que test_007 : le propriétaire prépare raw, puis endosse books_reader (SET LOCAL ROLE). Les réglages du
 -- rôle ne s'appliquent qu'à une vraie connexion : ils sont vérifiés dans le catalogue (test 7) et par la recette.
@@ -201,6 +201,26 @@ RESET ROLE;
 DO $$
 DECLARE
     expected text[] := ARRAY[
+        'core.build_run.id', 'core.build_run.built_at', 'core.build_run.core_version',
+        'core.build_run.extractor_version', 'core.build_run.pages_eligible', 'core.build_run.pages_other_version',
+        'core.build_run.pages_used', 'core.build_run.books', 'core.build_run.categories',
+        'core.build_run.category_name_versions', 'core.build_run.list_days', 'core.build_run.list_days_incomplete',
+        'core.build_run.ranking_rows', 'core.build_run.cross_page_duplicates', 'core.book.asin',
+        'core.book.first_day', 'core.book.last_day', 'core.category.source', 'core.category.category_node',
+        'core.category.first_day', 'core.category.last_day', 'core.category_name.source',
+        'core.category_name.category_node', 'core.category_name.name_kind', 'core.category_name.name',
+        'core.category_name.valid_from', 'core.category_name.valid_to', 'core.category_name.first_observed_at',
+        'core.category_name.last_observed_at', 'core.category_name.observations',
+        'core.category_name.first_raw_page_id', 'core.category_name.last_raw_page_id', 'core.list_day.source',
+        'core.list_day.category_node', 'core.list_day.list_type', 'core.list_day.day', 'core.list_day.p1_raw_page_id',
+        'core.list_day.p1_observed_at', 'core.list_day.p1_observations', 'core.list_day.p1_ranks',
+        'core.list_day.p2_raw_page_id', 'core.list_day.p2_observed_at', 'core.list_day.p2_observations',
+        'core.list_day.p2_ranks', 'core.list_day.complete', 'core.ranking_day.asin', 'core.ranking_day.source',
+        'core.ranking_day.category_node', 'core.ranking_day.list_type', 'core.ranking_day.day',
+        'core.ranking_day.rank', 'core.ranking_day.raw_page_id', 'core.ranking_day.observed_at',
+        'core.ranking_day.day_observations', 'core.ranking_day.has_card', 'core.ranking_day.price_amount',
+        'core.ranking_day.currency', 'core.ranking_day.rating', 'core.ranking_day.review_count',
+        'core.ranking_day.ku_sticker_hint',
         'guide.export_document.document', 'guide.kindle_product.asin', 'guide.kindle_product.last_observed_at',
         'guide.reference_entry.asin', 'guide.reference_entry.category_node', 'guide.reference_entry.list_type',
         'guide.reference_entry.observed_at', 'guide.reference_entry.rank',
@@ -266,10 +286,10 @@ BEGIN
         RAISE EXCEPTION 'ÉCHEC test 6 : colonnes lisibles hors liste : % ; colonnes de la liste non lisibles : %',
             coalesce(extra, 'aucune'), coalesce(missing, 'aucune');
     END IF;
-    IF cardinality(readable) <> 114 THEN
-        RAISE EXCEPTION 'ÉCHEC test 6 : % colonnes lisibles, 114 attendues', cardinality(readable);
+    IF cardinality(readable) <> 174 THEN
+        RAISE EXCEPTION 'ÉCHEC test 6 : % colonnes lisibles, 174 attendues', cardinality(readable);
     END IF;
-    RAISE NOTICE 'OK test 6a : 114 colonnes lisibles, exactement la liste blanche (adresses de RAW et correspondance exclues)';
+    RAISE NOTICE 'OK test 6a : 174 colonnes lisibles, exactement la liste blanche (adresses de RAW et correspondance exclues)';
 
     -- Test 6b : aucune fonction exécutable, aucune séquence utilisable hors du catalogue système
     SELECT string_agg(n.nspname || '.' || p.proname, ', ') INTO extra
@@ -294,8 +314,8 @@ BEGIN
      WHERE nspname NOT IN ('pg_catalog', 'information_schema') AND nspname NOT LIKE 'pg\_toast%'
        AND nspname NOT LIKE 'pg\_temp\_%'
        AND has_schema_privilege('books_reader', oid, 'USAGE');
-    IF extra IS DISTINCT FROM 'guide, public, raw, staging' THEN
-        RAISE EXCEPTION 'ÉCHEC test 6 : schémas visibles par books_reader : % (attendu : guide, public, raw, staging)', extra;
+    IF extra IS DISTINCT FROM 'core, guide, public, raw, staging' THEN
+        RAISE EXCEPTION 'ÉCHEC test 6 : schémas visibles par books_reader : % (attendu : core, guide, public, raw, staging)', extra;
     END IF;
     IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname NOT LIKE 'pg\_temp\_%'
                 AND has_schema_privilege('books_reader', oid, 'CREATE'))
@@ -303,7 +323,7 @@ BEGIN
        OR has_database_privilege('books_reader', current_database(), 'TEMPORARY') THEN
         RAISE EXCEPTION 'ÉCHEC test 6 : books_reader peut créer un objet (schéma, table ou table temporaire)';
     END IF;
-    RAISE NOTICE 'OK test 6c : schémas visibles guide, public, raw et staging ; aucun droit de création';
+    RAISE NOTICE 'OK test 6c : schémas visibles core, guide, public, raw et staging ; aucun droit de création';
 END;
 $$;
 

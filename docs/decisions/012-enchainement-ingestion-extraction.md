@@ -84,3 +84,6 @@ en échec (décision 011), ou ne fait rien ; dans tous les cas, son bilan dit ce
 > - Correction de la consigne de déploiement : la vérification `grep -c "BOOKS:EXTRACTION:CODE"` sur
 >   `recevoir-captures.sh` renvoie **2** et non 1 (le repère figure dans le commentaire d'en-tête et dans l'`echo`) ;
 >   l'attendu annoncé était faux, le script était correct.
+
+> Note du 9 novembre 2026 (décision 020) : l'extraction se termine par la reconstruction de CORE. Le repère
+> `BOOKS:EXTRACTION:CODE` porte aussi son résultat : une construction refusée donne le code 1, comme une page en échec.
