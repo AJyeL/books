@@ -41,6 +41,10 @@
     Dossier du dépôt sur atlas, relatif au dossier personnel. Par défaut : books.
 .PARAMETER DossierTravail
     Dossier où l'archive est préparée, puis supprimée. Par défaut : le dossier temporaire de Windows (TEMP).
+.PARAMETER Instant
+    Tests seulement : instant d'envoi imposé, en UTC, au format AAAA-MM-JJTHH:MM:SSZ ; il fixe le nom du lot et le
+    mois de rangement. Par défaut : l'heure de l'horloge. Sert à prouver qu'un second envoi portant le même nom de lot
+    est refusé (code 2), sans dépendre de la seconde où le test s'exécute.
 #>
 [CmdletBinding()]
 param(
@@ -48,7 +52,8 @@ param(
     [string]$HoteSsh = 'atlas',
     [string]$ConfigSsh = '',
     [string]$DepotDistant = 'books',
-    [string]$DossierTravail = ''
+    [string]$DossierTravail = '',
+    [string]$Instant = ''
 )
 
 Set-StrictMode -Version Latest
@@ -98,6 +103,18 @@ foreach ($outil in $Ssh, $Tar) {
 if ($ConfigSsh -and -not (Test-Path -LiteralPath $ConfigSsh -PathType Leaf)) {
     Write-Host "Configuration SSH introuvable : $ConfigSsh"; exit 2
 }
+# Instant d'envoi : l'horloge, ou l'instant imposé (tests), lu strictement
+if ($Instant) {
+    $lu = [datetime]::MinValue
+    $styles = [Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal
+    if (-not [datetime]::TryParseExact($Instant, "yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture,
+                                       $styles, [ref]$lu)) {
+        Write-Host "Instant invalide : '$Instant' (attendu : AAAA-MM-JJTHH:MM:SSZ)."; exit 2
+    }
+    $maintenant = $lu
+} else {
+    $maintenant = (Get-Date).ToUniversalTime()
+}
 
 # --- 2. Inventaire : rapports au nom et à la taille acceptables ----------------------------
 Write-Section "Rapports dans $dossier"
@@ -120,8 +137,7 @@ if ($rapports.Count -eq 0) {
 Write-Host "  $($rapports.Count) rapport(s) à envoyer."
 
 # --- 3. Destination dans envoyes\AAAA-MM\{lot}\ (mois d'envoi, lot) : aucun écrasement possible
-$maintenant = (Get-Date).ToUniversalTime()
-$lot = $maintenant.ToString("yyyy-MM-dd'T'HHmmss'Z'", [Globalization.CultureInfo]::InvariantCulture)
+$lot =$maintenant.ToString("yyyy-MM-dd'T'HHmmss'Z'", [Globalization.CultureInfo]::InvariantCulture)
 $mois = Join-Path $dossier ('envoyes\' + $maintenant.ToString('yyyy-MM', [Globalization.CultureInfo]::InvariantCulture) + '\' + $lot)
 # Par prudence : un dossier de lot unique ne peut contenir un nom que si ce même lot a déjà été rangé
 $occupes = @($rapports | Where-Object { Test-Path -LiteralPath (Join-Path $mois $_.Name) } | ForEach-Object Name)

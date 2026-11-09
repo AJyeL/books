@@ -54,10 +54,13 @@ function Reset-Scenario([int]$codeIngestion, [int]$codeExtraction = 0) {
                   "echo $codeIngestion > ~/code-ingestion; echo $codeExtraction > ~/code-extraction") | Out-Null
 }
 
-function Invoke-Envoi([string]$fichierReglage = $reglage, [string]$depotDistant = 'books') {
+function Invoke-Envoi([string]$fichierReglage = $reglage, [string]$depotDistant = 'books', [string]$instant = '') {
+    # -Instant n'est passé que s'il est fourni : PowerShell 5.1 perd les arguments vides transmis à un exécutable
+    $options = @()
+    if ($instant) { $options = @('-Instant', $instant) }
     $script:sortieEnvoi = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $envoi `
         -Reglages $fichierReglage -HoteSsh 'atlas-factice' -ConfigSsh $configSsh -DossierTravail $travail `
-        -DepotDistant $depotDistant | Out-String
+        -DepotDistant $depotDistant @options | Out-String
     return $LASTEXITCODE
 }
 
@@ -244,6 +247,33 @@ try {
     Test-Condition 'deux livraisons de même nom : codes 0 et 0, deux lots, aucun fichier restant' (
         $code1 -eq 0 -and $code2 -eq 0 -and $lots.Count -eq 2 -and @(Get-Ranges).Count -eq 2 * $nbFichiers -and
         @(Get-Restants).Count -eq 0)
+
+    # 9 bis. Deux envois forcés au même instant, donc au même nom de lot : le second est refusé par le contrôle
+    #        « déjà présent » (code 2), sans connexion, sans rien envoyer ni déplacer. Preuve déterministe du cas que
+    #        le test 9 évite en attendant la seconde suivante.
+    Reset-Scenario 0
+    $instantImpose = '2026-11-09T10:00:00Z'
+    $dossierLot = Join-Path $rapports 'envoyes\2026-11\2026-11-09T100000Z'
+    $code1 = Invoke-Envoi -instant $instantImpose
+    Test-Condition 'même lot : premier envoi, code 0, rangé dans le lot de l''instant imposé' (
+        $code1 -eq 0 -and @(Get-ChildItem -LiteralPath $dossierLot -File).Count -eq $nbFichiers -and @(Get-Restants).Count -eq 0)
+    $etatAtlas = { Invoke-Atlas 'cd ~ && { cat appels 2>&1; ls -AR recues books-data/ads/inbox books-data/ads/attente 2>&1; } | sha256sum' }
+    $atlasAvant = & $etatAtlas
+    $rangesAvant = @(Get-ChildItem -LiteralPath (Join-Path $rapports 'envoyes') -File -Recurse |
+                     ForEach-Object { "$($_.FullName)=$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)" }) -join ','
+    Copy-Item -Path (Join-Path $fixtures '*.csv') -Destination $rapports
+    $code2 = Invoke-Envoi -instant $instantImpose
+    $rangesApres = @(Get-ChildItem -LiteralPath (Join-Path $rapports 'envoyes') -File -Recurse |
+                     ForEach-Object { "$($_.FullName)=$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)" }) -join ','
+    Test-Condition 'même lot : second envoi refusé, code 2, motif « déjà présent »' (
+        $code2 -eq 2 -and $sortieEnvoi -match 'Déjà présent dans envoyes' -and $sortieEnvoi -notmatch 'Envoi du lot')
+    Test-Condition 'même lot : rien envoyé (atlas inchangé)' ((& $etatAtlas) -eq $atlasAvant)
+    Test-Condition 'même lot : rien déplacé (rapports sur place, envoyes\ intact, dossier de travail vide)' (
+        ((Get-Restants) -join ',') -eq ($nomsOriginaux -join ',') -and $rangesApres -eq $rangesAvant -and
+        @(Get-ChildItem -LiteralPath $travail).Count -eq 0)
+    $code = Invoke-Envoi -instant '2026-11-09 10:00:00'
+    Test-Condition 'instant mal formé : code 2, rien envoyé' ($code -eq 2 -and $sortieEnvoi -match 'Instant invalide' -and
+        (& $etatAtlas) -eq $atlasAvant)
 
     # 10. Réglage local absent ; clé inconnue (faute de frappe) refusée, pas ignorée
     $code = Invoke-Envoi (Join-Path $racine 'absent.psd1')
