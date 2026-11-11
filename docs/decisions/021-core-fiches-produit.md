@@ -125,6 +125,11 @@ Pour un livre et un attribut :
 4. le numéro de version est la somme cumulée de ces ouvertures ; chaque version regroupe ses observations, avec ses
    bornes et son compte.
 
+**Attributs composés** (précision du 11 novembre 2026, audit) : pour un attribut composé (série, description, taille de
+fichier), une observation est retenue dès que sa première composante est lue. Une composante secondaire `NULL` fait
+partie de la valeur observée (par exemple « Livre 2 » sans total, après « Livre 2 sur 3 ») et peut ouvrir une version.
+La règle « `NULL` n'est pas un changement » s'applique à l'attribut entier.
+
 Toutes les observations éligibles comptent, et pas seulement la dernière du jour : un changement en cours de journée
 crée deux versions qui se touchent le même jour, comme pour les noms de catégorie (décision 020, section 6).
 
