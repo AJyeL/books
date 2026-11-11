@@ -291,3 +291,15 @@ Les tests 005 à 015 sont relancés. Le test 008 est inchangé : `books_reader` 
 >   réglages conformes.
 > - `.gitignore` : `*.pbix`. Recette sur atlas à faire par le porteur du projet (section 6) : mot de passe en SCRAM,
 >   tunnel, connexion de Power BI, refus d'une requête sur `staging` et sur `raw`, mauvais mot de passe refusé.
+
+> Note du 11 novembre 2026 (**recette sur atlas**, rapportée par le porteur du projet) :
+> - Recette réussie : tunnel, mot de passe en SCRAM, refus sur `staging` et sur `raw`, lecture de `core.book`.
+> - **Erreur `53300` (« too many connections »)** : après trois requêtes enchaînées, une quatrième a été refusée. Cause :
+>   le **réservoir de connexions** de Power BI, qui garde ouvertes quelques instants les connexions de ses requêtes
+>   précédentes ; deux connexions inactives occupaient les deux places de `CONNECTION LIMIT 2`. Mesure : quelques
+>   instants plus tard, une seule connexion `idle` restait (`pg_stat_activity`), et la requête est passée.
+> - **Conduite retenue** : la limite reste à 2, sans migration. Deux réglages du fichier Power BI réduisent le nombre de
+>   connexions simultanées (chargement en parallèle des tables sur « Un », aperçus en arrière-plan désactivés) ; en cas
+>   d'erreur `53300`, attendre quelques instants puis réessayer (procédure du README, section « Power BI »).
+> - **Règle de révision** : la limite n'est relevée, par une migration, que si une actualisation réelle s'y heurte
+>   malgré ces réglages ; une requête d'essai refusée ne suffit pas.

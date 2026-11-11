@@ -193,6 +193,24 @@ semble figée : le tunnel est ouvert.
 6. Enregistrer le `.pbix` dans `D:\Veille Litteraire\books-powerbi\`, hors du dépôt et hors de tout dossier synchronisé
    (OneDrive compris) : il contient des données réelles. `*.pbix` est ignoré par Git.
 
+**Réglages du fichier, à faire une fois par `.pbix`** (Fichier › Options et paramètres › Options › section « Fichier
+actif » › Chargement des données) : `books_bi` n'a droit qu'à **2 connexions**, et Power BI en ouvre plusieurs à la fois
+par défaut.
+
+- « Chargement en parallèle des tables » : **Un** (désactiver le chargement en parallèle) ;
+- « Autoriser le téléchargement des aperçus de données en arrière-plan » : **décoché**.
+
+**En cas d'erreur `53300` (« too many connections »)** : Power BI garde quelques instants ouvertes les connexions de ses
+requêtes précédentes (réservoir de connexions). Attendre quelques instants qu'elles se ferment, puis réessayer. Pour
+voir où l'on en est, compter les connexions de `books_bi` sur atlas (session du propriétaire, comptes seulement) :
+
+```bash
+cd ~/books && docker compose exec -T postgres sh -c 'psql -X -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT state, count(*) FROM pg_stat_activity WHERE usename = '"'"'books_bi'"'"' GROUP BY state"'
+```
+
+Deux connexions `idle` : la limite est atteinte, attendre ; une seule ou aucune : réessayer. La limite reste à 2
+(décision 022, note du 11 novembre 2026).
+
 **Règles** : mode Importation (actualisation à la main, tunnel ouvert) ; **jamais « Publier sur le web »** ; aucune
 publication vers le service Power BI sans décision dédiée ; aucun `.pbix` envoyé ni partagé.
 
