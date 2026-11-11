@@ -1,6 +1,6 @@
 -- Tests de la migration 008 : rôle de lecture books_reader (décision 016, section 8)
 --
--- À exécuter EN TANT QUE PROPRIÉTAIRE de la base, depuis le dossier du dépôt (bash), toutes les migrations appliquées (001 à 014) :
+-- À exécuter EN TANT QUE PROPRIÉTAIRE de la base, depuis le dossier du dépôt (bash), toutes les migrations appliquées (001 à 015) :
 --   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_008_role_lecture.sql
 -- Même principe que test_007 : le propriétaire prépare raw, puis endosse books_reader (SET LOCAL ROLE). Les réglages du
 -- rôle ne s'appliquent qu'à une vraie connexion : ils sont vérifiés dans le catalogue (test 7) et par la recette.
@@ -201,13 +201,92 @@ RESET ROLE;
 DO $$
 DECLARE
     expected text[] := ARRAY[
+        'core.book.first_product_day', 'core.book.last_product_day', 'core.category.first_product_rank_day',
+        'core.category.last_product_rank_day', 'core.build_run.product_pages_eligible',
+        'core.build_run.product_pages_used', 'core.build_run.product_pages_other_version',
+        'core.build_run.product_pages_failed', 'core.build_run.product_days', 'core.build_run.attribute_versions',
+        'core.build_run.product_category_ranks', 'core.book_title_version.asin', 'core.book_title_version.title',
+        'core.book_title_version.valid_from', 'core.book_title_version.valid_to',
+        'core.book_title_version.first_observed_at', 'core.book_title_version.last_observed_at',
+        'core.book_title_version.observations', 'core.book_title_version.first_raw_page_id',
+        'core.book_title_version.last_raw_page_id', 'core.book_cover_version.asin',
+        'core.book_cover_version.cover_url', 'core.book_cover_version.valid_from', 'core.book_cover_version.valid_to',
+        'core.book_cover_version.first_observed_at', 'core.book_cover_version.last_observed_at',
+        'core.book_cover_version.observations', 'core.book_cover_version.first_raw_page_id',
+        'core.book_cover_version.last_raw_page_id', 'core.book_description_version.asin',
+        'core.book_description_version.description_sha256', 'core.book_description_version.description_length',
+        'core.book_description_version.valid_from', 'core.book_description_version.valid_to',
+        'core.book_description_version.first_observed_at', 'core.book_description_version.last_observed_at',
+        'core.book_description_version.observations', 'core.book_description_version.first_raw_page_id',
+        'core.book_description_version.last_raw_page_id', 'core.book_description_markup_version.asin',
+        'core.book_description_markup_version.description_markup_sha256',
+        'core.book_description_markup_version.description_markup_length',
+        'core.book_description_markup_version.valid_from', 'core.book_description_markup_version.valid_to',
+        'core.book_description_markup_version.first_observed_at',
+        'core.book_description_markup_version.last_observed_at', 'core.book_description_markup_version.observations',
+        'core.book_description_markup_version.first_raw_page_id',
+        'core.book_description_markup_version.last_raw_page_id', 'core.book_series_version.asin',
+        'core.book_series_version.series_form', 'core.book_series_version.series_name',
+        'core.book_series_version.series_position', 'core.book_series_version.series_total',
+        'core.book_series_version.valid_from', 'core.book_series_version.valid_to',
+        'core.book_series_version.first_observed_at', 'core.book_series_version.last_observed_at',
+        'core.book_series_version.observations', 'core.book_series_version.first_raw_page_id',
+        'core.book_series_version.last_raw_page_id', 'core.book_print_pages_version.asin',
+        'core.book_print_pages_version.print_pages', 'core.book_print_pages_version.valid_from',
+        'core.book_print_pages_version.valid_to', 'core.book_print_pages_version.first_observed_at',
+        'core.book_print_pages_version.last_observed_at', 'core.book_print_pages_version.observations',
+        'core.book_print_pages_version.first_raw_page_id', 'core.book_print_pages_version.last_raw_page_id',
+        'core.book_aplus_version.asin', 'core.book_aplus_version.has_aplus', 'core.book_aplus_version.valid_from',
+        'core.book_aplus_version.valid_to', 'core.book_aplus_version.first_observed_at',
+        'core.book_aplus_version.last_observed_at', 'core.book_aplus_version.observations',
+        'core.book_aplus_version.first_raw_page_id', 'core.book_aplus_version.last_raw_page_id',
+        'core.book_publication_date_version.asin', 'core.book_publication_date_version.publication_date',
+        'core.book_publication_date_version.valid_from', 'core.book_publication_date_version.valid_to',
+        'core.book_publication_date_version.first_observed_at', 'core.book_publication_date_version.last_observed_at',
+        'core.book_publication_date_version.observations', 'core.book_publication_date_version.first_raw_page_id',
+        'core.book_publication_date_version.last_raw_page_id', 'core.book_language_version.asin',
+        'core.book_language_version.language', 'core.book_language_version.valid_from',
+        'core.book_language_version.valid_to', 'core.book_language_version.first_observed_at',
+        'core.book_language_version.last_observed_at', 'core.book_language_version.observations',
+        'core.book_language_version.first_raw_page_id', 'core.book_language_version.last_raw_page_id',
+        'core.book_file_size_version.asin', 'core.book_file_size_version.file_size_value',
+        'core.book_file_size_version.file_size_unit', 'core.book_file_size_version.valid_from',
+        'core.book_file_size_version.valid_to', 'core.book_file_size_version.first_observed_at',
+        'core.book_file_size_version.last_observed_at', 'core.book_file_size_version.observations',
+        'core.book_file_size_version.first_raw_page_id', 'core.book_file_size_version.last_raw_page_id',
+        'core.product_day.asin', 'core.product_day.source', 'core.product_day.day', 'core.product_day.raw_page_id',
+        'core.product_day.observed_at', 'core.product_day.day_observations', 'core.product_day.price_amount',
+        'core.product_day.currency', 'core.product_day.price_qualifier', 'core.product_day.ku_borrow',
+        'core.product_day.rating', 'core.product_day.review_count', 'core.product_day.stars_1_percent',
+        'core.product_day.stars_2_percent', 'core.product_day.stars_3_percent', 'core.product_day.stars_4_percent',
+        'core.product_day.stars_5_percent', 'core.product_day.general_rank', 'core.product_day.general_rank_store',
+        'core.product_day.general_rank_list_type', 'core.product_day.general_rank_category_node',
+        'core.product_day_category_rank.asin', 'core.product_day_category_rank.day',
+        'core.product_day_category_rank.position', 'core.product_day_category_rank.rank',
+        'core.product_day_category_rank.store', 'core.product_day_category_rank.list_type',
+        'core.product_day_category_rank.source', 'core.product_day_category_rank.category_node',
+        'core.book_current.asin', 'core.book_current.first_ranking_day', 'core.book_current.last_ranking_day',
+        'core.book_current.first_product_day', 'core.book_current.last_product_day', 'core.book_current.title',
+        'core.book_current.title_seen_on', 'core.book_current.cover_url', 'core.book_current.cover_seen_on',
+        'core.book_current.description_sha256', 'core.book_current.description_length',
+        'core.book_current.description_seen_on', 'core.book_current.description_markup_sha256',
+        'core.book_current.description_markup_length', 'core.book_current.description_markup_seen_on',
+        'core.book_current.series_form', 'core.book_current.series_name', 'core.book_current.series_position',
+        'core.book_current.series_total', 'core.book_current.series_seen_on', 'core.book_current.print_pages',
+        'core.book_current.print_pages_seen_on', 'core.book_current.has_aplus', 'core.book_current.aplus_seen_on',
+        'core.book_current.publication_date', 'core.book_current.publication_date_seen_on',
+        'core.book_current.language', 'core.book_current.language_seen_on', 'core.book_current.file_size_value',
+        'core.book_current.file_size_unit', 'core.book_current.file_size_seen_on', 'core.book_current.measured_on',
+        'core.book_current.price_amount', 'core.book_current.currency', 'core.book_current.price_qualifier',
+        'core.book_current.rating', 'core.book_current.review_count', 'core.book_current.general_rank',
+        'core.book_current.general_rank_store', 'core.book_current.general_rank_list_type',
         'core.build_run.id', 'core.build_run.built_at', 'core.build_run.core_version',
         'core.build_run.extractor_version', 'core.build_run.pages_eligible', 'core.build_run.pages_other_version',
         'core.build_run.pages_used', 'core.build_run.books', 'core.build_run.categories',
         'core.build_run.category_name_versions', 'core.build_run.list_days', 'core.build_run.list_days_incomplete',
         'core.build_run.ranking_rows', 'core.build_run.cross_page_duplicates', 'core.book.asin',
-        'core.book.first_day', 'core.book.last_day', 'core.category.source', 'core.category.category_node',
-        'core.category.first_day', 'core.category.last_day', 'core.category_name.source',
+        'core.book.first_ranking_day', 'core.book.last_ranking_day', 'core.category.source', 'core.category.category_node',
+        'core.category.first_list_day', 'core.category.last_list_day', 'core.category_name.source',
         'core.category_name.category_node', 'core.category_name.name_kind', 'core.category_name.name',
         'core.category_name.valid_from', 'core.category_name.valid_to', 'core.category_name.first_observed_at',
         'core.category_name.last_observed_at', 'core.category_name.observations',
@@ -286,10 +365,10 @@ BEGIN
         RAISE EXCEPTION 'ÉCHEC test 6 : colonnes lisibles hors liste : % ; colonnes de la liste non lisibles : %',
             coalesce(extra, 'aucune'), coalesce(missing, 'aucune');
     END IF;
-    IF cardinality(readable) <> 174 THEN
-        RAISE EXCEPTION 'ÉCHEC test 6 : % colonnes lisibles, 174 attendues', cardinality(readable);
+    IF cardinality(readable) <> 350 THEN
+        RAISE EXCEPTION 'ÉCHEC test 6 : % colonnes lisibles, 350 attendues', cardinality(readable);
     END IF;
-    RAISE NOTICE 'OK test 6a : 174 colonnes lisibles, exactement la liste blanche (adresses de RAW et correspondance exclues)';
+    RAISE NOTICE 'OK test 6a : 350 colonnes lisibles, exactement la liste blanche (adresses de RAW et correspondance exclues)';
 
     -- Test 6b : aucune fonction exécutable, aucune séquence utilisable hors du catalogue système
     SELECT string_agg(n.nspname || '.' || p.proname, ', ') INTO extra

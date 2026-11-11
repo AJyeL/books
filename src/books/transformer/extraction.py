@@ -125,6 +125,9 @@ class ExtractionReport:
                        f"{c.list_days} liste(s) du jour (dont {c.list_days_incomplete} incomplète(s)), "
                        f"{c.ranking_rows} ligne(s), {c.books} livre(s), {c.categories} catégorie(s), "
                        f"{c.category_name_versions} version(s) de nom")
+            out.append(f"  CORE fiches          : {c.product_pages_used} fiche(s) retenue(s) sur {c.product_pages_eligible}, "
+                       f"{c.product_days} livre-jour(s), {c.attribute_versions} version(s) d'attributs, "
+                       f"{c.product_category_ranks} rang(s) par catégorie")
         info = []
         if c is not None and c.cross_page_duplicates:
             info.append(f"CORE : {c.cross_page_duplicates} livre(s) présent(s) sur la p1 et la p2 retenues d'une liste "
@@ -132,6 +135,11 @@ class ExtractionReport:
         if c is not None and c.pages_other_version:
             info.append(f"CORE : {c.pages_other_version} page(s) extraite(s) par une autre version de l'extracteur, "
                         "exclue(s) (jamais deux versions mélangées)")
+        if c is not None and c.product_pages_other_version:
+            info.append(f"CORE : {c.product_pages_other_version} fiche(s) extraite(s) par une autre version de "
+                        "l'extracteur, exclue(s) (jamais deux versions mélangées)")
+        if c is not None and c.product_pages_failed:
+            info.append(f"CORE : {c.product_pages_failed} fiche(s) en échec d'extraction, hors de CORE")
         if self.product_missing:
             info.append("champs absents des fiches extraites : "
                         + ", ".join(f"{k} : {n}" for k, n in sorted(self.product_missing.items())))

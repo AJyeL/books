@@ -366,3 +366,8 @@ occupé → aucune construction.
 > - **Recette en développement** : extracteur relancé (image reconstruite) : 14 pages retenues sur 14, 8 listes du jour
 >   complètes, 690 lignes, 393 livres, 2 catégories, 4 versions de nom ; code 0. Empreintes de CORE identiques avant et
 >   après une reconstruction dans une transaction annulée.
+
+> Note du 11 novembre 2026 (décision 021, CORE lot 2) : `CORE_VERSION` passe à 2 (migration 015) ; `core.rebuild()`
+> reconstruit les deux lots dans la même transaction. Les règles du lot 1 sont inchangées. Dans `core.book`,
+> `first_day` et `last_day` deviennent `first_ranking_day` et `last_ranking_day` (jours de fiche à côté) ; dans
+> `core.category`, `first_list_day` et `last_list_day` (jours de rang de fiche à côté). Test 014 adapté en conséquence.

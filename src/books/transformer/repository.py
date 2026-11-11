@@ -2,7 +2,8 @@
 lecture de raw ; dans staging, INSERT et DELETE sur les tables de lignes (classements, catégories, fiches), INSERT et
 UPDATE limité sur page_extraction, INSERT et UPDATE des colonnes de clôture sur extract_run. Depuis la migration 012,
 lecture des rapports Amazon Ads extraits pour leur seule fraîcheur (dernière date de leurs données). Depuis la
-migration 014, reconstruction de CORE par core.rebuild() (décision 020).
+migration 014, reconstruction de CORE par core.rebuild() (décision 020), fiches produit comprises depuis la
+migration 015 (décision 021).
 """
 
 from dataclasses import dataclass
@@ -64,7 +65,7 @@ class CoreBuildError(Exception):
 
 @dataclass(frozen=True)
 class CoreBuild:
-    """Ligne de core.build_run d'une construction réussie (décision 020, section 5)."""
+    """Ligne de core.build_run d'une construction réussie (décisions 020, section 5, et 021, section 9)."""
 
     id: int
     core_version: str
@@ -79,6 +80,13 @@ class CoreBuild:
     list_days_incomplete: int
     ranking_rows: int
     cross_page_duplicates: int
+    product_pages_eligible: int
+    product_pages_used: int
+    product_pages_other_version: int
+    product_pages_failed: int
+    product_days: int
+    attribute_versions: int
+    product_category_ranks: int
 
 
 CORE_BUILD_COLUMNS = ", ".join(CoreBuild.__dataclass_fields__)

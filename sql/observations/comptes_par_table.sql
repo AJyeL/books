@@ -1,7 +1,7 @@
 -- Comptes de lignes par table, pour comparer deux bases (décision 009 : restauration d'essai d'une sauvegarde).
 -- Lecture seule, à lancer sous books_reader (décision 016), sur atlas comme sur une base restaurée :
 --   docker compose exec -T postgres sh -c 'psql -X -At -F " | " -U books_reader -d "$POSTGRES_DB"' < sql/observations/comptes_par_table.sql
--- Ne rend que des comptes : aucune donnée, aucun ASIN, aucun nom. Toutes les migrations supposées appliquées (1 à 14).
+-- Ne rend que des comptes : aucune donnée, aucun ASIN, aucun nom. Toutes les migrations supposées appliquées (1 à 15).
 -- guide.export_document est exclu : sa date d'export change à chaque lecture.
 
 SELECT '01 migrations (nombre | versions)', count(*) || ' | ' || string_agg(version::text, ' ' ORDER BY version)
@@ -27,4 +27,16 @@ UNION ALL SELECT '18 core.category', count(*)::text FROM core.category
 UNION ALL SELECT '19 core.category_name', count(*)::text FROM core.category_name
 UNION ALL SELECT '20 core.list_day', count(*)::text FROM core.list_day
 UNION ALL SELECT '21 core.ranking_day', count(*)::text FROM core.ranking_day
+UNION ALL SELECT '22 core.book_title_version', count(*)::text FROM core.book_title_version
+UNION ALL SELECT '23 core.book_cover_version', count(*)::text FROM core.book_cover_version
+UNION ALL SELECT '24 core.book_description_version', count(*)::text FROM core.book_description_version
+UNION ALL SELECT '25 core.book_description_markup_version', count(*)::text FROM core.book_description_markup_version
+UNION ALL SELECT '26 core.book_series_version', count(*)::text FROM core.book_series_version
+UNION ALL SELECT '27 core.book_print_pages_version', count(*)::text FROM core.book_print_pages_version
+UNION ALL SELECT '28 core.book_aplus_version', count(*)::text FROM core.book_aplus_version
+UNION ALL SELECT '29 core.book_publication_date_version', count(*)::text FROM core.book_publication_date_version
+UNION ALL SELECT '30 core.book_language_version', count(*)::text FROM core.book_language_version
+UNION ALL SELECT '31 core.book_file_size_version', count(*)::text FROM core.book_file_size_version
+UNION ALL SELECT '32 core.product_day', count(*)::text FROM core.product_day
+UNION ALL SELECT '33 core.product_day_category_rank', count(*)::text FROM core.product_day_category_rank
 ORDER BY 1;

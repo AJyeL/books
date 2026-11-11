@@ -238,3 +238,9 @@ Recette en développement :
 > attendue du test de liste blanche passe à 174 colonnes (60 de plus) et les schémas visibles à `core, guide, public,
 > raw, staging`, dans le même commit que la migration 014. Contre-épreuves : une fonction de `core` laissée à `PUBLIC`
 > et une colonne ajoutée à une table de `core` font échouer le test 6.
+
+> Note du 11 novembre 2026 (décision 021, CORE lot 2) : `books_reader` lit les douze nouvelles tables de `core` et la
+> vue `core.book_current` (`security_invoker`) ; aucune exécution de `core.eligible_product_page` ni de
+> `core.retained_product_page`, fermées à `PUBLIC`. Liste attendue du test de liste blanche : 350 colonnes (176 de plus,
+> colonnes de jours renommées), dans le même commit que la migration 015. Contre-épreuves : colonne `description_text`
+> ajoutée, vue retirée des droits de `books_reader` : le test 6 échoue.

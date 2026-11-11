@@ -73,6 +73,12 @@ docker compose --profile transformer run --rm transformer
   des noms de catégorie (`core.category_name`) ; livres et catégories ; journal des constructions (`core.build_run`,
   avec `core_version`). Construction refusée par la base : CORE garde son contenu précédent, et le code vaut 1.
   Les lecteurs voient l'ancien contenu jusqu'à la fin de la construction.
+- **CORE, fiches produit** (décision 021, même construction, `core_version` 2) : attributs des fiches Kindle versionnés
+  attribut par attribut (dix tables `core.book_*_version` : titre, couverture, description et balisage par empreinte et
+  longueur seulement, série, pages, A+, date de publication, langue, taille du fichier), mesures du jour
+  (`core.product_day` : prix du format de la fiche, note, nombre d'avis, répartition des étoiles, rang général ;
+  `core.product_day_category_rank`) et vue `core.book_current` (dernière valeur observée de chaque attribut, avec son
+  jour). `core.book` et `core.category` portent leurs jours par source (Tops, fiches).
 
 ## Migrations
 
@@ -136,6 +142,12 @@ cd ~/books && docker compose exec postgres sh -c 'psql -U books_reader -d "$POST
   Le rôle n'en ayant pas, cette connexion est impossible tant qu'aucun tunnel n'est décidé (décision 016, section 2).
 - Sur le PC, une copie rapatriée (décision 009) restaurée en développement s'explore de la même façon, sans risque
   pour la production.
+- **Versions de couverture** (décision 021, question 3), relevé à lancer après le déploiement du lot 2 de CORE et un
+  passage de l'extracteur : distribution du nombre de versions de couverture par livre, comptes seulement.
+
+  ```bash
+  docker compose exec -T postgres sh -c 'psql -X -At -F " | " -U books_reader -d "$POSTGRES_DB"' < sql/observations/versions_couverture.sql
+  ```
 
 ## Tests
 
@@ -242,6 +254,14 @@ a retrouvé son contenu d'avant :
 
 ```bash
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_014_core_classements.sql
+```
+
+Tests SQL de la migration 015 (CORE, fiches produit : déterminisme, NULL qui n'est pas un changement, retour à une
+ancienne valeur, deux fiches le même jour, minuit de Paris, livre connu seulement par une fiche, exclusions, description
+jamais en texte, lignage, vue des valeurs actuelles, droits ; décision 021), même principe que le test 014 :
+
+```bash
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_015_core_fiches.sql
 ```
 
 Les appels concurrents de `mapping.code_for` sont vérifiés par la suite Python
@@ -424,7 +444,7 @@ perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
 5. Définir les mots de passe de `books_collector` et de `books_transformer` (section ci-dessus) et les reporter
    dans `.env` ; `books_reader` reste sans mot de passe.
 
-6. Vérifier avec les tests SQL des migrations 005 à 014 (section Tests) ; le test 008 contrôle les attributs, les
+6. Vérifier avec les tests SQL des migrations 005 à 015 (section Tests) ; le test 008 contrôle les attributs, les
    réglages et la liste blanche de `books_reader`, le test 010 les droits de la correspondance. Comparer ensuite les
    comptes de lignes à ceux de la base d'origine, par la même requête lancée sous `books_reader` des deux côtés
    (comptes seulement, aucune donnée) :

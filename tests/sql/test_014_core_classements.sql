@@ -1,4 +1,5 @@
--- Tests de la migration 014 : couche CORE, lot 1 : classements (décision 020)
+-- Tests de la migration 014 : couche CORE, lot 1 : classements (décision 020), adaptés à la migration 015
+-- (CORE_VERSION 2, jours par source dans core.book : décision 021)
 --
 -- À exécuter EN TANT QUE PROPRIÉTAIRE de la base, depuis le dossier du dépôt (bash), toutes les migrations appliquées :
 --   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_014_core_classements.sql
@@ -196,7 +197,7 @@ DECLARE
 BEGIN
     SELECT * INTO r FROM core.rebuild('test');
     PERFORM pg_temp.check('1a', 'journal : version de CORE et de l''extracteur', r.core_version || ' / ' || r.extractor_version,
-                          '1 / test');
+                          '2 / test');  -- CORE_VERSION 2 depuis la migration 015 (décision 021)
     first_print := pg_temp.core_fingerprint();
     PERFORM core.rebuild('test');
     PERFORM pg_temp.check('1c', 'deux constructions successives : même contenu', pg_temp.core_fingerprint(), first_print);
@@ -258,7 +259,7 @@ BEGIN
            FROM core.list_day ld WHERE ld.category_node = '9000000002'),
         'n2-b(2)');
     PERFORM pg_temp.check('3d', 'livre vu seulement dans une capture non retenue : pas de ligne ce jour-là',
-        (SELECT first_day || '..' || last_day FROM core.book WHERE asin = 'B0TAAA0001'),
+        (SELECT first_ranking_day || '..' || last_ranking_day FROM core.book WHERE asin = 'B0TAAA0001'),
         '2026-12-16..2026-12-16');
     PERFORM pg_temp.check('3e', 'horodatage de la capture retenue conservé (UTC)',
         (SELECT to_char(rd.observed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')

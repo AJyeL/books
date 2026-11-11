@@ -367,7 +367,7 @@ def test_core_reconstruite_apres_l_extraction(pg):
     result, logs = run(pg)
     assert result.status == "success"
     core = result.report.core
-    assert (core.core_version, core.extractor_version) == ("1", EXTRACTOR_VERSION)
+    assert (core.core_version, core.extractor_version) == ("2", EXTRACTOR_VERSION)  # CORE_VERSION 2 (décision 021)
     assert (core.pages_eligible, core.pages_used, core.list_days, core.list_days_incomplete, core.ranking_rows,
             core.books, core.categories) == (1, 1, 1, 1, 50, 50, 1)
     assert pg.query("SELECT count(*), min(rank), max(rank), min(raw_page_id), max(raw_page_id) "
@@ -375,7 +375,7 @@ def test_core_reconstruite_apres_l_extraction(pg):
     # p1 de 50 rangs sans p2 : liste du jour incomplète
     assert pg.query("SELECT p1_raw_page_id, p1_ranks, p2_raw_page_id, complete FROM core.list_day") == [
         (page_id, 50, None, False)]
-    assert ("  CORE version 1       : 1 page(s) retenue(s) sur 1, 1 liste(s) du jour (dont 1 incomplète(s)), "
+    assert ("  CORE version 2       : 1 page(s) retenue(s) sur 1, 1 liste(s) du jour (dont 1 incomplète(s)), "
             "50 ligne(s), 50 livre(s), 1 catégorie(s), 2 version(s) de nom") in logs  # nom d'affichage et nom court
 
 
@@ -425,3 +425,24 @@ def test_core_non_reconstruite_si_le_verrou_est_occupe(pg):
         with pytest.raises(ExtractionBusy):
             run(pg)
     assert pg.query("SELECT count(*) FROM core.build_run") == [(0,)]
+
+
+def test_core_construit_le_lot_des_fiches(pg):
+    # Décision 021 : une fiche Kindle extraite entre dans CORE ; la fiche papier (mise à part) n'y entre pas
+    kindle = pg.add_page(FICHE, page_type="product", asin="B0FAUX0001")
+    pg.add_page(FICHE_PAPIER, page_type="product", asin="B0FAUX0002")
+    result, logs = run(pg)
+    core = result.report.core
+    assert (core.core_version, core.product_pages_eligible, core.product_pages_used, core.product_days,
+            core.product_pages_failed) == ("2", 1, 1, 1, 0)
+    assert core.attribute_versions >= 1
+    assert pg.query("SELECT asin, raw_page_id, day_observations FROM core.product_day") == [("B0FAUX0001", kindle, 1)]
+    assert pg.query("SELECT asin, first_ranking_day IS NULL, first_product_day IS NOT NULL FROM core.book") == [
+        ("B0FAUX0001", True, True)]
+    # Description : empreinte et longueur égales à STAGING, jamais le texte
+    assert pg.query("SELECT d.description_sha256 = po.description_text_sha256, "
+                    "d.description_length = char_length(po.description_text) "
+                    "FROM core.book_description_version d JOIN staging.product_observation po "
+                    "ON po.raw_page_id = d.first_raw_page_id") == [(True, True)]
+    assert any(line.startswith("  CORE fiches          : 1 fiche(s) retenue(s) sur 1, 1 livre-jour(s), ")
+               for line in logs)
