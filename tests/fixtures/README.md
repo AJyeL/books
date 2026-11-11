@@ -160,7 +160,10 @@ Les variantes sont générées par `generer_fiches_extraction.py` (`python tests
 | `un_commentaire` | « 1 Commentaire » au singulier | extraite |
 | `sans_aplus`, `fait_partie`, `sans_serie`, `taille_kb`, `sans_description`, `sans_couverture` | formes ou absences observées | extraite |
 | `offre_essai`, `a_partir_de` | qualificatifs `avec_offre_essai`, `a_partir_de` | extraite |
+| `rang_sous_boutique_gratuit` | version 4 : rang général d'une sous-boutique du Top gratuit (« 73 en » + lien `digital-text/{numéro}?tf=1`) | extraite, liste `free` |
+| `essai_abonnement` | version 4 : message audio « avec l’essai de l’abonnement » (apostrophes U+2019) | extraite, `avec_offre_essai` |
 | `papier` | ligne d'auteur « Broché » | mise à part (« format papier ») |
+| `rang_sous_boutique_gratuit_livres`, `_numero`, `rang_gratuit_sans_noeud`, `rang_sous_boutique_texte_apres`, `essai_apostrophe_droite`, `essai_a_partir_de` | contre-exemples de la version 4 : formes voisines non observées | échec de la fiche |
 | `poche` et les 19 autres | forme inconnue (séparateur, date, pages, taille, avis, répartition, série, onglet, lien…) | échec de la fiche |
 
 ## Contrat du guide de veille (`guide_*.json`, décision 017)

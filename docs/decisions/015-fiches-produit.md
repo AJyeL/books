@@ -479,3 +479,25 @@ contre-épreuve.
 >   (changement de règle d'analyse, donc `EXTRACTOR_VERSION` incrémentée dans le même commit).
 > - **La décision 015 est mise en œuvre de bout en bout** (étapes A à D) : les fiches Kindle sont lues dans STAGING en
 >   production.
+
+> Note du 11 novembre 2026 (**extracteur version 4**, deux formes nouvelles ; diagnostic dans `exploration-amazon.md`,
+> « Fiches produit : deux formes nouvelles ») :
+> - **Rang général d'une sous-boutique du Top gratuit** (3 fiches du 12 octobre) : `N en` suivi du seul lien
+>   `/gp/bestsellers/digital-text/{nœud}?tf=1`, sans « n° … des titres gratuits dans la ». Reconnu comme rang général,
+>   liste `free`, boutique `digital-text`, avec son nœud (`category_node`), comme la forme rare payante. Cette seule
+>   combinaison est ajoutée ; toute autre reste soumise à la règle de cohérence (sous-boutique gratuite dans `books`,
+>   « n° » devant une sous-boutique, lien gratuit sans nœud, texte après le lien : échecs). L'hypothèse « rang inférieur
+>   à 100 » est réfutée (5 fiches réussies sur atlas ont un rang général inférieur à 100, sous la forme habituelle).
+> - **Message audio « avec l’essai de l’abonnement »** (3 fiches du 10 novembre), apostrophes typographiques (U+2019)
+>   exactes, sur l'onglet `AUDIO_DOWNLOAD` avec un prix exact : qualificatif `avec_offre_essai` existant (même condition
+>   attachée au prix ; aucune migration). L'apostrophe droite, un prix « à partir de » : échecs.
+> - **Trois portées du rang général** (précision du porteur du projet) : `staging.product_sales_rank` (rang général) et
+>   `core.product_day.general_rank` contiennent désormais trois portées : boutique entière payante, boutique entière
+>   gratuite, sous-boutique (payante dans `books`, gratuite dans `digital-text`). Elles se distinguent par la boutique,
+>   la liste et le nœud (`general_rank_store`, `general_rank_list_type`, `general_rank_category_node` dans CORE). **On ne
+>   compare des rangs généraux qu'à portée égale ; le rang de la boutique entière est celui dont le nœud est `NULL`.**
+> - Fichiers de test inventés (générateur `tests/fixtures/generer_fiches_extraction.py`) : deux formes acceptées, six
+>   contre-exemples. Contre-épreuves (mutation de `product_parsing.py`, conteneur jetable) : 8 mutations, 7 refusées ;
+>   la huitième (retrait de l'exigence `tf=1` dans la nouvelle branche) est **sans effet** : sans `tf=1`, la forme est
+>   celle de la sous-boutique payante, déjà acceptée par la règle existante. La condition est gardée pour borner
+>   explicitement l'exception.

@@ -265,11 +265,11 @@ def test_page_sans_nom_lu_comptee_sans_anomalie(pg):
     assert rows_of(pg, without)[0][1] == 50  # les lignes de la page sont extraites
 
 
-def test_passage_de_la_version_2_a_la_version_3(pg):
+def test_passage_de_la_version_3_a_la_version_4(pg):
     page_id = pg.add_page(COMPLETE)
-    run(pg, extractor_version="2")  # pages extraites par la version 2
-    result, _ = run(pg)  # version courante
-    assert EXTRACTOR_VERSION == "3" and result.report.extracted == 1
+    run(pg, extractor_version="3")  # pages extraites par la version 3
+    result, _ = run(pg)  # version courante : toutes les pages sont réextraites
+    assert EXTRACTOR_VERSION == "4" and result.report.extracted == 1
     assert pg.query("SELECT extract_run_id FROM staging.category_observation WHERE raw_page_id = %s",
                     (page_id,)) == [(result.run_id,)]
 

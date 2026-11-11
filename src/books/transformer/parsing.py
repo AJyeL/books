@@ -30,8 +30,10 @@ from html.parser import HTMLParser
 from books.amazon.ranked_list import RANK_KEY, rank_value, ranked_items
 
 # 1 : lignes de classement (décision 011) ; 2 : noms de la catégorie en plus (décision 014) ;
-# 3 : fiches produit Kindle (décision 015, étape D ; analyse dans books.transformer.product_parsing)
-EXTRACTOR_VERSION = "3"
+# 3 : fiches produit Kindle (décision 015, étape D ; analyse dans books.transformer.product_parsing) ;
+# 4 : rang général d'une sous-boutique du Top gratuit, message audio « avec l’essai de l’abonnement » (décision 015,
+#     note du 11 novembre 2026)
+EXTRACTOR_VERSION = "4"
 # Préfixe fixe du nom d'affichage, dans le second <h1> (texte d'interface observé le 10 octobre 2026)
 DISPLAY_NAME_PREFIX = "Les meilleures ventes en "
 

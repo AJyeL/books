@@ -63,7 +63,13 @@ DESCRIPTION_TAGS = frozenset({"p", "br", "h3", "h4", "h5", "ul", "li", "u"})
 _BLOCK_TAGS = frozenset({"p", "br", "h3", "h4", "h5", "ul", "li"})
 SPAN_CLASSES = {"a-text-bold": "b", "a-text-italic": "i"}
 # Messages d'onglet observés (texte d'interface) ; tout autre fait échouer la fiche
-AUDIO_MESSAGES = {"avec votre abonnement": "avec_abonnement", "avec l'offre d'essai": "avec_offre_essai"}
+AUDIO_MESSAGES = {
+    "avec votre abonnement": "avec_abonnement",
+    "avec l'offre d'essai": "avec_offre_essai",
+    # Version 4 (décision 015, note du 11 novembre 2026) : apostrophes typographiques (U+2019), exactement comme
+    # observé ; même condition attachée au prix (offre d'essai), donc même qualificatif
+    "avec l’essai de l’abonnement": "avec_offre_essai",
+}
 KINDLE_MESSAGES = {"Disponible immédiatement"}
 
 
@@ -430,7 +436,13 @@ def _sales_ranks(details: dict) -> tuple[SalesRank, ...]:
     prefix, phrase, shop = match.group(1), match.group(3), match.group(4)
     free = phrase == "des titres gratuits dans la"
     expected_store = {"Boutique Kindle": "digital-text", "Livres": "books"}.get(shop)
-    if (free != (prefix is not None) or free != (list_type == "free") or (free and shop != "Boutique Kindle")
+    # Seule forme ajoutée en version 4 (décision 015, note du 11 novembre 2026) : rang général d'une sous-boutique du
+    # Top gratuit de la Boutique Kindle, écrit « N en » suivi du seul lien « /gp/bestsellers/digital-text/{nœud}?tf=1 »,
+    # sans « n° … des titres gratuits dans la ». Toute autre combinaison reste soumise à la règle de cohérence.
+    free_sub_store = (shop is None and node is not None and store == "digital-text" and list_type == "free"
+                      and prefix is None and phrase == "en")
+    if not free_sub_store and (
+            free != (prefix is not None) or free != (list_type == "free") or (free and shop != "Boutique Kindle")
             or (shop is None and node is None) or (shop is not None and (node is not None or store != expected_store))):
         raise ParseError(f"rang général incohérent avec son lien {general[:60]!r}")
     ranks.append(SalesRank(len(ranks) + 1, True, int(match.group(2).replace(NNBSP, "")), store, node, list_type))

@@ -663,3 +663,34 @@ par Amazon : `/gp/bestsellers/digital-text?tf=1/ref=pd_zg_ts_digital-text?tf=1`,
 des paramètres ne trouve pas `tf=1` ; l'extracteur reconnaît le Top gratuit à `tf=1` placé après un `?` ou un `&`, où
 qu'il soit dans le lien. Les liens des rangs de catégorie du Top gratuit ont la forme ordinaire
 `/gp/bestsellers/digital-text/{numéro}?tf=1…`.
+
+## Fiches produit : deux formes nouvelles (extracteur version 4, 11 novembre 2026)
+
+Diagnostic des 6 fiches en échec d'analyse sur atlas, fait hors ligne, en lecture seule, sur 217 fiches copiées des
+originaux (`envoyees\`) des 11 au 13 octobre et des 9 au 11 novembre 2026, puis supprimées ; formes seulement (chiffres
+remplacés par 9, mots hors interface masqués), aucun titre, nom ni numéro de catégorie. Exemples ci-dessous inventés.
+
+### Rang général d'une sous-boutique du Top gratuit (3 fiches du 12 octobre)
+- **Forme habituelle**, rang inférieur ou non à 100 : `1⍽234 en Boutique Kindle (<a href="/gp/bestsellers/digital-text/ref=…">Voir les 100 premiers en Boutique Kindle</a>)` ;
+  Top gratuit : `n°1⍽234 des titres gratuits dans la Boutique Kindle (<a href="…/digital-text?tf=1/ref=…?tf=1">…</a>)`.
+- **Forme nouvelle** : `73 en <a href="/gp/bestsellers/digital-text/{nœud}?tf=1/ref=…">{nom de sous-boutique}</a>`, suivie de la
+  liste habituelle des rangs de catégorie (`ul.zg_hrsr`). Ni nom de boutique dans le texte, ni « (Voir les 100 premiers) » ;
+  le lien mène à un nœud et porte `tf=1` (Top gratuit), mais le texte dit « en », sans « n° … des titres gratuits dans la ».
+- C'est la forme « sous-boutique nommée » de l'inventaire du 11 octobre (rang général dans `books/{nœud}`, fiches papier,
+  Top payant), observée ici pour la première fois dans `digital-text` et dans le Top gratuit. Les 3 rangs sont inférieurs
+  à 100 ; le nœud du rang général n'est jamais celui du premier rang de catégorie ; l'onglet Kindle affiche « Emprunt ».
+- **L'hypothèse « un rang inférieur à 100 s'affiche autrement » est réfutée** : 5 fiches extraites avec succès sur atlas
+  (628 avec rang général) ont un rang général inférieur à 100 (le plus petit : 6), toutes sous la forme habituelle.
+
+### Message d'essai sur l'onglet du livre audio (3 fiches du 10 novembre)
+| | `data-offertype` | Prix | Message (`span.slot-extraMessage`) |
+|---|---|---|---|
+| Habituel (17 onglets) | `UPSELL_PROMOTION_…` | `9,99&nbsp;€` | `avec votre abonnement` |
+| Nouveau (3 onglets) | `DEFAULT_ACCESS_FREETRIAL_UPSELL` | `9,99&nbsp;€` | `avec l’essai de l’abonnement` |
+
+- Même structure (balises, classes, forme du prix) ; seuls le message et le type d'offre diffèrent.
+- Le message est écrit avec l'**apostrophe typographique** (U+2019), et non l'apostrophe droite.
+- Lecture retenue par l'extracteur (version 4) : qualificatif `avec_offre_essai`, comme « avec l'offre d'essai ».
+
+Limites : 217 fiches de six jours ; les formes voisines non observées (sous-boutique gratuite dans `books`, apostrophe
+droite) restent des échecs visibles.

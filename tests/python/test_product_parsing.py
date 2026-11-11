@@ -29,8 +29,8 @@ def analyser(nom: str):
     return parse_product_page(fiche(nom))
 
 
-def test_version_3():
-    assert EXTRACTOR_VERSION == "3"  # 3 : fiches produit (décision 015, étape D)
+def test_version_4():
+    assert EXTRACTOR_VERSION == "4"  # 3 : fiches produit (décision 015, étape D) ; 4 : sous-boutique gratuite, essai audio
 
 
 def test_fiche_d_exemple_conforme_a_la_validation():
@@ -104,6 +104,9 @@ def test_bloc_de_note_des_details_jamais_lu():
     ("gratuit", {"general": SalesRank(1, True, 1234, "digital-text", None, "free"), "cat_list": "free",
                  "kindle": ProductFormat(1, "KINDLE", "Format Kindle", True, None, Decimal("0.00"), "EUR", "exact", False)}),
     ("rang_rare", {"general": SalesRank(1, True, 12345, "books", "10000000009", "paid")}),
+    # Version 4 : rang général d'une sous-boutique du Top gratuit (« 73 en » + lien {nœud}?tf=1)
+    ("rang_sous_boutique_gratuit", {"general": SalesRank(1, True, 73, "digital-text", "10000000008", "free"),
+                                    "cat_list": "free"}),
 ])
 def test_formes_de_rang(nom, attendu):
     p = analyser(nom)
@@ -149,6 +152,7 @@ def test_taille_en_kb_sans_conversion():
 
 @pytest.mark.parametrize("nom, position, qualificatif, montant", [
     ("offre_essai", 2, "avec_offre_essai", Decimal("9.95")),
+    ("essai_abonnement", 2, "avec_offre_essai", Decimal("9.95")),  # version 4, apostrophes U+2019
     ("a_partir_de", 3, "a_partir_de", Decimal("14.90")),
 ])
 def test_qualificatifs_de_prix(nom, position, qualificatif, montant):
@@ -182,6 +186,13 @@ ECHECS = [
     ("message_audio_inconnu", "onglet AUDIO_DOWNLOAD : message de forme inconnue"),
     ("lien_rang_inconnu", "rang de catégorie : lien de classement de forme inconnue"),
     ("gratuit_incoherent", "rang général incohérent avec son lien"),
+    # Contre-exemples de la version 4 : seule la forme observée est reconnue
+    ("rang_sous_boutique_gratuit_livres", "rang général incohérent avec son lien"),
+    ("rang_sous_boutique_gratuit_numero", "rang général incohérent avec son lien"),
+    ("rang_gratuit_sans_noeud", "rang général incohérent avec son lien"),
+    ("rang_sous_boutique_texte_apres", "rang général de forme inconnue"),
+    ("essai_apostrophe_droite", "onglet AUDIO_DOWNLOAD : message de forme inconnue"),
+    ("essai_a_partir_de", "onglet AUDIO_DOWNLOAD : message de forme inconnue"),
 ]
 
 

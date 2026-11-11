@@ -1,4 +1,4 @@
-"""Génère les variantes de fiche_extraction_exemple.html (extracteur version 3, décision 015, étape D).
+"""Génère les variantes de fiche_extraction_exemple.html (extracteur versions 3 et 4, décision 015).
 
 Chaque variante ne diffère de l'exemple que par le point testé (voir README.md, « Fiches de l'extracteur »). Chaque
 remplacement porte sur un nombre attendu d'occurrences : une fiche d'exemple modifiée qui ne s'y prêterait plus fait
@@ -25,6 +25,11 @@ APLUS = '<div class="aplus-v2 desktop celwidget"><div class="aplus-module"><img 
 FORMAT_VALUE = '<span class="a-color-secondary">Format&nbsp;: </span><span>Format Kindle</span>'
 SIZE = "<span>1.2 MB</span>"
 PAGES = "<span>412 pages</span>"
+GENERAL_FULL = GENERAL + GENERAL_LINK + ")"
+# Version 4 : rang général d'une sous-boutique du Top gratuit (nœud inventé), message audio d'essai (U+2019)
+SUB_STORE_FREE = ('73 en <a href="/gp/bestsellers/digital-text/10000000008?tf=1/ref=pd_zg_ts_digital-text">'
+                  "Sous-boutique gratuite d'exemple</a>")
+TRIAL_MESSAGE = "<span><span> avec l’essai de l’abonnement </span></span>"
 PCT = ["62%</div>", "20%</div>", "10%</div>", "5%</div>", "3%</div>"]
 
 
@@ -58,6 +63,9 @@ VARIANTES = [
         (GENERAL + GENERAL_LINK + ")",
          '12&#8239;345 en <a href="/gp/bestsellers/books/10000000009/ref=pd_zg_ts_books">Sous-boutique (Livres)</a>', 1)]),
     ("fiche_extraction_offre_essai.html", [(AUDIO_MESSAGE, "<span><span> avec l'offre d'essai </span></span>", 1)]),
+    ("fiche_extraction_rang_sous_boutique_gratuit.html", [
+        (GENERAL_FULL, SUB_STORE_FREE, 1), (CAT_LINK, "/gp/bestsellers/digital-text/10000000001?tf=1", 1)]),
+    ("fiche_extraction_essai_abonnement.html", [(AUDIO_MESSAGE, TRIAL_MESSAGE, 1)]),
     ("fiche_extraction_a_partir_de.html", [("> 14,90&nbsp;€ </span>", "> à partir de 14,90&nbsp;€ </span>", 1)]),
     ("fiche_extraction_sans_description.html", [
         ('<div class="a-expander-content a-expander-partial-collapse-content">',
@@ -94,6 +102,19 @@ VARIANTES = [
     ("fiche_extraction_onglet_prix_inconnu.html", [("> 14,90&nbsp;€ </span>", "> Gratuit </span>", 1)]),
     ("fiche_extraction_message_audio_inconnu.html", [(AUDIO_MESSAGE, "<span><span> avec un code promo </span></span>", 1)]),
     ("fiche_extraction_lien_rang_inconnu.html", [(CAT_LINK, "/gp/new-releases/digital-text/10000000001", 1)]),
+    # Contre-exemples de la version 4 : seule la forme observée est reconnue
+    ("fiche_extraction_rang_sous_boutique_gratuit_livres.html", [
+        (GENERAL_FULL, SUB_STORE_FREE.replace("digital-text/10000000008?tf=1/ref=pd_zg_ts_digital-text",
+                                              "books/10000000008?tf=1/ref=pd_zg_ts_books"), 1)]),
+    ("fiche_extraction_rang_sous_boutique_gratuit_numero.html", [(GENERAL_FULL, "n°" + SUB_STORE_FREE, 1)]),
+    ("fiche_extraction_rang_gratuit_sans_noeud.html", [
+        (GENERAL_FULL, '73 en <a href="/gp/bestsellers/digital-text?tf=1/ref=pd_zg_ts_digital-text?tf=1">'
+                       "Boutique Kindle</a>", 1)]),
+    ("fiche_extraction_rang_sous_boutique_texte_apres.html", [(GENERAL_FULL, SUB_STORE_FREE + " (exemple)", 1)]),
+    ("fiche_extraction_essai_apostrophe_droite.html", [
+        (AUDIO_MESSAGE, "<span><span> avec l'essai de l'abonnement </span></span>", 1)]),
+    ("fiche_extraction_essai_a_partir_de.html", [
+        (AUDIO_MESSAGE, TRIAL_MESSAGE, 1), ("<span> 9,95&nbsp;€ </span>", "<span> à partir de 9,95&nbsp;€ </span>", 1)]),
     ("fiche_extraction_gratuit_incoherent.html", [
         (GENERAL, "n°1&#8239;234 des titres gratuits dans la Boutique Kindle (", 1)]),
 ]

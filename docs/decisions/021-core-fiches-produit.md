@@ -378,3 +378,11 @@ construction refusée qui laisse les deux lots inchangés.
 >   5 livres-jours, 50 versions d'attributs, 15 rangs par catégorie ; code 0. Empreintes des 17 tables identiques avant
 >   et après une reconstruction dans une transaction annulée. `versions_couverture.sql` : 5 livres à une version
 >   (une seule fiche chacun : le relevé n'a de sens qu'après plusieurs séances).
+
+> Note du 11 novembre 2026 (**portées du rang général**, extracteur version 4, décision 015) :
+> `core.product_day.general_rank` contient trois portées : boutique entière payante, boutique entière gratuite,
+> sous-boutique (dans `books` au Top payant, dans `digital-text` au Top gratuit depuis la version 4). Elles se
+> distinguent par `general_rank_store`, `general_rank_list_type` et `general_rank_category_node`. **On ne compare des
+> rangs généraux qu'à portée égale ; le rang de la boutique entière est celui dont `general_rank_category_node` est
+> `NULL`.** Le schéma ne change pas. Le commentaire de la colonne (migration 015, déjà déployée) recevra le même
+> avertissement par la **prochaine migration** ; aucune migration n'est créée pour cela seul.
