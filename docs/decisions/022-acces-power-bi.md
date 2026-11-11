@@ -303,3 +303,15 @@ Les tests 005 à 015 sont relancés. Le test 008 est inchangé : `books_reader` 
 >   d'erreur `53300`, attendre quelques instants puis réessayer (procédure du README, section « Power BI »).
 > - **Règle de révision** : la limite n'est relevée, par une migration, que si une actualisation réelle s'y heurte
 >   malgré ces réglages ; une requête d'essai refusée ne suffit pas.
+
+> Note du 11 novembre 2026 (**règle de révision remplie : limite portée à 5**, migration 017) :
+> - **Constat** : une actualisation réelle s'est heurtée à `CONNECTION LIMIT 2`, malgré les deux réglages du fichier
+>   (chargement en parallèle sur « Un », aperçus en arrière-plan désactivés). Modèle : `core.ranking_day` fusionnée
+>   (jointure interne) avec `core.list_day` dans Power Query. Erreur « 53300: too many connections for role books_bi »
+>   sur `ranking_day`, puis chargement de `list_day` annulé.
+> - **Cause** : une table fusionnée lit sa source de jointure en même temps qu'elle, d'où au moins deux connexions pour
+>   une seule table, auxquelles s'ajoute le réservoir de connexions de l'éditeur.
+> - **Nouvelle valeur** : `CONNECTION LIMIT 5` (migration 017, garde-fou `IS DISTINCT FROM 16`). Les droits et les autres
+>   réglages de `books_bi` ne changent pas. Test 016 mis à jour (limite 5), commande de restauration du README aussi.
+>   Contre-épreuves : migration 017 sans `ALTER`, ou avec une autre limite, refusée par le test 1 ; garde-fou : registre
+>   vide et base à la version 15 refusés, et la mutation `<> 16` laisse passer le registre vide.

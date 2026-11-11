@@ -1,4 +1,5 @@
--- Tests de la migration 016 : rôle books_bi, lecture de CORE seulement pour Power BI (décision 022, section 7)
+-- Tests de la migration 016 : rôle books_bi, lecture de CORE seulement pour Power BI (décision 022, section 7) ;
+-- limite de connexions portée à 5 par la migration 017 (décision 022, note du 11 novembre 2026)
 --
 -- À exécuter EN TANT QUE PROPRIÉTAIRE de la base, depuis le dossier du dépôt (bash), toutes les migrations appliquées :
 --   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_016_role_bi.sql
@@ -43,10 +44,10 @@ BEGIN
     IF NOT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) THEN
         RAISE EXCEPTION 'ÉCHEC test 0 : connecté en tant que %, le propriétaire (superutilisateur) est attendu', current_user;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM public.schema_migration WHERE version = 16) THEN
-        RAISE EXCEPTION 'ÉCHEC test 0 : migration 16 absente de schema_migration';
+    IF (SELECT count(*) FROM public.schema_migration WHERE version IN (16, 17)) <> 2 THEN
+        RAISE EXCEPTION 'ÉCHEC test 0 : migrations 16 et 17 absentes de schema_migration';
     END IF;
-    RAISE NOTICE 'OK test 0 : propriétaire, migration 16 présente';
+    RAISE NOTICE 'OK test 0 : propriétaire, migrations 16 et 17 présentes';
 END;
 $$;
 
@@ -60,8 +61,8 @@ DECLARE
 BEGIN
     SELECT * INTO r FROM pg_roles WHERE rolname = 'books_bi';
     IF NOT FOUND OR NOT r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication
-       OR r.rolbypassrls OR r.rolconnlimit <> 2 THEN
-        RAISE EXCEPTION 'ÉCHEC test 1a : attributs de books_bi inattendus (connexion seule, limite de 2 connexions)';
+       OR r.rolbypassrls OR r.rolconnlimit <> 5 THEN
+        RAISE EXCEPTION 'ÉCHEC test 1a : attributs de books_bi inattendus (connexion seule, limite de 5 connexions)';
     END IF;
     IF EXISTS (SELECT 1 FROM pg_auth_members WHERE member = 'books_bi'::regrole) THEN
         RAISE EXCEPTION 'ÉCHEC test 1b : books_bi est membre d''un rôle : %',
@@ -74,7 +75,7 @@ BEGIN
                                 'idle_in_transaction_session_timeout=5min'] THEN
         RAISE EXCEPTION 'ÉCHEC test 1c : réglages de books_bi : %', coalesce(array_to_string(settings, ', '), 'aucun');
     END IF;
-    RAISE NOTICE 'OK test 1 : connexion seule, membre d''aucun rôle, 2 connexions, lecture seule par défaut, délais 5 min';
+    RAISE NOTICE 'OK test 1 : connexion seule, membre d''aucun rôle, 5 connexions, lecture seule par défaut, délais 5 min';
 END;
 $$;
 

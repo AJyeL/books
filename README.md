@@ -154,7 +154,7 @@ cd ~/books && docker compose exec postgres sh -c 'psql -U books_reader -d "$POST
 Décision 022. Power BI Desktop, **gratuit, sans licence** (rien n'est publié dans le service Power BI), lit CORE sur
 atlas par un **tunnel SSH**, sous le rôle `books_bi` : lecture de CORE seulement (tables et vue `core.book_current`),
 rien d'autre ; lecture seule par défaut, requête interrompue après 5 minutes, transaction inactive fermée après
-5 minutes, 2 connexions au plus. Aucun port n'est ouvert : PostgreSQL reste publié sur `127.0.0.1:5433` d'atlas.
+5 minutes, 5 connexions au plus. Aucun port n'est ouvert : PostgreSQL reste publié sur `127.0.0.1:5433` d'atlas.
 
 **Sur atlas, une fois (après la migration 016) : définir le mot de passe.** Session interactive du propriétaire :
 
@@ -194,7 +194,7 @@ semble figée : le tunnel est ouvert.
    (OneDrive compris) : il contient des données réelles. `*.pbix` est ignoré par Git.
 
 **Réglages du fichier, à faire une fois par `.pbix`** (Fichier › Options et paramètres › Options › section « Fichier
-actif » › Chargement des données) : `books_bi` n'a droit qu'à **2 connexions**, et Power BI en ouvre plusieurs à la fois
+actif » › Chargement des données) : `books_bi` n'a droit qu'à **5 connexions**, et Power BI en ouvre plusieurs à la fois
 par défaut.
 
 - « Chargement en parallèle des tables » : **Un** (désactiver le chargement en parallèle) ;
@@ -208,8 +208,9 @@ voir où l'on en est, compter les connexions de `books_bi` sur atlas (session du
 cd ~/books && docker compose exec -T postgres sh -c 'psql -X -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT state, count(*) FROM pg_stat_activity WHERE usename = '"'"'books_bi'"'"' GROUP BY state"'
 ```
 
-Deux connexions `idle` : la limite est atteinte, attendre ; une seule ou aucune : réessayer. La limite reste à 2
-(décision 022, note du 11 novembre 2026).
+Cinq connexions : la limite est atteinte, attendre ; moins : réessayer. Une table fusionnée (jointure dans Power
+Query) lit sa source de jointure en même temps qu'elle : elle compte pour au moins deux connexions (décision 022,
+notes du 11 novembre 2026 ; limite portée de 2 à 5 par la migration 017).
 
 **Règles** : mode Importation (actualisation à la main, tunnel ouvert) ; **jamais « Publier sur le web »** ; aucune
 publication vers le service Power BI sans décision dédiée ; aucun `.pbix` envoyé ni partagé.
@@ -504,7 +505,7 @@ que le retrait du droit `TEMPORARY` serait perdu. Procédure, sur une base vide 
    022), absents de la sauvegarde. `books_mapping` est sans connexion (migration 010, décision 019) :
 
    ```bash
-   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE ROLE books_collector LOGIN" -c "CREATE ROLE books_transformer LOGIN" -c "CREATE ROLE books_reader LOGIN CONNECTION LIMIT 2" -c "ALTER ROLE books_reader SET default_transaction_read_only = on" -c "ALTER ROLE books_reader SET statement_timeout = '"'"'2min'"'"'" -c "ALTER ROLE books_reader SET idle_in_transaction_session_timeout = '"'"'5min'"'"'" -c "CREATE ROLE books_mapping NOLOGIN" -c "CREATE ROLE books_bi LOGIN CONNECTION LIMIT 2" -c "ALTER ROLE books_bi SET default_transaction_read_only = on" -c "ALTER ROLE books_bi SET statement_timeout = '"'"'5min'"'"'" -c "ALTER ROLE books_bi SET idle_in_transaction_session_timeout = '"'"'5min'"'"'"'
+   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE ROLE books_collector LOGIN" -c "CREATE ROLE books_transformer LOGIN" -c "CREATE ROLE books_reader LOGIN CONNECTION LIMIT 2" -c "ALTER ROLE books_reader SET default_transaction_read_only = on" -c "ALTER ROLE books_reader SET statement_timeout = '"'"'2min'"'"'" -c "ALTER ROLE books_reader SET idle_in_transaction_session_timeout = '"'"'5min'"'"'" -c "CREATE ROLE books_mapping NOLOGIN" -c "CREATE ROLE books_bi LOGIN CONNECTION LIMIT 5" -c "ALTER ROLE books_bi SET default_transaction_read_only = on" -c "ALTER ROLE books_bi SET statement_timeout = '"'"'5min'"'"'" -c "ALTER ROLE books_bi SET idle_in_transaction_session_timeout = '"'"'5min'"'"'"'
    ```
 
 3. Restaurer la sauvegarde choisie :
