@@ -386,3 +386,7 @@ construction refusée qui laisse les deux lots inchangés.
 > rangs généraux qu'à portée égale ; le rang de la boutique entière est celui dont `general_rank_category_node` est
 > `NULL`.** Le schéma ne change pas. Le commentaire de la colonne (migration 015, déjà déployée) recevra le même
 > avertissement par la **prochaine migration** ; aucune migration n'est créée pour cela seul.
+
+> Note du 11 novembre 2026 (garde-fou de la migration 015, relevé à l'audit de la migration 016) : le garde-fou utilise
+> `<>` et non `IS DISTINCT FROM` : il ne refuserait pas un registre vide. Sans effet sur les bases existantes ; laissé
+> tel quel, une migration publiée n'étant jamais modifiée. Forme correcte à partir de la migration 16.

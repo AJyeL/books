@@ -371,3 +371,7 @@ occupé → aucune construction.
 > reconstruit les deux lots dans la même transaction. Les règles du lot 1 sont inchangées. Dans `core.book`,
 > `first_day` et `last_day` deviennent `first_ranking_day` et `last_ranking_day` (jours de fiche à côté) ; dans
 > `core.category`, `first_list_day` et `last_list_day` (jours de rang de fiche à côté). Test 014 adapté en conséquence.
+
+> Note du 11 novembre 2026 (garde-fou de la migration 014, relevé à l'audit de la migration 016) : le garde-fou utilise
+> `<>` et non `IS DISTINCT FROM` : il ne refuserait pas un registre vide. Sans effet sur les bases existantes ; laissé
+> tel quel, une migration publiée n'étant jamais modifiée. Forme correcte à partir de la migration 16.
