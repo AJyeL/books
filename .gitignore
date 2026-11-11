@@ -36,3 +36,6 @@ scripts/*.local.psd1
 CLAUDE.md
 CLAUDE.local.md
 private/
+
+# --- Power BI (décision 022) : un .pbix importé contient des données réelles ; jamais dans le dépôt ---
+*.pbix

@@ -149,6 +149,58 @@ cd ~/books && docker compose exec postgres sh -c 'psql -U books_reader -d "$POST
   docker compose exec -T postgres sh -c 'psql -X -At -F " | " -U books_reader -d "$POSTGRES_DB"' < sql/observations/versions_couverture.sql
   ```
 
+## Power BI (rôle books_bi)
+
+Décision 022. Power BI Desktop, **gratuit, sans licence** (rien n'est publié dans le service Power BI), lit CORE sur
+atlas par un **tunnel SSH**, sous le rôle `books_bi` : lecture de CORE seulement (tables et vue `core.book_current`),
+rien d'autre ; lecture seule par défaut, requête interrompue après 5 minutes, transaction inactive fermée après
+5 minutes, 2 connexions au plus. Aucun port n'est ouvert : PostgreSQL reste publié sur `127.0.0.1:5433` d'atlas.
+
+**Sur atlas, une fois (après la migration 016) : définir le mot de passe.** Session interactive du propriétaire :
+
+```bash
+cd ~/books && docker compose exec -it postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+Dans `psql` : `\password books_bi` (saisi deux fois, condensé par `psql` avant l'envoi, jamais affiché), puis vérifier
+qu'il est enregistré en SCRAM (la requête rend `t`, sans montrer le condensé), puis `\q` :
+
+```sql
+SELECT rolpassword LIKE 'SCRAM-SHA-256$%' FROM pg_authid WHERE rolname = 'books_bi';
+```
+
+Le mot de passe va dans le gestionnaire de mots de passe, **jamais dans `.env`** (aucun programme ne s'en sert).
+
+**Sur le PC, à chaque séance : ouvrir le tunnel** dans une fenêtre PowerShell laissée ouverte (`Ctrl+C` pour fermer) :
+
+```powershell
+& "$env:WINDIR\System32\OpenSSH\ssh.exe" -N -o ExitOnForwardFailure=yes -L 127.0.0.1:15433:127.0.0.1:5433 atlas
+```
+
+`-N` : seulement le tunnel ; le port 15433 du PC (boucle locale seulement) mène au port 5433 de la boucle locale
+d'atlas ; `ExitOnForwardFailure=yes` : arrêt si le port 15433 est déjà pris. Après le mot de passe SSH, la fenêtre
+semble figée : le tunnel est ouvert.
+
+**Dans Power BI Desktop : se connecter.**
+
+1. Accueil › Obtenir les données › Base de données PostgreSQL.
+2. Serveur `localhost:15433` ; base : la valeur de `POSTGRES_DB` du `.env` d'atlas ; mode **Importer** ; aucune option
+   avancée.
+3. Identifiants, onglet « Base de données » : `books_bi` et son mot de passe.
+4. Chiffrement : PostgreSQL n'a pas SSL (`ssl = off`) ; accepter la connexion **sans chiffrement** proposée par Power
+   BI (ou décocher « Chiffrer les connexions ») : le trajet sur le réseau est chiffré par le tunnel SSH.
+5. Le navigateur ne montre que le schéma `core` ; choisir les tables, puis Charger.
+6. Enregistrer le `.pbix` dans `D:\Veille Litteraire\books-powerbi\`, hors du dépôt et hors de tout dossier synchronisé
+   (OneDrive compris) : il contient des données réelles. `*.pbix` est ignoré par Git.
+
+**Règles** : mode Importation (actualisation à la main, tunnel ouvert) ; **jamais « Publier sur le web »** ; aucune
+publication vers le service Power BI sans décision dédiée ; aucun `.pbix` envoyé ni partagé.
+
+**Vérifier, une fois, qu'une requête hors de CORE est refusée** : Obtenir les données › PostgreSQL › même serveur et
+même base › Options avancées › Instruction SQL `SELECT count(*) FROM staging.ranking_entry` : refus
+`permission denied for schema staging` ; de même `SELECT count(*) FROM raw.raw_page` (refus sur `raw`) ;
+`SELECT count(*) FROM core.book` : accepté.
+
 ## Tests
 
 Tests Python, dans un conteneur jetable (le dépôt est monté en lecture seule, et copié **sans `data/`** : les tests
@@ -262,6 +314,14 @@ jamais en texte, lignage, vue des valeurs actuelles, droits ; décision 021), m�
 
 ```bash
 docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_015_core_fiches.sql
+```
+
+Tests SQL de la migration 016 (rôle `books_bi` pour Power BI : attributs et réglages, liste blanche égale à toutes les
+colonnes de `core`, aucun schéma ni aucune fonction de plus, écritures et lectures hors de CORE refusées, commentaire
+des portées du rang général ; décision 022), même principe :
+
+```bash
+docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < tests/sql/test_016_role_bi.sql
 ```
 
 Les appels concurrents de `mapping.code_for` sont vérifiés par la suite Python
@@ -410,9 +470,9 @@ avant la séance suivante.
 
 Une sauvegarde `pg_dump` (voir `scripts/backup.sh`) ne contient **ni les rôles, ni les droits portant
 sur la base elle-même**. Après restauration sur un serveur neuf, `schema_migration` indiquerait les
-migrations 002, 005, 008 et 010 comme appliquées, alors que `books_collector`, `books_transformer`, `books_reader` et
-`books_mapping` n'existeraient pas (ni les réglages de `books_reader`), et que le retrait du droit `TEMPORARY` serait
-perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
+migrations 002, 005, 008, 010 et 016 comme appliquées, alors que `books_collector`, `books_transformer`,
+`books_reader`, `books_mapping` et `books_bi` n'existeraient pas (ni les réglages de `books_reader` et de `books_bi`), et
+que le retrait du droit `TEMPORARY` serait perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
 
 1. Démarrer PostgreSQL :
 
@@ -420,13 +480,13 @@ perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
    docker compose up -d postgres
    ```
 
-2. Créer les quatre rôles **avant** la restauration (sinon leurs droits sur `raw` et `staging`, et la propriété du
-   schéma `mapping`, ne peuvent pas être restaurés, et `--exit-on-error` arrête la restauration), avec la limite de
-   connexions et les réglages de `books_reader` (migration 008, décision 016), absents de la sauvegarde.
-   `books_mapping` est sans connexion (migration 010, décision 019) :
+2. Créer les cinq rôles **avant** la restauration (sinon leurs droits sur `raw`, `staging` et `core`, et la propriété
+   du schéma `mapping`, ne peuvent pas être restaurés, et `--exit-on-error` arrête la restauration), avec la limite de
+   connexions et les réglages de `books_reader` (migration 008, décision 016) et de `books_bi` (migration 016, décision
+   022), absents de la sauvegarde. `books_mapping` est sans connexion (migration 010, décision 019) :
 
    ```bash
-   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE ROLE books_collector LOGIN" -c "CREATE ROLE books_transformer LOGIN" -c "CREATE ROLE books_reader LOGIN CONNECTION LIMIT 2" -c "ALTER ROLE books_reader SET default_transaction_read_only = on" -c "ALTER ROLE books_reader SET statement_timeout = '"'"'2min'"'"'" -c "ALTER ROLE books_reader SET idle_in_transaction_session_timeout = '"'"'5min'"'"'" -c "CREATE ROLE books_mapping NOLOGIN"'
+   docker compose exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE ROLE books_collector LOGIN" -c "CREATE ROLE books_transformer LOGIN" -c "CREATE ROLE books_reader LOGIN CONNECTION LIMIT 2" -c "ALTER ROLE books_reader SET default_transaction_read_only = on" -c "ALTER ROLE books_reader SET statement_timeout = '"'"'2min'"'"'" -c "ALTER ROLE books_reader SET idle_in_transaction_session_timeout = '"'"'5min'"'"'" -c "CREATE ROLE books_mapping NOLOGIN" -c "CREATE ROLE books_bi LOGIN CONNECTION LIMIT 2" -c "ALTER ROLE books_bi SET default_transaction_read_only = on" -c "ALTER ROLE books_bi SET statement_timeout = '"'"'5min'"'"'" -c "ALTER ROLE books_bi SET idle_in_transaction_session_timeout = '"'"'5min'"'"'"'
    ```
 
 3. Restaurer la sauvegarde choisie :
@@ -442,10 +502,12 @@ perdu. Procédure, sur une base vide (serveur neuf, `.env` en place) :
    ```
 
 5. Définir les mots de passe de `books_collector` et de `books_transformer` (section ci-dessus) et les reporter
-   dans `.env` ; `books_reader` reste sans mot de passe.
+   dans `.env` ; `books_reader` reste sans mot de passe. Si la base restaurée doit servir à Power BI, redéfinir le mot
+   de passe de `books_bi` (`\password books_bi`, section « Power BI ») : il n'est pas dans la sauvegarde.
 
-6. Vérifier avec les tests SQL des migrations 005 à 015 (section Tests) ; le test 008 contrôle les attributs, les
-   réglages et la liste blanche de `books_reader`, le test 010 les droits de la correspondance. Comparer ensuite les
+6. Vérifier avec les tests SQL des migrations 005 à 016 (section Tests) ; le test 008 contrôle les attributs, les
+   réglages et la liste blanche de `books_reader`, le test 010 les droits de la correspondance, le test 016 ceux de
+   `books_bi`. Comparer ensuite les
    comptes de lignes à ceux de la base d'origine, par la même requête lancée sous `books_reader` des deux côtés
    (comptes seulement, aucune donnée) :
 

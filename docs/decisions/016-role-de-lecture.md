@@ -244,3 +244,9 @@ Recette en développement :
 > `core.retained_product_page`, fermées à `PUBLIC`. Liste attendue du test de liste blanche : 350 colonnes (176 de plus,
 > colonnes de jours renommées), dans le même commit que la migration 015. Contre-épreuves : colonne `description_text`
 > ajoutée, vue retirée des droits de `books_reader` : le test 6 échoue.
+
+> Note du 11 novembre 2026 (décision 022, Power BI) : un second rôle de lecture, `books_bi`, est créé par la migration
+> 016 sur le même modèle (liste blanche explicite, aucun privilège par défaut, mêmes garde-fous, `statement_timeout` de
+> 5 minutes). Il ne lit que CORE et se connecte avec un mot de passe, par le tunnel SSH que la section 6 réservait à une
+> décision dédiée. `books_reader` ne change pas : il reste sans mot de passe, et sa liste blanche (test 008) est
+> inchangée. Restauration : un rôle de plus à créer avant `pg_restore` (README).
